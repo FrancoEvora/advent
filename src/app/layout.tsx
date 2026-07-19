@@ -3,8 +3,8 @@ import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
-  title: "Évora Gestão CRM — Versão 5.0 Enterprise",
-  description: "CRM e plataforma de gestão integrada da Évora Urbanismo.",
+  title: "Évora Gestão CRM — Versão 5.1 Enterprise",
+  description: "CRM imobiliário com mapa de vendas, propostas, contratos e gestão integrada da Évora Urbanismo.",
   manifest: "/manifest.webmanifest",
   applicationName: "Évora Gestão CRM",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },

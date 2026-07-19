@@ -1,12 +1,12 @@
 {
-  "name": "Évora Gestão ERP",
-  "short_name": "Évora ERP",
-  "description": "ERP corporativo para gestão financeira, centros de custo, empreendimentos, aprovações e governança da Évora Urbanismo.",
+  "name": "Évora Gestão CRM — Versão 5.0 Enterprise",
+  "short_name": "Évora CRM",
+  "description": "Plataforma proprietária da Évora Urbanismo para CRM, vendas, marketing, financeiro, compras, RH e governança.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f3f6f4",
-  "theme_color": "#0b3f31",
+  "background_color": "#f2f5f7",
+  "theme_color": "#1D5271",
   "lang": "pt-BR",
   "orientation": "any",
   "icons": [

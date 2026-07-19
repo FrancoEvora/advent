@@ -2,4 +2,12 @@
 @import "./styles/components.css";
 @import "./styles/modules.css";
 @import "./styles/admin.css";
+@import "./styles/v3-brand.css";
+@import "./styles/v3-dashboard.css";
+@import "./styles/v3-list.css";
+@import "./styles/v3-finance.css";
+@import "./styles/v3-cash.css";
+@import "./styles/v3-reports.css";
+@import "./styles/v3-users.css";
+@import "./styles/v3-responsive.css";
 @import "./styles/responsive.css";

@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+
+import { useEffect, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
-import type { ErpData } from "./types";
+import type { ErpData, RevenueCenter } from "./types";
 import { money } from "./utils";
 import { Empty, PanelTitle } from "./views-dashboard";
 import { MasterModal, type Entity, type EntityKind } from "./master-modal";
@@ -10,13 +11,39 @@ type Mode = "centros" | "cadastros" | "projetos";
 export function MastersView({ mode, data, mutate }: { mode: Mode; data: ErpData; mutate: (operation: () => Promise<void>, success: string) => Promise<void> }) {
   const [modal, setModal] = useState<{ kind: EntityKind; item?: Entity } | null>(null);
   const [tab, setTab] = useState<EntityKind>(mode === "centros" ? "center" : mode === "projetos" ? "project" : "contact");
-  const activeTab = mode === "centros" ? "center" : mode === "projetos" ? "project" : tab;
-  const tabs = mode === "cadastros" ? [{ id: "contact" as const, label: "Clientes e fornecedores" }, { id: "category" as const, label: "Categorias" }, { id: "account" as const, label: "Contas financeiras" }] : [];
-  async function toggle(table: string, item: Entity) { await mutate(async () => { const supabase = getSupabase(); if (!supabase) throw new Error("Supabase indisponível."); const { error } = await supabase.from(table).update({ active: !item.active }).eq("id", item.id); if (error) throw new Error(error.message); }, item.active ? "Cadastro desativado." : "Cadastro reativado."); }
+  const [revenueCenters, setRevenueCenters] = useState<RevenueCenter[]>(data.revenueCenters ?? []);
+
+  useEffect(() => {
+    if (mode !== "centros") return;
+    const supabase = getSupabase(); if (!supabase) return;
+    supabase.from("revenue_centers").select("*").eq("organization_id", data.organization.id).order("code").then(({ data: rows }) => setRevenueCenters(rows ?? []));
+  }, [mode, data.organization.id]);
+
+  const activeTab = mode === "projetos" ? "project" : tab;
+  const tabs = mode === "centros"
+    ? [{ id: "center" as const, label: "Centros de custo" }, { id: "revenue" as const, label: "Centros de recebimento" }]
+    : mode === "cadastros"
+      ? [{ id: "contact" as const, label: "Clientes e fornecedores" }, { id: "category" as const, label: "Categorias" }, { id: "account" as const, label: "Contas financeiras" }]
+      : [];
+
+  async function toggle(table: string, item: Entity) {
+    await mutate(async () => {
+      const supabase = getSupabase(); if (!supabase) throw new Error("Supabase indisponível.");
+      const { error } = await supabase.from(table).update({ active: !item.active }).eq("id", item.id);
+      if (error) throw new Error(error.message);
+    }, item.active ? "Cadastro desativado." : "Cadastro reativado.");
+    if (table === "revenue_centers") {
+      const supabase = getSupabase();
+      if (supabase) supabase.from("revenue_centers").select("*").eq("organization_id", data.organization.id).order("code").then(({ data: rows }) => setRevenueCenters(rows ?? []));
+    }
+  }
+
   const panel = (title: string, eyebrow: string, kind: EntityKind, children: React.ReactNode) => <section className="panel"><PanelTitle title={title} eyebrow={eyebrow} /><button className="primary panel-action" onClick={() => setModal({ kind })}>+ Novo cadastro</button>{children}</section>;
+
   return <div className="stack">
     {tabs.length > 0 && <nav className="module-tabs">{tabs.map((item) => <button key={item.id} className={activeTab === item.id ? "active" : ""} onClick={() => setTab(item.id)}>{item.label}</button>)}</nav>}
-    {activeTab === "center" && panel("Centros de custo", "ESTRUTURA GERENCIAL", "center", <div className="card-table">{data.costCenters.map((item) => <MasterRow key={item.id} badge={item.code} title={item.name} detail={`${item.center_type} · Orçamento: ${item.budget ? money.format(item.budget) : "não definido"}`} active={item.active} edit={() => setModal({ kind: "center", item })} toggle={() => toggle("cost_centers", item)} />)}{!data.costCenters.length && <Empty text="Nenhum centro de custo cadastrado." />}</div>)}
+    {activeTab === "center" && panel("Centros de custo", "DESPESAS E RESPONSABILIDADES", "center", <div className="card-table">{data.costCenters.map((item) => <MasterRow key={item.id} badge={item.code} title={item.name} detail={`${item.center_type} · Orçamento: ${item.budget ? money.format(item.budget) : "não definido"}`} active={item.active} edit={() => setModal({ kind: "center", item })} toggle={() => toggle("cost_centers", item)} />)}{!data.costCenters.length && <Empty text="Nenhum centro de custo cadastrado." />}</div>)}
+    {activeTab === "revenue" && panel("Centros de recebimento", "RECEITAS E ORIGENS DE CAIXA", "revenue", <div className="card-table">{revenueCenters.map((item) => <MasterRow key={item.id} badge={item.code || "REC"} title={item.name} detail={`${item.center_type} · Meta: ${item.revenue_goal ? money.format(item.revenue_goal) : "não definida"}`} active={item.active} edit={() => setModal({ kind: "revenue", item })} toggle={() => toggle("revenue_centers", item)} />)}{!revenueCenters.length && <Empty text="Nenhum centro de recebimento cadastrado." />}</div>)}
     {activeTab === "contact" && panel("Clientes, fornecedores e parceiros", "PESSOAS E EMPRESAS", "contact", <div className="card-table">{data.contacts.map((item) => <MasterRow key={item.id} badge={item.name.slice(0, 2).toUpperCase()} title={item.name} detail={`${item.contact_type} · ${item.document || item.email || "Sem documento"}`} active={item.active} edit={() => setModal({ kind: "contact", item })} toggle={() => toggle("contacts", item)} />)}{!data.contacts.length && <Empty text="Nenhum contato cadastrado." />}</div>)}
     {activeTab === "category" && panel("Plano de categorias financeiras", "CLASSIFICAÇÃO", "category", <div className="card-table">{data.categories.map((item) => <MasterRow key={item.id} badge={item.movement_type === "entrada" ? "↓" : item.movement_type === "saida" ? "↑" : "↕"} title={`${item.code} · ${item.name}`} detail={item.movement_type === "ambos" ? "Entradas e saídas" : item.movement_type} active={item.active} edit={() => setModal({ kind: "category", item })} toggle={() => toggle("financial_categories", item)} />)}</div>)}
     {activeTab === "account" && panel("Contas bancárias e caixas", "TESOURARIA", "account", <div className="account-grid">{data.bankAccounts.map((item) => <article key={item.id}><small>{item.bank_name || item.account_type}</small><h3>{item.name}</h3><strong>{money.format(Number(item.initial_balance))}</strong><span>Saldo inicial</span><footer><button onClick={() => setModal({ kind: "account", item })}>Editar conta</button><button onClick={() => toggle("bank_accounts", item)}>{item.active ? "Desativar" : "Ativar"}</button></footer></article>)}</div>)}
@@ -24,4 +51,5 @@ export function MastersView({ mode, data, mutate }: { mode: Mode; data: ErpData;
     {modal && <MasterModal {...modal} data={data} close={() => setModal(null)} mutate={mutate} />}
   </div>;
 }
+
 function MasterRow({ badge, title, detail, active, edit, toggle }: { badge: string; title: string; detail: string; active: boolean; edit: () => void; toggle: () => void }) { return <article><div className="code-badge">{badge}</div><div><strong>{title}</strong><small>{detail}</small></div><span className={active ? "active-dot" : "inactive-dot"}>{active ? "Ativo" : "Inativo"}</span><div><button onClick={edit}>Editar</button><button onClick={toggle}>{active ? "Desativar" : "Ativar"}</button></div></article>; }

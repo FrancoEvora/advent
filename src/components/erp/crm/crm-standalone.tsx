@@ -6,47 +6,68 @@ import { getSupabase } from "@/lib/supabase";
 import type { ErpData } from "../types";
 import { CrmView } from "./crm-view";
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) return String((error as { message?: unknown }).message || "Erro de consulta");
+  return "Não foi possível abrir o CRM.";
+}
+
 export function CrmStandalone() {
   const [session, setSession] = useState<Session | null>(null);
   const [data, setData] = useState<ErpData | null>(null);
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async (activeSession?: Session | null) => {
-    const client = getSupabase(); const current = activeSession || session;
-    if (!client || !current?.user) { setLoading(false); return; }
+  const refresh = useCallback(async (current: Session) => {
+    const client = getSupabase();
+    if (!client || !current.user) { setLoading(false); return; }
     setLoading(true);
     try {
-      const membershipResult = await client.from("organization_members").select("*").eq("user_id", current.user.id).eq("active", true).limit(1).single();
+      const membershipResult = await client.from("organization_members").select("*").eq("user_id", current.user.id).eq("active", true).limit(1).maybeSingle();
       if (membershipResult.error) throw membershipResult.error;
-      const membership = membershipResult.data; const orgId = membership.organization_id;
-      const [organization, profile, contacts, projects, members, profiles, crmRecords, crmActions] = await Promise.all([
+      if (!membershipResult.data) throw new Error("Usuário sem vínculo ativo com a organização.");
+      const membership = membershipResult.data;
+      const orgId = membership.organization_id;
+      const [organization, profile, contacts, projects, members, crmRecords, crmActions] = await Promise.all([
         client.from("organizations").select("*").eq("id", orgId).single(),
         client.from("profiles").select("*").eq("id", current.user.id).maybeSingle(),
         client.from("contacts").select("*").eq("organization_id", orgId).order("name"),
         client.from("projects").select("*").eq("organization_id", orgId).order("name"),
         client.from("organization_members").select("*").eq("organization_id", orgId),
-        client.from("profiles").select("*"),
         client.from("crm_records").select("*").eq("organization_id", orgId).order("updated_at", { ascending: false }),
         client.from("crm_actions").select("*").eq("organization_id", orgId).order("scheduled_at", { ascending: true }),
       ]);
-      const failed = [organization, profile, contacts, projects, members, profiles, crmRecords, crmActions].find(result => result.error);
+      const failed = [organization, profile, contacts, projects, members, crmRecords, crmActions].find(result => result.error);
       if (failed?.error) throw failed.error;
-      setData({ session: current, organization: organization.data, membership, profile: profile.data, contacts: contacts.data ?? [], projects: projects.data ?? [], members: members.data ?? [], profiles: profiles.data ?? [], crmRecords: crmRecords.data ?? [], crmActions: crmActions.data ?? [], entries: [], costCenters: [], revenueCenters: [], categories: [], bankAccounts: [], invitations: [], approvals: [], auditLogs: [], documents: [], purchaseRequests: [], purchaseItems: [], hrEmployees: [], hrEvents: [], hrPayrollRuns: [], hrPayrollItems: [], settings: { organization_id: orgId, approval_threshold: 0, require_approval: false, default_due_alert_days: 7 } });
-    } catch (error) { setNotice(error instanceof Error ? error.message : "Não foi possível abrir o CRM."); }
+      const memberIds = (members.data ?? []).map(item => item.user_id);
+      const profilesResult = memberIds.length ? await client.from("profiles").select("*").in("id", memberIds) : { data: [], error: null };
+      setData({ session: current, organization: organization.data, membership, profile: profile.data, contacts: contacts.data ?? [], projects: projects.data ?? [], members: members.data ?? [], profiles: profilesResult.error ? (profile.data ? [profile.data] : []) : (profilesResult.data ?? []), crmRecords: crmRecords.data ?? [], crmActions: crmActions.data ?? [], entries: [], costCenters: [], revenueCenters: [], categories: [], bankAccounts: [], invitations: [], approvals: [], auditLogs: [], documents: [], purchaseRequests: [], purchaseItems: [], hrEmployees: [], hrEvents: [], hrPayrollRuns: [], hrPayrollItems: [], settings: { organization_id: orgId, approval_threshold: 0, require_approval: false, default_due_alert_days: 7 } });
+      setNotice("");
+    } catch (error) { setNotice(errorMessage(error)); }
     finally { setLoading(false); }
-  }, [session]);
+  }, []);
 
   useEffect(() => {
     const client = getSupabase();
     if (!client) { setLoading(false); return; }
-    client.auth.getSession().then(({ data: auth }) => { setSession(auth.session); refresh(auth.session); });
+    let mounted = true;
+    client.auth.getSession().then(({ data: auth }) => {
+      if (!mounted) return;
+      setSession(auth.session);
+      if (auth.session) refresh(auth.session); else setLoading(false);
+    });
+    const { data: listener } = client.auth.onAuthStateChange((_event, next) => {
+      if (!mounted) return;
+      setSession(next);
+      if (next) refresh(next); else { setData(null); setLoading(false); }
+    });
+    return () => { mounted = false; listener.subscription.unsubscribe(); };
   }, [refresh]);
 
   const mutate = async (operation: () => Promise<void>, success: string) => {
     setNotice(""); setLoading(true);
-    try { await operation(); setNotice(success); await refresh(); }
-    catch (error) { setNotice(error instanceof Error ? error.message : "Operação não concluída."); }
+    try { await operation(); setNotice(success); if (session) await refresh(session); }
+    catch (error) { setNotice(errorMessage(error)); }
     finally { setLoading(false); }
   };
 

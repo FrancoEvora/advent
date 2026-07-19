@@ -22,7 +22,7 @@ const nav: Array<{ id: ViewId; label: string; icon: string; group: string }> = [
   { id: "compras", label: "Compras e serviços", icon: "▣", group: "Operações" },
   { id: "rh", label: "Gestão de RH", icon: "♧", group: "Operações" },
   { id: "documentos", label: "Documentos", icon: "▧", group: "Operações" },
-  { id: "centros", label: "Centros de custo", icon: "◫", group: "Cadastros" },
+  { id: "centros", label: "Centros de custos e recebíveis", icon: "◫", group: "Cadastros" },
   { id: "cadastros", label: "Cadastros gerais", icon: "◎", group: "Cadastros" },
   { id: "projetos", label: "Empreendimentos", icon: "◇", group: "Cadastros" },
   { id: "usuarios", label: "Usuários e acessos", icon: "♙", group: "Administração" },

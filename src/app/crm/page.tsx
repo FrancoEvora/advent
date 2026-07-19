@@ -1,5 +1,5 @@
-import { CrmStandalone } from "@/components/erp/crm/crm-standalone";
+import ErpApp from "@/components/erp/erp-app";
 
 export default function CrmPage() {
-  return <CrmStandalone />;
+  return <ErpApp initialView="crm" />;
 }

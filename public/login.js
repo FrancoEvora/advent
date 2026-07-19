@@ -3,7 +3,7 @@ let creating=false;
 const $=(id)=>document.getElementById(id);
 
 async function setup(){
-  const config=await fetch('/config.json',{cache:'no-store'}).then((r)=>r.json());
+  const config=await fetch('https://cdn.jsdelivr.net/gh/FrancoEvora/advent@main/public/config.json',{cache:'no-store'}).then((r)=>r.json());
   client=supabase.createClient(config.url,config.key);
   $('toggle').addEventListener('click',()=>{
     creating=!creating;

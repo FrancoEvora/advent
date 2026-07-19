@@ -2,7 +2,8 @@
 import type { ErpData, ViewId } from "./types";
 import { ApprovalsView } from "./admin-approvals";
 import { UsersView } from "./admin-users";
-import { ReportsView, AuditView } from "./admin-reports";
+import { ReportsView } from "./admin-reports";
+import { AuditView } from "./admin-audit";
 import { SettingsView } from "./admin-settings";
 
 export type AdminProps = { data: ErpData; mutate: (operation: () => Promise<void>, success: string) => Promise<void> };

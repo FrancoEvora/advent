@@ -1,4 +1,4 @@
-const CACHE = "evora-gestao-erp-v3";
+const CACHE = "evora-gestao-erp-v4";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {

@@ -1,5 +1,5 @@
-import ErpApp from "@/components/erp/erp-app";
+import ErpAppV5 from "@/components/erp/erp-app-v5";
 
 export default function CrmPage() {
-  return <ErpApp initialView="crm" />;
+  return <ErpAppV5 initialView="crm" initialCrmSection="overview" />;
 }

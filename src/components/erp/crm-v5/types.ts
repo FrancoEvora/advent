@@ -1,6 +1,6 @@
 import type { CrmAction, CrmRecord } from "../types";
 
-export type CrmSection = "overview" | "leads" | "sdr" | "pipelines" | "opportunities" | "agenda" | "campaigns" | "materials" | "automations" | "alerts" | "reports" | "teams" | "settings";
+export type CrmSection = "overview" | "leads" | "sdr" | "pipelines" | "opportunities" | "salesmap" | "inventory" | "negotiation" | "proposals" | "contracts" | "agenda" | "campaigns" | "materials" | "automations" | "alerts" | "reports" | "teams" | "settings";
 export interface CrmPipeline { id:string; organization_id:string; name:string; description:string|null; pipeline_type:string; is_default:boolean; active:boolean; }
 export interface CrmStage { id:string; organization_id:string; pipeline_id:string; name:string; code:string; position:number; probability:number; color:string; sla_hours:number; is_won:boolean; is_lost:boolean; active:boolean; }
 export interface CrmTeam { id:string; organization_id:string; name:string; team_type:string; manager_user_id:string|null; assignment_strategy:string; active:boolean; }

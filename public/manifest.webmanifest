@@ -1,12 +1,14 @@
 {
-  "name": "Évora Gestão — Versão Móbile",
-  "short_name": "Évora Gestão",
-  "description": "Gestão financeira e executiva da Évora Urbanismo.",
+  "name": "Évora Gestão ERP",
+  "short_name": "Évora ERP",
+  "description": "ERP corporativo para gestão financeira, centros de custo, empreendimentos, aprovações e governança da Évora Urbanismo.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#f4f6f5",
-  "theme_color": "#0d3f32",
+  "background_color": "#f3f6f4",
+  "theme_color": "#0b3f31",
   "lang": "pt-BR",
+  "orientation": "any",
   "icons": [
     { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
   ]

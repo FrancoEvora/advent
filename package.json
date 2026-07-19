@@ -2,6 +2,7 @@
   "name": "evora-gestao",
   "version": "1.0.0",
   "private": true,
+  "description": "Plataforma financeira responsiva da Évora Urbanismo para desktop e smartphone.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -10,20 +11,19 @@
     "check": "npm run lint && npm run build"
   },
   "dependencies": {
-    "@supabase/supabase-js": "^2.110.7",
+    "@supabase/supabase-js": "2.110.7",
     "next": "16.2.10",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
-    "eslint": "^9",
+    "@types/node": "20.19.43",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.5",
     "eslint-config-next": "16.2.10",
-    "typescript": "^5"
+    "typescript": "5.9.3"
   },
-  "description": "Plataforma financeira responsiva da Évora Urbanismo para desktop e smartphone.",
   "overrides": {
     "postcss": "8.5.10"
   }

@@ -2,16 +2,19 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 let client: SupabaseClient | null | undefined;
 
-export const hasSupabaseConfig = Boolean(
-  process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
-);
+const defaultUrl = "https://qsdffayasuzsmngteika.supabase.co";
+const defaultKey = "sb_publishable_nMCXNDXMvU0EbMSSmnEfQg_0uE_lVOW";
+
+const configuredUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || defaultUrl;
+const configuredKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || defaultKey;
+
+export const hasSupabaseConfig = Boolean(configuredUrl && configuredKey);
 
 export function getSupabase(): SupabaseClient | null {
   if (client !== undefined) return client;
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const url = configuredUrl;
+  const key = configuredKey;
 
   if (!url || !key) {
     client = null;

@@ -3,15 +3,12 @@ import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
-  title: "Évora Gestão ERP — Inteligência Financeira e Imobiliária",
-  description: "ERP corporativo da Évora Urbanismo para gestão financeira, centros de custo, empreendimentos, aprovações e governança.",
+  title: "Évora Gestão CRM — Versão 5.0 Enterprise",
+  description: "CRM e plataforma de gestão integrada da Évora Urbanismo.",
   manifest: "/manifest.webmanifest",
-  applicationName: "Évora Gestão ERP",
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: "default",
-    title: "Évora Gestão ERP",
-  },
+  applicationName: "Évora Gestão CRM",
+  icons: { icon: "/icon.svg", apple: "/icon.svg" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Évora Gestão CRM" },
 };
 
 export const viewport: Viewport = {
@@ -19,13 +16,9 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   viewportFit: "cover",
-  themeColor: "#0b3f31",
+  themeColor: "#1D5271",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return (
-    <html lang="pt-BR">
-      <body><ServiceWorkerRegister />{children}</body>
-    </html>
-  );
+  return <html lang="pt-BR"><body><ServiceWorkerRegister />{children}</body></html>;
 }

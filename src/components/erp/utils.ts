@@ -2,7 +2,7 @@ import type { EntryStatus, FinancialEntry, Role } from "./types";
 
 export const money = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 export const shortDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-export const roleLabels: Record<Role, string> = { admin: "Administrador", diretoria: "Diretoria", financeiro: "Financeiro", engenharia: "Engenharia", comercial: "Comercial", compras: "Compras", consulta: "Consulta" };
+export const roleLabels: Record<Role, string> = { admin: "Administrador", diretoria: "Diretoria", financeiro: "Financeiro", engenharia: "Engenharia", comercial: "Comercial", compras: "Compras", consulta: "Consulta", gestor_crm: "Gestor de CRM", sdr: "SDR / Pré-vendas", corretor: "Corretor", marketing: "Marketing" };
 export const statusLabels: Record<EntryStatus, string> = { rascunho: "Rascunho", pendente: "Pendente", pago: "Pago", recebido: "Recebido", cancelado: "Cancelado", vencido: "Vencido" };
 export const isSettled = (entry: FinancialEntry) => entry.status === "pago" || entry.status === "recebido";
 export const dateAtNoon = (value: string) => new Date(`${value}T12:00:00`);

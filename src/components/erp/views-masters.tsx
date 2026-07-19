@@ -1,0 +1,27 @@
+"use client";
+import { useState } from "react";
+import { getSupabase } from "@/lib/supabase";
+import type { ErpData } from "./types";
+import { money } from "./utils";
+import { Empty, PanelTitle } from "./views-dashboard";
+import { MasterModal, type Entity, type EntityKind } from "./master-modal";
+
+type Mode = "centros" | "cadastros" | "projetos";
+export function MastersView({ mode, data, mutate }: { mode: Mode; data: ErpData; mutate: (operation: () => Promise<void>, success: string) => Promise<void> }) {
+  const [modal, setModal] = useState<{ kind: EntityKind; item?: Entity } | null>(null);
+  const [tab, setTab] = useState<EntityKind>(mode === "centros" ? "center" : mode === "projetos" ? "project" : "contact");
+  const activeTab = mode === "centros" ? "center" : mode === "projetos" ? "project" : tab;
+  const tabs = mode === "cadastros" ? [{ id: "contact" as const, label: "Clientes e fornecedores" }, { id: "category" as const, label: "Categorias" }, { id: "account" as const, label: "Contas financeiras" }] : [];
+  async function toggle(table: string, item: Entity) { await mutate(async () => { const supabase = getSupabase(); if (!supabase) throw new Error("Supabase indisponível."); const { error } = await supabase.from(table).update({ active: !item.active }).eq("id", item.id); if (error) throw new Error(error.message); }, item.active ? "Cadastro desativado." : "Cadastro reativado."); }
+  const panel = (title: string, eyebrow: string, kind: EntityKind, children: React.ReactNode) => <section className="panel"><PanelTitle title={title} eyebrow={eyebrow} /><button className="primary panel-action" onClick={() => setModal({ kind })}>+ Novo cadastro</button>{children}</section>;
+  return <div className="stack">
+    {tabs.length > 0 && <nav className="module-tabs">{tabs.map((item) => <button key={item.id} className={activeTab === item.id ? "active" : ""} onClick={() => setTab(item.id)}>{item.label}</button>)}</nav>}
+    {activeTab === "center" && panel("Centros de custo", "ESTRUTURA GERENCIAL", "center", <div className="card-table">{data.costCenters.map((item) => <MasterRow key={item.id} badge={item.code} title={item.name} detail={`${item.center_type} · Orçamento: ${item.budget ? money.format(item.budget) : "não definido"}`} active={item.active} edit={() => setModal({ kind: "center", item })} toggle={() => toggle("cost_centers", item)} />)}{!data.costCenters.length && <Empty text="Nenhum centro de custo cadastrado." />}</div>)}
+    {activeTab === "contact" && panel("Clientes, fornecedores e parceiros", "PESSOAS E EMPRESAS", "contact", <div className="card-table">{data.contacts.map((item) => <MasterRow key={item.id} badge={item.name.slice(0, 2).toUpperCase()} title={item.name} detail={`${item.contact_type} · ${item.document || item.email || "Sem documento"}`} active={item.active} edit={() => setModal({ kind: "contact", item })} toggle={() => toggle("contacts", item)} />)}{!data.contacts.length && <Empty text="Nenhum contato cadastrado." />}</div>)}
+    {activeTab === "category" && panel("Plano de categorias financeiras", "CLASSIFICAÇÃO", "category", <div className="card-table">{data.categories.map((item) => <MasterRow key={item.id} badge={item.movement_type === "entrada" ? "↓" : item.movement_type === "saida" ? "↑" : "↕"} title={`${item.code} · ${item.name}`} detail={item.movement_type === "ambos" ? "Entradas e saídas" : item.movement_type} active={item.active} edit={() => setModal({ kind: "category", item })} toggle={() => toggle("financial_categories", item)} />)}</div>)}
+    {activeTab === "account" && panel("Contas bancárias e caixas", "TESOURARIA", "account", <div className="account-grid">{data.bankAccounts.map((item) => <article key={item.id}><small>{item.bank_name || item.account_type}</small><h3>{item.name}</h3><strong>{money.format(Number(item.initial_balance))}</strong><span>Saldo inicial</span><footer><button onClick={() => setModal({ kind: "account", item })}>Editar conta</button><button onClick={() => toggle("bank_accounts", item)}>{item.active ? "Desativar" : "Ativar"}</button></footer></article>)}</div>)}
+    {activeTab === "project" && panel("Empreendimentos e projetos", "PORTFÓLIO", "project", <div className="project-grid">{data.projects.map((item) => <article key={item.id}><div><small>{item.code} · {item.city || "Corporativo"}{item.state ? ` / ${item.state}` : ""}</small><h3>{item.name}</h3></div><span className={`project-status ${item.status}`}>{item.status}</span><dl><div><dt>Orçamento</dt><dd>{item.total_budget ? money.format(item.total_budget) : "Não definido"}</dd></div><div><dt>Início</dt><dd>{item.start_date || "—"}</dd></div></dl><footer><button onClick={() => setModal({ kind: "project", item })}>Editar</button><button onClick={() => toggle("projects", item)}>{item.active ? "Desativar" : "Ativar"}</button></footer></article>)}</div>)}
+    {modal && <MasterModal {...modal} data={data} close={() => setModal(null)} mutate={mutate} />}
+  </div>;
+}
+function MasterRow({ badge, title, detail, active, edit, toggle }: { badge: string; title: string; detail: string; active: boolean; edit: () => void; toggle: () => void }) { return <article><div className="code-badge">{badge}</div><div><strong>{title}</strong><small>{detail}</small></div><span className={active ? "active-dot" : "inactive-dot"}>{active ? "Ativo" : "Inativo"}</span><div><button onClick={edit}>Editar</button><button onClick={toggle}>{active ? "Desativar" : "Ativar"}</button></div></article>; }

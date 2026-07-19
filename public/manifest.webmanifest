@@ -1,0 +1,13 @@
+{
+  "name": "Évora Gestão — Versão Móbile",
+  "short_name": "Évora Gestão",
+  "description": "Gestão financeira e executiva da Évora Urbanismo.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f5",
+  "theme_color": "#0d3f32",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

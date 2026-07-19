@@ -1,5 +1,5 @@
-const CACHE = "evora-gestao-erp-v4-2";
-const APP_SHELL = ["/", "/manifest.webmanifest", "/icon.svg"];
+const CACHE = "evora-gestao-erp-v4-3";
+const APP_SHELL = ["/", "/crm", "/manifest.webmanifest", "/icon.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)));
@@ -23,10 +23,10 @@ self.addEventListener("fetch", (event) => {
       fetch(event.request)
         .then((response) => {
           const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put("/", copy));
+          caches.open(CACHE).then((cache) => cache.put(event.request, copy));
           return response;
         })
-        .catch(() => caches.match("/")),
+        .catch(() => caches.match(event.request).then((cached) => cached || caches.match("/"))),
     );
     return;
   }

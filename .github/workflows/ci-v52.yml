@@ -1,0 +1,20 @@
+name: CI v5.2
+
+on:
+  push:
+    branches: [agent/erp-v5-2-contract-cancellation]
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm install --no-audit --no-fund
+      - run: npm run build

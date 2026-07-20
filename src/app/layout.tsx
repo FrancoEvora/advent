@@ -3,12 +3,12 @@ import "./globals.css";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
-  title: "Évora Gestão CRM — Versão 5.2 Enterprise",
-  description: "CRM imobiliário com entrada parcelada, compradores, contratos, cancelamento e gestão financeira integrada da Évora Urbanismo.",
+  title: "Évora Gestão — Versão 5.3 Enterprise",
+  description: "Plataforma integrada da Évora Urbanismo com CRM imobiliário, pós-venda, contratos, financeiro, obras, atendimento e portal do cliente.",
   manifest: "/manifest.webmanifest",
-  applicationName: "Évora Gestão CRM",
+  applicationName: "Évora Gestão",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Évora Gestão CRM" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "Évora Gestão" },
 };
 
 export const viewport: Viewport = {

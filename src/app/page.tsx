@@ -1,5 +1,2 @@
-import ErpAppV5 from "@/components/erp/erp-app-v5";
-
-export default function Home() {
-  return <ErpAppV5 />;
-}
+import ErpAppV53 from "@/components/erp/erp-app-v53";
+export default function Home(){return <ErpAppV53/>}

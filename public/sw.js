@@ -1,4 +1,4 @@
-const CACHE = "evora-gestao-crm-v5-1";
+const CACHE = "evora-gestao-crm-v5-2";
 const APP_SHELL = ["/", "/crm", "/manifest.webmanifest", "/icon.svg", "/evora-brand.svg"];
 
 self.addEventListener("install", (event) => {

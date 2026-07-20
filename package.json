@@ -2,7 +2,7 @@
   "name": "evora-gestao",
   "version": "1.0.0",
   "private": true,
-  "description": "Plataforma financeira responsiva da Évora Urbanismo para desktop e smartphone.",
+  "description": "Plataforma integrada da Évora Urbanismo para CRM, pós-venda e gestão.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -14,7 +14,8 @@
     "@supabase/supabase-js": "2.110.7",
     "next": "16.2.10",
     "react": "19.2.4",
-    "react-dom": "19.2.4"
+    "react-dom": "19.2.4",
+    "xlsx": "0.18.5"
   },
   "devDependencies": {
     "@types/node": "20.19.43",

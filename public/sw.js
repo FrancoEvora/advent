@@ -1,5 +1,5 @@
-const CACHE = "evora-gestao-crm-v5-2";
-const APP_SHELL = ["/", "/crm", "/manifest.webmanifest", "/icon.svg", "/evora-brand.svg"];
+const CACHE = "evora-gestao-v5-4";
+const APP_SHELL = ["/", "/crm", "/pos-venda", "/manifest.webmanifest", "/icon.svg", "/evora-brand.svg"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)));

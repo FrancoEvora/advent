@@ -1,7 +1,7 @@
 {
-  "name": "Évora Gestão — Versão 5.3 Enterprise",
+  "name": "Évora Gestão — Versão 5.4 Enterprise",
   "short_name": "Évora Gestão",
-  "description": "Plataforma proprietária da Évora Urbanismo para CRM imobiliário, pós-venda, contratos, financeiro e portal do cliente.",
+  "description": "Plataforma proprietária da Évora Urbanismo com CRM, pós-venda, gestão integrada, migração profissional de dados e administração segura.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

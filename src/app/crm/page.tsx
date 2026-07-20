@@ -1,2 +1,2 @@
-import ErpAppV53 from "@/components/erp/erp-app-v53";
-export default function CrmPage(){return <ErpAppV53 initialView="crm" initialCrmSection="overview"/>}
+import ErpAppV54 from "@/components/erp/erp-app-v54";
+export default function CrmPage(){return <ErpAppV54 initialView="crm" initialCrmSection="overview"/>}

@@ -1,0 +1,7 @@
+import {createClient} from "@supabase/supabase-js";
+import type {NextRequest} from "next/server";
+const url=process.env.NEXT_PUBLIC_SUPABASE_URL||"https://qsdffayasuzsmngteika.supabase.co";
+const key=process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY||"sb_publishable_nMCXNDXMvU0EbMSSmnEfQg_0uE_lVOW";
+export function serverSupabase(authorization?:string){return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false},global:authorization?{headers:{Authorization:authorization}}:undefined})}
+export function buildEvidence(req:NextRequest,body:Record<string,unknown>){const forwarded=req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();const rawGeo=body.geolocation&&typeof body.geolocation==="object"?body.geolocation as Record<string,unknown>:null;const consent=body.geolocationConsent===true;const geolocation=consent&&rawGeo?{latitude:Number(rawGeo.latitude),longitude:Number(rawGeo.longitude),accuracy:Number(rawGeo.accuracy)}:null;return{terms_accepted:body.termsAccepted===true,consent_text:String(body.consentText||""),consent_version:"1.0",ip_address:forwarded||req.headers.get("x-real-ip")||null,user_agent:req.headers.get("user-agent"),accept_language:req.headers.get("accept-language"),timezone:String(body.timezone||""),geolocation_consent:consent,geolocation,request_id:req.headers.get("x-vercel-id"),page_url:String(body.pageUrl||""),request_received_at:new Date().toISOString()}}
+export function errorMessage(error:unknown){return error instanceof Error?error.message:String(error||"A operação não foi concluída")}

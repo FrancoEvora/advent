@@ -5,11 +5,13 @@ import "./styles/v5-4-admin.css";
 import "./styles/v5-5-governance.css";
 import "./styles/v5-6-signatures.css";
 import "./styles/v5-7-backup.css";
+import "./styles/v5-8-experience.css";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
+import { GlobalModuleNav } from "@/components/GlobalModuleNav";
 
 export const metadata: Metadata = {
-  title: "Évora Gestão — Versão 5.7 Enterprise",
-  description: "Plataforma integrada da Évora Urbanismo com CRM, pós-venda, governança, backup integral, portal do cliente e assinatura eletrônica com trilha de evidências.",
+  title: "Évora Gestão — Versão 5.8 Enterprise",
+  description: "Plataforma integrada da Évora Urbanismo com CRM, pós-venda, marketing, agenda corporativa, portal do cliente, governança, backup e recuperação.",
   manifest: "/manifest.webmanifest",
   applicationName: "Évora Gestão",
   icons: { icon: "/icon.svg", apple: "/icon.svg" },
@@ -25,5 +27,5 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="pt-BR"><body><ServiceWorkerRegister />{children}</body></html>;
+  return <html lang="pt-BR"><body><ServiceWorkerRegister /><GlobalModuleNav />{children}</body></html>;
 }

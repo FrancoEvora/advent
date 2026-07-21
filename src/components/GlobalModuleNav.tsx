@@ -1,0 +1,3 @@
+"use client";
+import {usePathname} from "next/navigation";
+export function GlobalModuleNav(){const path=usePathname();if(path.startsWith("/cliente/")||path.startsWith("/proposta/")||path.startsWith("/contrato/")||path.startsWith("/verificar/"))return null;return <nav className="global-module-nav" aria-label="Módulos da plataforma"><a className={path==="/"||path.startsWith("/crm")||path.startsWith("/pos-venda")?"active":""} href="/">ERP</a><a className={path.startsWith("/marketing")?"active":""} href="/marketing">Marketing</a><a className={path.startsWith("/agenda")?"active":""} href="/agenda">Agenda</a></nav>}

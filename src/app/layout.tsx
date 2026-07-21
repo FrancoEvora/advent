@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import "./styles/v5-4-layout.css";
 import "./styles/v5-4-admin.css";
+import "./styles/v5-5-governance.css";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {

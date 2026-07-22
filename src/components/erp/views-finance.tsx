@@ -1,1 +1,1 @@
-export { FinanceView } from "./finance/finance-view";
+export {FinanceViewV60 as FinanceView} from "./finance/finance-view-v60";

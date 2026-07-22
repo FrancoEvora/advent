@@ -1,1 +1,1 @@
-export {CustomerPortalV60 as CustomerPortal} from "./customer-portal-v60";
+export {CustomerPortalV64 as CustomerPortal} from "./customer-portal-v64";

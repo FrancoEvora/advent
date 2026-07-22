@@ -1,1 +1,0 @@
-Hotfix temporário da rota pública de OTP para utilizar a mesma chave publicável de fallback do cliente web.

@@ -17,7 +17,7 @@ export async function POST(req:NextRequest){
    p_document_last4:documentLast4,
    p_evidence:buildEvidence(req,body),
   });
-  if(error)throw error;
+  if(error)throw new Error(error.message||"Não foi possível registrar o aceite do contrato.");
   return NextResponse.json(data);
  }catch(error){
   return NextResponse.json({error:errorMessage(error)},{status:400});

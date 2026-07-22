@@ -1,1 +1,1 @@
-export {ContractsViewV56 as ContractsView} from "./contracts-view-v56";
+export {ContractsViewV65 as ContractsView} from "./contracts-view-v65";

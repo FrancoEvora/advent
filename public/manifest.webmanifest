@@ -1,7 +1,7 @@
 {
-  "name": "Évora Gestão — Versão 6.3 Enterprise",
+  "name": "Évora Gestão — Versão 6.3.1 Enterprise",
   "short_name": "Évora Gestão",
-  "description": "Plataforma proprietária da Évora Urbanismo com biblioteca de ativos de Marketing, Central de Ajuda, OTP de teste seguro, decisões financeiras com data negociada, DRE gerencial, CRM, contratos eletrônicos, pós-venda, portal do cliente, backup e recuperação.",
+  "description": "Plataforma proprietária da Évora Urbanismo com OTP de teste por digitação manual, biblioteca de ativos de Marketing restrita à aba Ativos, Central de Ajuda, decisões financeiras com data negociada, DRE gerencial, CRM, contratos eletrônicos, pós-venda, portal do cliente, backup e recuperação.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

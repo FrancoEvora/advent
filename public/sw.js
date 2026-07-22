@@ -1,4 +1,4 @@
-const CACHE = "evora-gestao-v6-0";
+const CACHE = "evora-gestao-v6-1";
 const APP_SHELL = ["/", "/crm", "/pos-venda", "/marketing", "/agenda", "/manifest.webmanifest", "/icon.svg", "/evora-brand.svg"];
 self.addEventListener("install",(event)=>{event.waitUntil(caches.open(CACHE).then((cache)=>cache.addAll(APP_SHELL)));self.skipWaiting()});
 self.addEventListener("activate",(event)=>{event.waitUntil(caches.keys().then((keys)=>Promise.all(keys.filter((key)=>key!==CACHE).map((key)=>caches.delete(key)))));self.clients.claim()});

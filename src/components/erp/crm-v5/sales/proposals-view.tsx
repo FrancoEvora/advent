@@ -1,1 +1,1 @@
-export {ProposalsViewV56 as ProposalsView} from "./proposals-view-v56";
+export {ProposalsViewV65 as ProposalsView} from "./proposals-view-v65";

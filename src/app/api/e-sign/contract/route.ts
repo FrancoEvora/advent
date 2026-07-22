@@ -1,7 +1,31 @@
-import {createClient} from "@supabase/supabase-js";
 import {NextRequest,NextResponse} from "next/server";
 import {buildEvidence,errorMessage,serverSupabase} from "@/lib/e-sign-server";
+
 export const runtime="nodejs";
-const url=process.env.NEXT_PUBLIC_SUPABASE_URL||"https://qsdffayasuzsmngteika.supabase.co";
-function admin(){const key=process.env.SUPABASE_SERVICE_ROLE_KEY;if(!key)throw new Error("Chave administrativa do Supabase não configurada.");return createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false}})}
-export async function POST(req:NextRequest){try{const body=await req.json();const token=String(body.token||""),signerName=String(body.signerName||"").trim(),documentLast4=String(body.documentLast4||"").replace(/\D/g,"").slice(-4),challengeId=String(body.otpChallengeId||""),otpCode=String(body.otpCode||"").replace(/\D/g,"").slice(0,6);if(!token||!signerName||!challengeId||otpCode.length!==6)throw new Error("Dados da assinatura ou código de confirmação incompletos.");const elevated=admin();const{data:verified,error:verifyError}=await elevated.rpc("verify_signature_otp",{p_challenge_id:challengeId,p_code:otpCode});if(verifyError||!verified?.ok)throw new Error(verified?.message||"Código de confirmação inválido.");const{data:challenge,error:challengeError}=await elevated.from("signature_otp_challenges").select("id,entity_id,public_token,verified_at,channel").eq("id",challengeId).eq("public_token",token).eq("entity_type","contract").eq("status","verified").single();if(challengeError||!challenge)throw new Error("A confirmação não corresponde a este contrato.");const client=serverSupabase();const evidence={...buildEvidence(req,body),otp_challenge_id:challenge.id,otp_channel:challenge.channel,otp_verified_at:challenge.verified_at};const{data,error}=await client.rpc("crm_sign_public_contract",{p_token:token,p_signer_name:signerName,p_document_last4:documentLast4,p_evidence:evidence});if(error)throw error;await elevated.from("signature_events").update({otp_challenge_id:challenge.id,otp_channel:challenge.channel,otp_verified_at:challenge.verified_at}).eq("entity_type","contract").eq("entity_id",challenge.entity_id).eq("signer_role","customer").order("created_at",{ascending:false}).limit(1);return NextResponse.json(data)}catch(error){return NextResponse.json({error:errorMessage(error)},{status:400})}}
+
+export async function POST(req:NextRequest){
+ try{
+  const body=await req.json();
+  const token=String(body.token||"");
+  const signerName=String(body.signerName||"").trim();
+  const documentLast4=String(body.documentLast4||"").replace(/\D/g,"").slice(-4);
+  const challengeId=String(body.otpChallengeId||"");
+  const otpCode=String(body.otpCode||"").replace(/\D/g,"").slice(0,6);
+  if(!token||!signerName||!challengeId||otpCode.length!==6)throw new Error("Dados da assinatura ou código de confirmação incompletos.");
+
+  const client=serverSupabase();
+  const evidence=buildEvidence(req,body);
+  const{data,error}=await client.rpc("crm_sign_public_contract_with_otp",{
+   p_token:token,
+   p_signer_name:signerName,
+   p_document_last4:documentLast4,
+   p_challenge_id:challengeId,
+   p_code:otpCode,
+   p_evidence:evidence,
+  });
+  if(error)throw error;
+  return NextResponse.json(data);
+ }catch(error){
+  return NextResponse.json({error:errorMessage(error)},{status:400});
+ }
+}

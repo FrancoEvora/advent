@@ -1,13 +1,13 @@
 {
-  "name": "Évora Gestão — Versão 5.9 Enterprise",
-  "short_name": "Évora Gestão",
-  "description": "Plataforma proprietária da Évora Urbanismo com CRM, propostas e contratos eletrônicos, agenda colaborativa, marketing, pós-venda, backup e recuperação.",
-  "start_url": "/",
-  "scope": "/",
-  "display": "standalone",
-  "background_color": "#f2f5f7",
-  "theme_color": "#1D5271",
-  "lang": "pt-BR",
-  "orientation": "any",
-  "icons": [{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
+  "name":"Évora Gestão — Versão 6.0 Enterprise",
+  "short_name":"Évora Gestão",
+  "description":"Plataforma proprietária da Évora Urbanismo com Marketing Operating System, DRE gerencial, CRM, contratos eletrônicos, pós-venda e portal comercial do cliente.",
+  "start_url":"/",
+  "scope":"/",
+  "display":"standalone",
+  "background_color":"#f2f5f7",
+  "theme_color":"#1D5271",
+  "lang":"pt-BR",
+  "orientation":"any",
+  "icons":[{"src":"/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any maskable"}]
 }

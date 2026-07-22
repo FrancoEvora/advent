@@ -12,9 +12,10 @@ import "./styles/v6-1-otp-simulation.css";
 import "./styles/v6-2-payment-decisions.css";
 import "./styles/v6-3-assets-help.css";
 import "./styles/v6-4-contract-portal.css";
+import "./styles/v6-5-activities-notifications.css";
 import {ServiceWorkerRegister} from "@/components/ServiceWorkerRegister";
 import {GlobalModuleNav} from "@/components/GlobalModuleNav";
 import {HelpMenuShortcutV63} from "@/components/erp/help/help-menu-shortcut-v63";
-export const metadata:Metadata={title:"Évora Gestão — Versão 6.4 Enterprise",description:"Plataforma integrada da Évora Urbanismo com aceite eletrônico simplificado de contratos, Portal do Consumidor mobile-first, gestão de ativos de Marketing, Central de Ajuda, DRE gerencial, CRM, pós-venda e governança.",manifest:"/manifest.webmanifest",applicationName:"Évora Gestão",icons:{icon:"/icon.svg",apple:"/icon.svg"},appleWebApp:{capable:true,statusBarStyle:"default",title:"Évora Gestão"}};
+export const metadata:Metadata={title:"Évora Gestão — Versão 6.5 Enterprise",description:"Plataforma integrada da Évora Urbanismo com agenda colaborativa, notificações de designação e atraso, cancelamento de propostas e contratos não aceitos, Portal do Consumidor, DRE gerencial, CRM, pós-venda e governança.",manifest:"/manifest.webmanifest",applicationName:"Évora Gestão",icons:{icon:"/icon.svg",apple:"/icon.svg"},appleWebApp:{capable:true,statusBarStyle:"default",title:"Évora Gestão"}};
 export const viewport:Viewport={width:"device-width",initialScale:1,maximumScale:1,viewportFit:"cover",themeColor:"#1D5271"};
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){return <html lang="pt-BR"><body><ServiceWorkerRegister/><GlobalModuleNav/><HelpMenuShortcutV63/>{children}</body></html>}

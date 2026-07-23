@@ -5,9 +5,10 @@ import { getSupabase } from "@/lib/supabase";
 import type { ErpData } from "../types";
 import { money } from "../utils";
 import type { CrmCampaign, CrmEnterpriseData } from "./types";
+import type { NegotiationPolicy } from "./sales/types";
 import { CrmKpi, CrmSectionHeader, EmptyState, Status } from "./shared";
 
-export function CampaignsView({ data, crm, reload }: { data: ErpData; crm: CrmEnterpriseData; reload: () => Promise<void> }) {
+export function CampaignsView({ data, crm, policies, reload }: { data: ErpData; crm: CrmEnterpriseData; policies: NegotiationPolicy[]; reload: () => Promise<void> }) {
   const [editing, setEditing] = useState<CrmCampaign | "new" | null>(null);
   const attributed = crm.records.filter((record) => record.campaign_id);
   const spent = crm.campaigns.reduce((sum, campaign) => sum + Number(campaign.spent || 0), 0);
@@ -32,6 +33,7 @@ export function CampaignsView({ data, crm, reload }: { data: ErpData; crm: CrmEn
           const leads = crm.records.filter((record) => record.campaign_id === campaign.id);
           const won = leads.filter((record) => record.record_status === "ganha");
           const cpl = leads.length ? Number(campaign.spent || 0) / leads.length : 0;
+          const policy = policies.find((item) => item.id === campaign.negotiation_policy_id);
           return (
             <article key={campaign.id}>
               <header>
@@ -40,6 +42,7 @@ export function CampaignsView({ data, crm, reload }: { data: ErpData; crm: CrmEn
               </header>
               <h3>{campaign.name}</h3>
               <p>{campaign.objective || "Objetivo não informado"}</p>
+              <p className="campaign-policy-label"><small>POLÍTICA COMERCIAL</small><strong>{policy?.name || (campaign.project_id ? "Política padrão do empreendimento" : "Defina um empreendimento")}</strong></p>
               <dl>
                 <div><dt>Orçamento</dt><dd>{money.format(Number(campaign.budget || 0))}</dd></div>
                 <div><dt>Investido</dt><dd>{money.format(Number(campaign.spent || 0))}</dd></div>
@@ -54,12 +57,15 @@ export function CampaignsView({ data, crm, reload }: { data: ErpData; crm: CrmEn
         })}
         {!crm.campaigns.length && <EmptyState title="Nenhuma campanha" text="Cadastre campanhas para medir origem, CPL e conversão." />}
       </section>
-      {editing && <CampaignModal data={data} campaign={editing === "new" ? null : editing} close={() => setEditing(null)} reload={reload} />}
+      {editing && <CampaignModal data={data} policies={policies} campaign={editing === "new" ? null : editing} close={() => setEditing(null)} reload={reload} />}
     </div>
   );
 }
 
-function CampaignModal({ data, campaign, close, reload }: { data: ErpData; campaign: CrmCampaign | null; close: () => void; reload: () => Promise<void> }) {
+function CampaignModal({ data, policies, campaign, close, reload }: { data: ErpData; policies: NegotiationPolicy[]; campaign: CrmCampaign | null; close: () => void; reload: () => Promise<void> }) {
+  const [projectId, setProjectId] = useState(campaign?.project_id || "");
+  const [policyId, setPolicyId] = useState(campaign?.negotiation_policy_id || "");
+  const availablePolicies = policies.filter((item) => item.project_id === projectId && item.active);
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
@@ -69,6 +75,7 @@ function CampaignModal({ data, campaign, close, reload }: { data: ErpData; campa
       organization_id: data.organization.id,
       name: String(form.get("name")), campaign_type: String(form.get("campaign_type")), channel: String(form.get("channel") || "") || null,
       status: String(form.get("status")), project_id: String(form.get("project_id") || "") || null,
+      negotiation_policy_id: projectId ? policyId || null : null,
       owner_user_id: String(form.get("owner_user_id") || "") || null,
       budget: Number(form.get("budget") || 0), spent: Number(form.get("spent") || 0),
       start_date: String(form.get("start_date") || "") || null, end_date: String(form.get("end_date") || "") || null,
@@ -93,7 +100,8 @@ function CampaignModal({ data, campaign, close, reload }: { data: ErpData; campa
           <label>Status<select name="status" defaultValue={campaign?.status || "planejada"}><option value="planejada">Planejada</option><option value="ativa">Ativa</option><option value="pausada">Pausada</option><option value="encerrada">Encerrada</option></select></label>
           <label>Tipo<select name="campaign_type" defaultValue={campaign?.campaign_type || "digital"}><option value="digital">Digital</option><option value="evento">Evento</option><option value="plantao">Plantão</option><option value="indicacao">Indicação</option><option value="midia_offline">Mídia offline</option><option value="remarketing">Remarketing</option></select></label>
           <label>Canal<select name="channel" defaultValue={campaign?.channel || "instagram"}><option>instagram</option><option>facebook</option><option>google</option><option>whatsapp</option><option>site</option><option>radio</option><option>outdoor</option><option>evento</option></select></label>
-          <label>Empreendimento<select name="project_id" defaultValue={campaign?.project_id || ""}><option value="">Corporativo</option>{data.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
+          <label>Empreendimento<select name="project_id" value={projectId} onChange={(event) => { setProjectId(event.target.value); setPolicyId(""); }}><option value="">Corporativo</option>{data.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
+          <label>Política comercial<select name="negotiation_policy_id" value={policyId} onChange={(event) => setPolicyId(event.target.value)} disabled={!projectId}><option value="">Política padrão do empreendimento</option>{availablePolicies.map((policy) => <option key={policy.id} value={policy.id}>{policy.name}{policy.is_default ? " · padrão" : ""}</option>)}</select></label>
           <label>Responsável<select name="owner_user_id" defaultValue={campaign?.owner_user_id || data.session.user.id}>{data.members.map((member) => <option key={member.user_id} value={member.user_id}>{data.profiles.find((profile) => profile.id === member.user_id)?.full_name || member.role}</option>)}</select></label>
           <label>Orçamento<input name="budget" type="number" step="0.01" defaultValue={campaign?.budget || 0} /></label>
           <label>Investido<input name="spent" type="number" step="0.01" defaultValue={campaign?.spent || 0} /></label>

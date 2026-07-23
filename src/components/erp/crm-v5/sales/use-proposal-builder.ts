@@ -11,14 +11,37 @@ export function useProposalBuilder(
   initialUnitId?: string,
 ) {
   const initial = sales.units.find((u) => u.id === initialUnitId);
-  const [project, setProject] = useState(
-    initial?.project_id || data.projects[0]?.id || "",
-  );
+  const initialProject = initial?.project_id || data.projects[0]?.id || "";
+  const today = new Date().toISOString().slice(0, 10);
+  function resolvePolicy(projectId: string, campaignId: string) {
+    const eligible = sales.policies.filter(
+      (item) =>
+        item.project_id === projectId &&
+        item.active &&
+        (!item.valid_from || item.valid_from <= today) &&
+        (!item.valid_until || item.valid_until >= today),
+    );
+    const campaign = sales.campaigns.find(
+      (item) => item.id === campaignId && (!item.project_id || item.project_id === projectId),
+    );
+    return (
+      eligible.find((item) => item.id === campaign?.negotiation_policy_id) ||
+      eligible.find((item) => item.is_default) ||
+      eligible[0]
+    );
+  }
+  const initialPolicy = resolvePolicy(initialProject, "");
+  const [project, setProject] = useState(initialProject);
   const [unitId, setUnitId] = useState(initial?.id || "");
   const [leadId, setLeadId] = useState("");
-  const policy = sales.policies.find(
-    (p) => p.project_id === project && p.active,
+  const [campaignId, setCampaignId] = useState("");
+  const campaigns = sales.campaigns.filter(
+    (item) =>
+      (!item.project_id || item.project_id === project) &&
+      !["encerrada", "cancelada"].includes(item.status),
   );
+  const campaign = campaigns.find((item) => item.id === campaignId);
+  const policy = resolvePolicy(project, campaignId);
   const units = sales.units.filter(
     (u) =>
       u.project_id === project &&
@@ -27,28 +50,96 @@ export function useProposalBuilder(
   const unit = units.find((u) => u.id === unitId);
   const [price, setPrice] = useState(Number(initial?.list_price || 0));
   const [down, setDown] = useState(
-    Number(initial?.list_price || 0) * (policy?.min_down_payment_pct || 0.2),
+    Number(initial?.list_price || 0) *
+      (initialPolicy?.min_down_payment_pct || 0.2),
   );
   const [downCount, setDownCount] = useState(1);
   const [downFirstDue, setDownFirstDue] = useState(
     new Date(
-      Date.now() + Number(policy?.down_payment_first_due_days || 0) * 86400000,
+      new Date().getTime() +
+        Number(initialPolicy?.down_payment_first_due_days || 0) * 86400000,
     )
       .toISOString()
       .slice(0, 10),
   );
-  const [months, setMonths] = useState(policy?.max_installments || 120);
+  const [months, setMonths] = useState(
+    initialPolicy?.max_installments || 120,
+  );
   const [balloons, setBalloons] = useState(0);
   const [balloonCount, setBalloonCount] = useState(0);
   const [firstDue, setFirstDue] = useState(
     new Date().toISOString().slice(0, 10),
   );
+  const lead = data.crmRecords.find((r) => r.id === leadId);
+  function applyPolicyDefaults(
+    nextPolicy: typeof policy,
+    nextUnit: typeof unit,
+    referencePrice = price,
+  ) {
+    const basePrice = referencePrice || Number(nextUnit?.list_price || 0);
+    setDown(basePrice * (nextPolicy?.min_down_payment_pct || 0.2));
+    setDownCount(1);
+    setMonths(nextPolicy?.max_installments || 120);
+    setDownFirstDue(
+      new Date(
+        Date.now() +
+          Number(nextPolicy?.down_payment_first_due_days || 0) * 86400000,
+      )
+        .toISOString()
+        .slice(0, 10),
+    );
+  }
   function changeProject(id: string) {
+    const currentLead = data.crmRecords.find((record) => record.id === leadId);
+    const keepLead = !currentLead?.project_id || currentLead.project_id === id;
+    const nextCampaignId =
+      keepLead &&
+      sales.campaigns.some(
+        (item) =>
+          item.id === currentLead?.campaign_id &&
+          (!item.project_id || item.project_id === id),
+      )
+        ? currentLead?.campaign_id || ""
+        : "";
     setProject(id);
     setUnitId("");
+    if (!keepLead) setLeadId("");
+    setCampaignId(nextCampaignId);
     setPrice(0);
-    setDown(0);
-    setDownCount(1);
+    applyPolicyDefaults(resolvePolicy(id, nextCampaignId), undefined, 0);
+  }
+  function changeLead(id: string) {
+    setLeadId(id);
+    const nextLead = data.crmRecords.find((record) => record.id === id);
+    if (!nextLead) {
+      setCampaignId("");
+      applyPolicyDefaults(resolvePolicy(project, ""), unit);
+      return;
+    }
+    const nextProject = nextLead.project_id || project;
+    const nextCampaignId = sales.campaigns.some(
+      (item) =>
+        item.id === nextLead.campaign_id &&
+        (!item.project_id || item.project_id === nextProject) &&
+        !["encerrada", "cancelada"].includes(item.status),
+    )
+      ? nextLead.campaign_id || ""
+      : "";
+    if (nextProject !== project) {
+      setProject(nextProject);
+      setUnitId("");
+      setPrice(0);
+    }
+    setCampaignId(nextCampaignId);
+    applyPolicyDefaults(
+      resolvePolicy(nextProject, nextCampaignId),
+      nextProject === project ? unit : undefined,
+      nextProject === project ? price : 0,
+    );
+  }
+  function changeCampaign(id: string) {
+    setCampaignId(id);
+    applyPolicyDefaults(resolvePolicy(project, id), unit);
   }
   function changeUnit(id: string) {
     setUnitId(id);
@@ -102,9 +193,12 @@ export function useProposalBuilder(
         balloonTotal: balloons,
       })
     : { requiresApproval: false, reasons: [] };
-  const lead = data.crmRecords.find((r) => r.id === leadId);
   async function save(form: FormData) {
     if (!unit) throw new Error("Selecione a unidade");
+    if (!policy)
+      throw new Error(
+        "Nenhuma política comercial vigente foi definida para este empreendimento.",
+      );
     const client = getSupabase();
     if (!client) throw new Error("Supabase indisponível");
     const payload = {
@@ -113,6 +207,8 @@ export function useProposalBuilder(
       unit_id: unit.id,
       crm_record_id: leadId || null,
       contact_id: lead?.contact_id || null,
+      campaign_id: campaignId || null,
+      negotiation_policy_id: policy.id,
       customer_name: lead?.person_name || String(form.get("customer_name")),
       customer_document:
         lead?.cpf_cnpj || String(form.get("customer_document") || "") || null,
@@ -190,6 +286,10 @@ export function useProposalBuilder(
             down_payment_installments: downCount,
             installments: months,
             balloon_total: balloons,
+            campaign_id: campaignId || null,
+            campaign_name: campaign?.name || null,
+            negotiation_policy_id: policy.id,
+            negotiation_policy_name: policy.name,
           },
         });
       if (r.error) throw r.error;
@@ -206,7 +306,11 @@ export function useProposalBuilder(
     unitId,
     setUnitId: changeUnit,
     leadId,
-    setLeadId,
+    setLeadId: changeLead,
+    campaignId,
+    setCampaignId: changeCampaign,
+    campaigns,
+    campaign,
     policy,
     units,
     unit,

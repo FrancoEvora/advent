@@ -9,7 +9,7 @@ export async function POST(req:NextRequest){
   const token=String(body.token||"");
   const signerName=String(body.signerName||"").trim();
   const documentLast4=String(body.documentLast4||"").replace(/\D/g,"").slice(-4);
-  if(!token||!signerName)throw new Error("Dados do aceite incompletos.");
+  if(!token||!signerName)throw new Error("Dados da assinatura incompletos.");
   const client=serverSupabase();
   const{data,error}=await client.rpc("crm_sign_public_contract",{
    p_token:token,
@@ -17,7 +17,7 @@ export async function POST(req:NextRequest){
    p_document_last4:documentLast4,
    p_evidence:buildEvidence(req,body),
   });
-  if(error)throw new Error(error.message||"Não foi possível registrar o aceite do contrato.");
+  if(error)throw new Error(error.message||"Não foi possível registrar a assinatura do contrato.");
   return NextResponse.json(data);
  }catch(error){
   return NextResponse.json({error:errorMessage(error)},{status:400});

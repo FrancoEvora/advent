@@ -1,7 +1,8 @@
 "use client";
 
-import {FormEvent,useEffect,useMemo,useState} from "react";
+import {FormEvent,useCallback,useEffect,useMemo,useState} from "react";
 import {getSupabase} from "@/lib/supabase";
+import {useAutoRefresh} from "@/lib/use-auto-refresh";
 import {brl,stageLabel} from "./utils";
 
 function embed(url:string){try{const parsed=new URL(url);if(parsed.hostname.includes("youtube.com")){const id=parsed.searchParams.get("v");return id?`https://www.youtube.com/embed/${id}`:url}if(parsed.hostname.includes("youtu.be"))return `https://www.youtube.com/embed/${parsed.pathname.slice(1)}`;return url}catch{return url}}
@@ -14,8 +15,9 @@ export function CustomerPortalV64({token}:{token:string}){
  const[feedback,setFeedback]=useState("");
  const[busy,setBusy]=useState(false);
 
- async function load(){const client=getSupabase();if(!client){setError("Portal indisponível.");setLoading(false);return}const result=await client.rpc("get_post_sale_portal_v2",{p_token:token});if(result.error||!result.data)setError("Este acesso é inválido ou expirou.");else setData(result.data);setLoading(false)}
- useEffect(()=>{load()},[token]);
+ const load=useCallback(async()=>{const client=getSupabase();if(!client){setError("Portal indisponível.");setLoading(false);return}const result=await client.rpc("get_post_sale_portal_v2",{p_token:token});if(result.error||!result.data)setError("Este acesso é inválido ou expirou.");else{setError("");setData(result.data)}setLoading(false)},[token]);
+ useEffect(()=>{void load()},[load]);
+ useAutoRefresh(load);
 
  const financial=useMemo(()=>data?.financial||[],[data]);
  const summary=useMemo(()=>{const result={paid:0,overdue:0,due:0,open:0,paidCount:0,overdueCount:0,dueCount:0,openCount:0};const now=Date.now(),limit=now+30*86400000;for(const item of financial){const amount=Number(item.amount||0),status=String(item.status||"").toLowerCase(),time=item.due_date?new Date(`${item.due_date}T12:00:00`).getTime():0;if(["recebido","pago","liquidado"].includes(status)){result.paid+=amount;result.paidCount++}else if(status==="vencido"||(time&&time<now)){result.overdue+=amount;result.overdueCount++}else if(time&&time<=limit){result.due+=amount;result.dueCount++}else{result.open+=amount;result.openCount++}}return result},[financial]);

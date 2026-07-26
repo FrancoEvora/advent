@@ -4,12 +4,16 @@ on:
   push:
     branches:
       - agent/evora-v7-4-obras-combustiveis
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: write
 
 jobs:
   apply:
+    if: github.event_name != 'pull_request' || github.head_ref == 'agent/evora-v7-4-obras-combustiveis'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout branch

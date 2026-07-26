@@ -1,0 +1,262 @@
+/*
+ * Final responsive safeguards for the executive, finance and work-progress
+ * surfaces. This file is loaded last so older fixed-width rules cannot make
+ * cards wider than the space available to them.
+ */
+
+.executive-dashboard,
+.executive-dashboard > *,
+.executive-card,
+.executive-card > div,
+.kpi-grid,
+.kpi,
+.panel,
+.module-toolbar,
+.module-toolbar > *,
+.cash-hero,
+.cash-hero > *,
+.overdue-strip,
+.overdue-strip > *,
+.work-progress,
+.work-header,
+.work-header > *,
+.work-header-controls,
+.work-header-controls > *,
+.work-stage,
+.work-stage-header > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.kpi-grid.three,
+.kpi-grid.four,
+.kpi-grid.five,
+.kpi-grid.six,
+.executive-dashboard > .kpi-grid.six,
+.cash-hero + .kpi-grid.five {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 210px), 1fr)
+  );
+}
+
+.kpi > small,
+.kpi > span,
+.kpi-grid .kpi > strong,
+.cash-hero + .kpi-grid.five .kpi > strong {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.kpi-grid .kpi > strong,
+.cash-hero + .kpi-grid.five .kpi > strong {
+  display: block;
+  font-size: clamp(1.25rem, 2.2vw, 2rem);
+  line-height: 1.08;
+  font-variant-numeric: tabular-nums;
+}
+
+.executive-card > div > strong,
+.cash-hero > div:first-child > strong {
+  min-width: 0;
+  max-width: 100%;
+  font-size: clamp(2rem, 5vw, 3.625rem);
+  line-height: 1.04;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  font-variant-numeric: tabular-nums;
+}
+
+.executive-chips span,
+.executive-chips b,
+.account-grid article > strong,
+.cash-line-chart strong,
+.overdue-strip small,
+.overdue-strip p {
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  word-break: normal;
+}
+
+.account-grid article > strong {
+  font-size: clamp(1.15rem, 2vw, 1.5625rem);
+  line-height: 1.12;
+  font-variant-numeric: tabular-nums;
+}
+
+.finance-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.finance-table .table-header,
+.finance-table .finance-row {
+  min-width: 1000px;
+}
+
+.finance-row > b {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.filters,
+.toolbar-actions,
+.executive-chips {
+  max-width: 100%;
+}
+
+.filters > *,
+.toolbar-actions > * {
+  min-width: 0;
+}
+
+.toolbar-actions {
+  flex-wrap: wrap;
+}
+
+.toolbar-actions > button {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.work-header {
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.work-heading {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.work-heading h3,
+.work-stage-header strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.work-header-controls {
+  display: flex;
+  flex: 1 1 600px;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.work-header-controls .work-project-selector {
+  flex: 1 1 250px;
+  width: auto;
+  min-width: min(100%, 240px);
+  max-width: 310px;
+}
+
+.dashboard-work-link {
+  position: static;
+  flex: 1 1 230px;
+  width: auto;
+  max-width: 290px;
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid #cbdadd;
+  border-radius: 10px;
+  background: #fff;
+  line-height: 1.25;
+  text-align: center;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.work-summary-item {
+  min-width: 0;
+}
+
+.work-summary-item dd {
+  max-width: 100%;
+  font-size: clamp(1.35rem, 3vw, 1.6875rem);
+  overflow-wrap: anywhere;
+}
+
+.work-stage-header,
+.work-stage-footer {
+  flex-wrap: wrap;
+}
+
+.work-stage-status {
+  max-width: 100%;
+  white-space: normal;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1180px) {
+  .work-heading,
+  .work-header-controls {
+    flex-basis: 100%;
+  }
+
+  .work-header-controls {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .cash-hero {
+    padding: clamp(20px, 6vw, 34px);
+  }
+
+  .cash-hero > div:last-child {
+    grid-template-columns: repeat(
+      auto-fit,
+      minmax(min(100%, 110px), 1fr)
+    );
+  }
+
+  .overdue-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .overdue-strip > div {
+    min-width: 0;
+  }
+
+  .work-header-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .work-header-controls .work-project-selector,
+  .dashboard-work-link {
+    flex-basis: auto;
+    width: 100%;
+    max-width: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .kpi-grid,
+  .kpi-grid.three,
+  .kpi-grid.four,
+  .kpi-grid.five,
+  .kpi-grid.six,
+  .executive-dashboard > .kpi-grid.six,
+  .cash-hero + .kpi-grid.five {
+    grid-template-columns: 1fr;
+  }
+
+  .work-stage-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

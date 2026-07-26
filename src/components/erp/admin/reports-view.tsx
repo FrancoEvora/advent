@@ -1,7 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
+import Image from "next/image";
 import type { EntryStatus, EntryType, ErpData } from "../types";
 import { useSalesData } from "../crm-v5/sales/use-sales-data";
 import { usePostSaleData } from "../post-sale/use-post-sale-data";
@@ -47,6 +48,14 @@ function formatValue(value: string | number | null | undefined, column: ReportCo
   return numberFormat.format(numeric);
 }
 
+function reportPeriodLabel(from: string, to: string) {
+  if (!from && !to) return "Todo o histórico disponível";
+  const date = (value: string) => new Date(`${value}T12:00:00`).toLocaleDateString("pt-BR");
+  if (from && to) return `${date(from)} a ${date(to)}`;
+  if (from) return `A partir de ${date(from)}`;
+  return `Até ${date(to)}`;
+}
+
 export function ReportsView({ data, can }: ReportsViewProps) {
   const availableAreas = useMemo(
     () => reportAreas.filter(item => !can || can(areaPermissions[item.id])),
@@ -61,6 +70,7 @@ export function ReportsView({ data, can }: ReportsViewProps) {
   const [type, setType] = useState<"todos" | EntryType>("todos");
   const [status, setStatus] = useState<"todos" | EntryStatus>("todos");
   const [contactId, setContactId] = useState("todos");
+  const [generatedAt] = useState(() => new Date());
   const canSales = availableAreas.some(item => item.id === "vendas");
   const canPostSale = availableAreas.some(item => item.id === "posvenda");
   const { sales, loading: salesLoading, error: salesError } = useSalesData(data, canSales);
@@ -93,6 +103,47 @@ export function ReportsView({ data, can }: ReportsViewProps) {
   const usesProject = activeArea !== "rh";
   const isFinancial = activeArea === "financeiro";
   const gridStyle = { "--report-column-count": report.columns.length } as CSSProperties;
+  const projectLabel = projectId === "todos"
+    ? "Todos os empreendimentos"
+    : data.projects.find(project => project.id === projectId)?.name || "Empreendimento selecionado";
+  const chart = useMemo(() => {
+    const column = report.columns.find(candidate =>
+      candidate.format !== "text"
+      && report.rows.some(row => Math.abs(Number(row.values[candidate.key] || 0)) > 0)
+    );
+    if (!column) return null;
+    const rows = report.rows
+      .map(row => ({ row, value: Number(row.values[column.key] || 0) }))
+      .filter(item => Number.isFinite(item.value) && item.value !== 0)
+      .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
+      .slice(0, 6);
+    const maximum = Math.max(0, ...rows.map(item => Math.abs(item.value)));
+    return maximum ? { column, rows, maximum } : null;
+  }, [report]);
+  const attentionKpis = report.kpis.filter(item => ["warning", "danger"].includes(item.tone || ""));
+  const leadingRow = chart?.rows[0]?.row;
+  const executiveStatus = !report.rows.length
+    ? { tone: "neutral", label: "Base insuficiente", text: "Não há registros para formar uma conclusão com os filtros atuais." }
+    : attentionKpis.length
+      ? { tone: "attention", label: "Requer atenção", text: `${attentionKpis.length} indicador(es) pedem tratamento antes da próxima decisão.` }
+      : { tone: "stable", label: "Leitura consolidada", text: `${report.rows.length} classificação(ões) analisadas com a base disponível.` };
+  const recommendations = [
+    ...attentionKpis.slice(0, 2).map(item => ({
+      title: `Tratar ${item.label.toLowerCase()}`,
+      detail: `${item.value} · ${item.detail}`,
+      tone: "attention",
+    })),
+    ...(leadingRow ? [{
+      title: `Abrir a composição de ${leadingRow.label}`,
+      detail: chart ? `Maior concentração em ${chart.column.label.toLowerCase()}: ${formatValue(leadingRow.values[chart.column.key], chart.column)}.` : leadingRow.detail || "Maior concentração do recorte.",
+      tone: "focus",
+    }] : []),
+    ...(!attentionKpis.length && report.rows.length ? [{
+      title: "Comparar com o próximo fechamento",
+      detail: "Salve este recorte como referência para identificar variações e exceções na próxima análise.",
+      tone: "stable",
+    }] : []),
+  ].slice(0, 3);
 
   function selectArea(nextArea: ReportArea) {
     setArea(nextArea);
@@ -122,11 +173,33 @@ export function ReportsView({ data, can }: ReportsViewProps) {
     downloadCsv(`evora-${activeArea}-${activeMode}.csv`, headers, rows);
   }
 
+  function printReport() {
+    const cleanup = () => document.body.classList.remove("report-printing");
+    document.body.classList.add("report-printing");
+    window.addEventListener("afterprint", cleanup, { once: true });
+    window.requestAnimationFrame(() => window.print());
+    window.setTimeout(cleanup, 1500);
+  }
+
+  useEffect(() => () => document.body.classList.remove("report-printing"), []);
+
   if (!availableAreas.length) {
     return <section className="panel"><Empty text="Seu perfil não possui acesso a nenhuma área da Central de Relatórios." /></section>;
   }
 
   return <div className="stack reports-hub">
+    <header className="report-print-header" aria-hidden="true">
+      <Image src="/evora-brand.svg" alt="" width={240} height={80} />
+      <div>
+        <small>RELATÓRIO EXECUTIVO · {report.eyebrow}</small>
+        <h1>{report.title}</h1>
+        <p>{data.organization.trade_name || data.organization.name} · {projectLabel}</p>
+      </div>
+      <dl>
+        <div><dt>Período</dt><dd>{reportPeriodLabel(from, to)}</dd></div>
+        <div><dt>Emitido em</dt><dd>{generatedAt.toLocaleString("pt-BR")}</dd></div>
+      </dl>
+    </header>
     <section className="module-toolbar reports-toolbar">
       <div>
         <small>CONTROLADORIA E INTELIGÊNCIA CORPORATIVA</small>
@@ -135,7 +208,7 @@ export function ReportsView({ data, can }: ReportsViewProps) {
       </div>
       <div className="toolbar-actions">
         <button type="button" onClick={exportReport} disabled={dataLoading}>Exportar CSV</button>
-        <button type="button" onClick={() => window.print()} disabled={dataLoading}>PDF / Imprimir</button>
+        <button type="button" onClick={printReport} disabled={dataLoading}>PDF executivo</button>
       </div>
     </section>
 
@@ -202,6 +275,46 @@ export function ReportsView({ data, can }: ReportsViewProps) {
       {report.kpis.map(item => <Kpi key={item.label} {...item} />)}
     </section>
 
+    <section className="report-intelligence-grid" aria-label="Leitura executiva do relatório">
+      <article className="report-executive-brief" data-tone={executiveStatus.tone}>
+        <header>
+          <span>PULSO DO RECORTE</span>
+          <i>{executiveStatus.label}</i>
+        </header>
+        <h3>{executiveStatus.text}</h3>
+        <dl>
+          <div><dt>Base analisada</dt><dd>{report.rows.length} linhas</dd></div>
+          <div><dt>Empreendimento</dt><dd>{projectLabel}</dd></div>
+          <div><dt>Período</dt><dd>{reportPeriodLabel(from, to)}</dd></div>
+        </dl>
+      </article>
+
+      <article className="report-distribution">
+        <header>
+          <div><span>DISTRIBUIÇÃO PRINCIPAL</span><h3>{chart?.column.label || "Sem série numérica"}</h3></div>
+          <small>{chart ? `${chart.rows.length} maiores concentrações` : "Aguardando dados"}</small>
+        </header>
+        {chart ? <div className="report-bars">
+          {chart.rows.map(({ row, value }) => <div key={row.id}>
+            <span title={row.label}>{row.label}</span>
+            <i><b style={{ width: `${Math.max(4, Math.abs(value) / chart.maximum * 100)}%` }} /></i>
+            <strong>{formatValue(value, chart.column)}</strong>
+          </div>)}
+        </div> : <Empty text="Nenhuma série numérica disponível neste recorte." />}
+      </article>
+    </section>
+
+    <section className="report-decision-panel">
+      <header><div><small>PRÓXIMAS DECISÕES</small><h3>Leitura orientada à ação</h3></div><span>Gerado com os dados do relatório</span></header>
+      <div>
+        {recommendations.map((item, index) => <article key={`${item.title}-${index}`} data-tone={item.tone}>
+          <b>{String(index + 1).padStart(2, "0")}</b>
+          <span><strong>{item.title}</strong><small>{item.detail}</small></span>
+        </article>)}
+        {!recommendations.length && <Empty text="Alimente a base ou amplie os filtros para gerar recomendações." />}
+      </div>
+    </section>
+
     <section className="panel corporate-report-result" aria-busy={dataLoading}>
       <PanelTitle eyebrow={report.eyebrow} title={report.title} />
       <p className="report-description">{report.description}</p>
@@ -223,5 +336,9 @@ export function ReportsView({ data, can }: ReportsViewProps) {
         {!report.rows.length && !dataLoading && <Empty text="Nenhum dado encontrado para os filtros selecionados." />}
       </div>
     </section>
+    <footer className="report-print-footer" aria-hidden="true">
+      <span>Évora Gestão · Informação gerencial para uso interno</span>
+      <span>{report.title} · {reportPeriodLabel(from, to)}</span>
+    </footer>
   </div>;
 }

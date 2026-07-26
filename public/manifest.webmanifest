@@ -1,7 +1,7 @@
 {
-  "name": "Évora Gestão — Versão 6.6 Enterprise",
+  "name": "Évora Gestão — Versão 6.10 Enterprise",
   "short_name": "Évora Gestão",
-  "description": "Plataforma proprietária da Évora Urbanismo com avanço físico de obras, combustíveis, contratos de máquinas e horímetros, fluxo financeiro, CRM, pós-venda, backup e governança.",
+  "description": "Plataforma proprietária da Évora Urbanismo com portal de parceiros e pagamentos, obras, combustíveis, contratos, fluxo financeiro, CRM, pós-venda e governança.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

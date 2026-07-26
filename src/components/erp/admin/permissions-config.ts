@@ -47,6 +47,45 @@ export const permissionGroups:PermissionGroup[]=[
   ],
  },
  {
+  name:"Parceiros e pagamentos",
+  description:"Portal de fornecedores e credores, comunicações de pagamento e negociações.",
+  items:[
+   {key:"partners.view",label:"Visualizar parceiros, pagamentos publicados e negociações"},
+   {
+    key:"partners.payments.publish",
+    label:"Publicar previsões e datas de pagamento",
+    description:"Não altera o vencimento contábil nem cria promessa automática.",
+    requires:["partners.view","financial.view"],
+   },
+   {
+    key:"partners.process",
+    label:"Informar processamento e liquidação",
+    requires:["partners.view","financial.view"],
+   },
+   {
+    key:"partners.negotiations.view",
+    label:"Visualizar negociações com parceiros",
+    requires:["partners.view"],
+   },
+   {
+    key:"partners.negotiations.manage",
+    label:"Responder e conduzir negociações",
+    requires:["partners.view","partners.negotiations.view"],
+   },
+   {
+    key:"partners.negotiations.approve",
+    label:"Aprovar ou rejeitar propostas",
+    description:"A decisão fica registrada, mas não altera o título financeiro automaticamente.",
+    requires:["partners.view","partners.negotiations.view"],
+   },
+   {
+    key:"partners.access.manage",
+    label:"Criar, renovar e revogar acessos ao portal",
+    requires:["partners.view"],
+   },
+  ],
+ },
+ {
   name:"Gestão de obras e EAP",
   description:"Planejamento físico, etapas, linha de base e estrutura analítica da obra.",
   items:[

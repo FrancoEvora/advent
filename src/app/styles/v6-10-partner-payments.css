@@ -1,0 +1,1077 @@
+/* Évora Gestão 6.10 — Parceiros, pagamentos e negociações */
+
+.partner-management,
+.partner-management * {
+  box-sizing: border-box;
+}
+
+.partner-management {
+  --partner-ink: #16354a;
+  --partner-muted: #647781;
+  --partner-line: rgba(22, 53, 74, 0.12);
+  --partner-green: #609c27;
+  --partner-teal: #0f6172;
+  --partner-blue: #1d5271;
+  --partner-orange: #d88618;
+  --partner-red: #ae3538;
+  display: grid;
+  min-width: 0;
+  gap: 20px;
+  color: var(--partner-ink);
+}
+
+.partner-management .partner-hero {
+  position: relative;
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  min-width: 0;
+  gap: 24px;
+  padding: clamp(24px, 4vw, 42px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 28px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 86% 16%, rgba(144, 196, 76, 0.28), transparent 29%),
+    linear-gradient(135deg, #10374d 0%, #0f6172 72%, #31764e 100%);
+  box-shadow: 0 24px 60px rgba(18, 53, 72, 0.15);
+}
+
+.partner-management .partner-hero::after {
+  position: absolute;
+  right: -56px;
+  bottom: -78px;
+  width: 240px;
+  height: 240px;
+  border: 42px solid rgba(255, 255, 255, 0.06);
+  border-radius: 50%;
+  content: "";
+}
+
+.partner-management .partner-hero-copy,
+.partner-management .partner-hero-actions {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
+}
+
+.partner-management .partner-hero-copy {
+  max-width: 720px;
+}
+
+.partner-management .partner-hero-copy > small,
+.partner-management .partner-access-form header small,
+.partner-management .partner-negotiation-detail > header small,
+.partner-management .partner-generated-link small,
+.partner-management .partner-modal > header small {
+  display: block;
+  margin-bottom: 8px;
+  color: #91c94f;
+  font-size: 0.72rem;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+}
+
+.partner-management .partner-hero h2 {
+  max-width: 100%;
+  margin: 0;
+  color: #fff;
+  font-size: clamp(1.75rem, 3.1vw, 3rem);
+  line-height: 1.03;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-hero p {
+  max-width: 660px;
+  margin: 14px 0 0;
+  color: rgba(255, 255, 255, 0.76);
+  font-size: clamp(0.95rem, 1.4vw, 1.08rem);
+  line-height: 1.55;
+}
+
+.partner-management .partner-hero-actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.partner-management .partner-hero-actions > span {
+  display: grid;
+  gap: 3px;
+  min-width: 132px;
+}
+
+.partner-management .partner-hero-actions small {
+  color: rgba(255, 255, 255, 0.58);
+  font-size: 0.72rem;
+}
+
+.partner-management .partner-hero-actions strong {
+  color: #fff;
+  font-size: 0.9rem;
+}
+
+.partner-management .partner-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid var(--partner-line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 12px 34px rgba(18, 53, 72, 0.07);
+}
+
+.partner-management .partner-tabs button {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 13px;
+  padding: 15px 16px;
+  border: 0;
+  border-radius: 16px;
+  color: var(--partner-muted);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+  transition: 160ms ease;
+}
+
+.partner-management .partner-tabs button:hover {
+  color: var(--partner-ink);
+  background: rgba(29, 82, 113, 0.05);
+}
+
+.partner-management .partner-tabs button.partner-tab-active {
+  color: #fff;
+  background: linear-gradient(135deg, #16475f, #116779);
+  box-shadow: 0 12px 22px rgba(15, 97, 114, 0.18);
+}
+
+.partner-management .partner-tabs button > b {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 12px;
+  font-size: 0.74rem;
+}
+
+.partner-management .partner-tabs button > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  font-size: 0.94rem;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-tabs button small {
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.68;
+}
+
+.partner-management .partner-module {
+  display: grid;
+  min-width: 0;
+  gap: 18px;
+}
+
+.partner-management .partner-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-width: 0;
+  gap: 12px;
+}
+
+.partner-management .partner-kpis article {
+  display: grid;
+  min-width: 0;
+  min-height: 148px;
+  align-content: space-between;
+  gap: 5px;
+  padding: 20px;
+  overflow: hidden;
+  border: 1px solid var(--partner-line);
+  border-top: 3px solid var(--partner-green);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.83);
+  box-shadow: 0 14px 30px rgba(18, 53, 72, 0.06);
+}
+
+.partner-management .partner-kpis article:nth-child(2) {
+  border-top-color: var(--partner-blue);
+}
+
+.partner-management .partner-kpis article:nth-child(3) {
+  border-top-color: var(--partner-orange);
+}
+
+.partner-management .partner-kpis article:nth-child(4) {
+  border-top-color: var(--partner-teal);
+}
+
+.partner-management .partner-kpis small {
+  color: var(--partner-muted);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.partner-management .partner-kpis strong {
+  max-width: 100%;
+  color: var(--partner-ink);
+  font-size: clamp(1.8rem, 3vw, 2.65rem);
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-kpis span {
+  color: var(--partner-muted);
+  font-size: 0.76rem;
+  line-height: 1.35;
+}
+
+.partner-management .partner-toolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1.8fr) minmax(190px, 0.8fr);
+  min-width: 0;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--partner-line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.78);
+}
+
+.partner-management .partner-toolbar label,
+.partner-management .partner-access-fields label,
+.partner-management .partner-reply-form label,
+.partner-management .partner-decision-form label,
+.partner-management .partner-modal > label,
+.partner-management .partner-publication-dates label {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.partner-management .partner-toolbar label > span,
+.partner-management .partner-access-fields label > span,
+.partner-management .partner-reply-form label > span,
+.partner-management .partner-decision-form label > span,
+.partner-management .partner-modal > label > span,
+.partner-management .partner-publication-dates label > span {
+  color: var(--partner-muted);
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.partner-management input,
+.partner-management select,
+.partner-management textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 11px 13px;
+  border: 1px solid rgba(22, 53, 74, 0.17);
+  border-radius: 12px;
+  outline: none;
+  color: var(--partner-ink);
+  font: inherit;
+  font-size: 0.88rem;
+  background: #fff;
+  transition: 150ms ease;
+}
+
+.partner-management textarea {
+  resize: vertical;
+}
+
+.partner-management input:focus,
+.partner-management select:focus,
+.partner-management textarea:focus {
+  border-color: rgba(15, 97, 114, 0.62);
+  box-shadow: 0 0 0 3px rgba(15, 97, 114, 0.09);
+}
+
+.partner-management .partner-payment-list,
+.partner-management .partner-access-list {
+  display: grid;
+  min-width: 0;
+  gap: 10px;
+}
+
+.partner-management .partner-payment-list > article {
+  display: grid;
+  grid-template-columns:
+    minmax(220px, 1.5fr)
+    minmax(130px, 0.65fr)
+    minmax(170px, 0.85fr)
+    minmax(130px, 0.55fr)
+    auto;
+  min-width: 0;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--partner-line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 9px 24px rgba(18, 53, 72, 0.05);
+}
+
+.partner-management .partner-payment-list > article.partner-payment-hidden {
+  opacity: 0.64;
+  background: rgba(243, 245, 246, 0.9);
+}
+
+.partner-management .partner-payment-main,
+.partner-management .partner-payment-contractual,
+.partner-management .partner-payment-public,
+.partner-management .partner-payment-value {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.partner-management .partner-payment-main > strong {
+  overflow: hidden;
+  font-size: 0.98rem;
+  line-height: 1.28;
+  text-overflow: ellipsis;
+}
+
+.partner-management .partner-payment-main > small,
+.partner-management .partner-payment-contractual > small,
+.partner-management .partner-payment-public > small,
+.partner-management .partner-payment-value > small {
+  color: var(--partner-muted);
+  font-size: 0.72rem;
+}
+
+.partner-management .partner-payment-main > em {
+  color: var(--partner-red);
+  font-size: 0.72rem;
+}
+
+.partner-management .partner-payment-contractual > strong,
+.partner-management .partner-payment-public > strong {
+  font-size: 0.88rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-payment-contractual > span,
+.partner-management .partner-payment-public > span {
+  color: var(--partner-muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+}
+
+.partner-management .partner-payment-value {
+  text-align: right;
+}
+
+.partner-management .partner-payment-value > strong {
+  max-width: 100%;
+  font-size: clamp(0.95rem, 1.55vw, 1.2rem);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-payment-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: #42616e;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  background: #eff6f3;
+}
+
+.partner-management .partner-status {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  align-items: center;
+  padding: 5px 9px;
+  border: 1px solid rgba(29, 82, 113, 0.12);
+  border-radius: 999px;
+  color: var(--partner-blue);
+  font-size: 0.66rem;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.2;
+  background: #edf4f7;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-status-previsto,
+.partner-management .partner-negotiation-status-aguardando_parceiro {
+  color: #8c5d07;
+  background: #fff5d9;
+}
+
+.partner-management .partner-status-programado,
+.partner-management .partner-status-active,
+.partner-management .partner-negotiation-status-aprovada {
+  color: #39741b;
+  background: #edf8e6;
+}
+
+.partner-management .partner-status-em_processamento,
+.partner-management .partner-negotiation-status-em_analise {
+  color: #0d6876;
+  background: #e9f7f8;
+}
+
+.partner-management .partner-status-pago {
+  color: #247040;
+  background: #e6f7ed;
+}
+
+.partner-management .partner-status-suspenso,
+.partner-management .partner-status-inactive,
+.partner-management .partner-negotiation-status-rejeitada,
+.partner-management .partner-negotiation-status-cancelada {
+  color: #993537;
+  background: #fae9ea;
+}
+
+.partner-management .partner-status-unpublished,
+.partner-management .partner-negotiation-status-encerrada {
+  color: #687981;
+  background: #eff2f3;
+}
+
+.partner-management .partner-negotiation-status-aberta,
+.partner-management .partner-negotiation-status-contraproposta,
+.partner-management .partner-negotiation-status-aceita_pelo_parceiro {
+  color: #825516;
+  background: #fff0d9;
+}
+
+.partner-management .partner-button {
+  min-width: 0;
+  min-height: 42px;
+  padding: 10px 15px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1.2;
+  cursor: pointer;
+  transition: 150ms ease;
+}
+
+.partner-management .partner-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.partner-management .partner-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.partner-management .partner-button-primary {
+  color: #fff;
+  background: linear-gradient(135deg, var(--partner-blue), var(--partner-teal));
+  box-shadow: 0 8px 18px rgba(29, 82, 113, 0.16);
+}
+
+.partner-management .partner-button-secondary {
+  border-color: rgba(29, 82, 113, 0.16);
+  color: var(--partner-blue);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.partner-management .partner-button-danger {
+  color: #fff;
+  background: var(--partner-red);
+}
+
+.partner-management .partner-feedback {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 13px 15px;
+  border: 1px solid rgba(74, 141, 47, 0.2);
+  border-radius: 14px;
+  color: #315e25;
+  background: #eff8e9;
+}
+
+.partner-management .partner-feedback-error {
+  border-color: rgba(174, 53, 56, 0.2);
+  color: #8a2d30;
+  background: #fbecec;
+}
+
+.partner-management .partner-feedback button {
+  border: 0;
+  color: inherit;
+  font-size: 1.1rem;
+  background: transparent;
+  cursor: pointer;
+}
+
+.partner-management .partner-negotiation-layout {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.72fr) minmax(0, 1.5fr);
+  min-width: 0;
+  gap: 14px;
+}
+
+.partner-management .partner-negotiation-list,
+.partner-management .partner-negotiation-detail {
+  min-width: 0;
+  border: 1px solid var(--partner-line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.partner-management .partner-negotiation-list {
+  display: grid;
+  align-content: start;
+  gap: 7px;
+  padding: 9px;
+}
+
+.partner-management .partner-negotiation-list > button {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  padding: 14px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  color: var(--partner-ink);
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+}
+
+.partner-management .partner-negotiation-list > button:hover,
+.partner-management .partner-negotiation-list > button.partner-negotiation-active {
+  border-color: rgba(15, 97, 114, 0.18);
+  background: #f0f7f7;
+}
+
+.partner-management .partner-negotiation-list > button > strong,
+.partner-management .partner-negotiation-list > button > span,
+.partner-management .partner-negotiation-list > button > small {
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-negotiation-list > button > small,
+.partner-management .partner-negotiation-list > button > span,
+.partner-management .partner-negotiation-list > button > em {
+  color: var(--partner-muted);
+  font-size: 0.72rem;
+  font-style: normal;
+}
+
+.partner-management .partner-negotiation-detail {
+  display: grid;
+  align-content: start;
+  gap: 14px;
+  padding: clamp(16px, 2.5vw, 24px);
+}
+
+.partner-management .partner-negotiation-detail > header,
+.partner-management .partner-access-form > header,
+.partner-management .partner-modal > header {
+  display: flex;
+  min-width: 0;
+  align-items: start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.partner-management .partner-negotiation-detail h3,
+.partner-management .partner-access-form h3,
+.partner-management .partner-modal h3 {
+  margin: 0;
+  color: var(--partner-ink);
+  font-size: clamp(1.15rem, 2vw, 1.55rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-negotiation-detail header p,
+.partner-management .partner-access-form header p,
+.partner-management .partner-modal header p {
+  margin: 6px 0 0;
+  color: var(--partner-muted);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.partner-management .partner-current-terms {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+  border-left: 4px solid var(--partner-green);
+  border-radius: 12px;
+  background: #f2f7ed;
+}
+
+.partner-management .partner-current-terms small {
+  color: #5d872c;
+  font-size: 0.66rem;
+  font-weight: 850;
+  letter-spacing: 0.08em;
+}
+
+.partner-management .partner-current-terms strong {
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-current-terms span {
+  color: var(--partner-muted);
+  font-size: 0.72rem;
+}
+
+.partner-management .partner-message-thread {
+  display: grid;
+  max-height: 460px;
+  min-width: 0;
+  gap: 9px;
+  padding: 4px;
+  overflow: auto;
+}
+
+.partner-management .partner-message-thread article {
+  display: grid;
+  width: min(88%, 620px);
+  min-width: 0;
+  gap: 7px;
+  padding: 12px 14px;
+  border-radius: 14px 14px 14px 4px;
+  background: #f0f3f4;
+}
+
+.partner-management .partner-message-thread article[data-sender="equipe"],
+.partner-management .partner-message-thread article[data-sender="sistema"] {
+  justify-self: end;
+  border-radius: 14px 14px 4px;
+  background: #e7f3f2;
+}
+
+.partner-management .partner-message-thread article header {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.partner-management .partner-message-thread article header strong,
+.partner-management .partner-message-thread article header span,
+.partner-management .partner-message-thread article p,
+.partner-management .partner-message-thread article small {
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-message-thread article header strong {
+  font-size: 0.74rem;
+}
+
+.partner-management .partner-message-thread article header span,
+.partner-management .partner-message-thread article small {
+  color: var(--partner-muted);
+  font-size: 0.66rem;
+}
+
+.partner-management .partner-message-thread article p {
+  margin: 0;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.partner-management .partner-reply-form,
+.partner-management .partner-decision-form {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  background: #f5f7f7;
+}
+
+.partner-management .partner-decision-form {
+  border: 1px solid rgba(216, 134, 24, 0.22);
+  background: #fffbf2;
+}
+
+.partner-management .partner-reply-form h4,
+.partner-management .partner-decision-form h4 {
+  margin: 0;
+}
+
+.partner-management .partner-counterproposal-fields,
+.partner-management .partner-publication-dates {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+  gap: 10px;
+}
+
+.partner-management .partner-access-form {
+  display: grid;
+  gap: 16px;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid var(--partner-line);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.partner-management .partner-access-fields {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr 1.2fr 0.8fr auto;
+  min-width: 0;
+  align-items: end;
+  gap: 10px;
+}
+
+.partner-management .partner-generated-link {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 17px;
+  border: 1px solid rgba(96, 156, 39, 0.25);
+  border-radius: 18px;
+  background: #eff8e8;
+}
+
+.partner-management .partner-generated-link > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.partner-management .partner-generated-link strong {
+  overflow: hidden;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.partner-management .partner-generated-link span {
+  color: var(--partner-muted);
+  font-size: 0.72rem;
+}
+
+.partner-management .partner-access-list > article {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.3fr) minmax(170px, 0.8fr) minmax(160px, 0.7fr) auto;
+  min-width: 0;
+  align-items: center;
+  gap: 16px;
+  padding: 18px;
+  border: 1px solid var(--partner-line);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.partner-management .partner-access-list > article > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.partner-management .partner-access-list > article small,
+.partner-management .partner-access-list > article span {
+  color: var(--partner-muted);
+  font-size: 0.72rem;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-access-identity strong,
+.partner-management .partner-access-list > article > div > strong {
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-access-warning {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: 10px;
+  color: #8d6015;
+  font-size: 0.75rem;
+  background: #fff4d8;
+}
+
+.partner-management .partner-empty {
+  display: grid;
+  min-height: 190px;
+  place-content: center;
+  gap: 7px;
+  padding: 28px;
+  color: var(--partner-muted);
+  text-align: center;
+}
+
+.partner-management .partner-empty b {
+  color: var(--partner-green);
+  font-size: 1.5rem;
+}
+
+.partner-management .partner-empty strong {
+  color: var(--partner-ink);
+}
+
+.partner-management .partner-empty p,
+.partner-management .partner-thread-empty {
+  margin: 0;
+  font-size: 0.8rem;
+}
+
+.partner-management .partner-modal-backdrop {
+  position: fixed;
+  z-index: 120;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  overflow: auto;
+  background: rgba(9, 32, 43, 0.62);
+  backdrop-filter: blur(5px);
+}
+
+.partner-management .partner-modal {
+  display: grid;
+  width: min(720px, 100%);
+  min-width: 0;
+  max-height: calc(100vh - 48px);
+  gap: 15px;
+  padding: clamp(18px, 3vw, 28px);
+  overflow: auto;
+  border-radius: 24px;
+  background: #fdfefe;
+  box-shadow: 0 32px 80px rgba(5, 27, 38, 0.28);
+}
+
+.partner-management .partner-modal-close {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  place-items: center;
+  border: 1px solid var(--partner-line);
+  border-radius: 12px;
+  color: var(--partner-ink);
+  font-size: 1.25rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.partner-management .partner-publication-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  min-width: 0;
+  gap: 9px;
+}
+
+.partner-management .partner-publication-summary > span {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 12px;
+  border-radius: 13px;
+  background: #f1f5f5;
+}
+
+.partner-management .partner-publication-summary small {
+  color: var(--partner-muted);
+  font-size: 0.68rem;
+}
+
+.partner-management .partner-publication-summary strong {
+  font-size: clamp(0.85rem, 2vw, 1.05rem);
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-check {
+  display: flex !important;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--partner-line);
+  border-radius: 13px;
+  background: #f7f9f9;
+}
+
+.partner-management .partner-check input {
+  width: 20px;
+  min-height: 20px;
+  flex: 0 0 20px;
+  accent-color: var(--partner-green);
+}
+
+.partner-management .partner-check span {
+  min-width: 0;
+  color: var(--partner-ink) !important;
+  font-size: 0.8rem !important;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-publication-warning {
+  display: flex;
+  gap: 11px;
+  padding: 12px 14px;
+  border-left: 4px solid var(--partner-orange);
+  border-radius: 12px;
+  color: #6f561f;
+  background: #fff8e7;
+}
+
+.partner-management .partner-publication-warning b {
+  display: grid;
+  width: 23px;
+  height: 23px;
+  flex: 0 0 23px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--partner-orange);
+}
+
+.partner-management .partner-publication-warning p {
+  margin: 0;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
+.partner-management .partner-modal > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+@media (max-width: 1180px) {
+  .partner-management .partner-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .partner-management .partner-payment-list > article {
+    grid-template-columns: minmax(220px, 1.5fr) repeat(2, minmax(140px, 0.7fr));
+  }
+
+  .partner-management .partner-payment-value {
+    text-align: left;
+  }
+
+  .partner-management .partner-payment-list > article > .partner-button {
+    justify-self: start;
+  }
+
+  .partner-management .partner-access-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .partner-management .partner-access-fields > .partner-button {
+    justify-self: start;
+  }
+
+  .partner-management .partner-access-list > article {
+    grid-template-columns: minmax(220px, 1.2fr) repeat(2, minmax(150px, 0.7fr));
+  }
+}
+
+@media (max-width: 860px) {
+  .partner-management .partner-hero {
+    align-items: start;
+    flex-direction: column;
+  }
+
+  .partner-management .partner-hero-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .partner-management .partner-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-management .partner-negotiation-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-management .partner-negotiation-list {
+    max-height: 340px;
+    overflow: auto;
+  }
+
+  .partner-management .partner-payment-list > article,
+  .partner-management .partner-access-list > article {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .partner-management {
+    gap: 14px;
+  }
+
+  .partner-management .partner-hero {
+    border-radius: 22px;
+  }
+
+  .partner-management .partner-hero-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .partner-management .partner-kpis,
+  .partner-management .partner-toolbar,
+  .partner-management .partner-payment-list > article,
+  .partner-management .partner-access-list > article,
+  .partner-management .partner-access-fields,
+  .partner-management .partner-publication-summary,
+  .partner-management .partner-counterproposal-fields,
+  .partner-management .partner-publication-dates {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-management .partner-kpis article {
+    min-height: 122px;
+  }
+
+  .partner-management .partner-payment-value {
+    text-align: left;
+  }
+
+  .partner-management .partner-generated-link,
+  .partner-management .partner-modal > footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .partner-management .partner-generated-link strong {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .partner-management .partner-modal-backdrop {
+    padding: 10px;
+  }
+
+  .partner-management .partner-modal {
+    max-height: calc(100vh - 20px);
+    border-radius: 18px;
+  }
+
+  .partner-management .partner-modal > footer .partner-button {
+    width: 100%;
+  }
+}

@@ -4,13 +4,14 @@ import {getSupabase} from "@/lib/supabase";
 import type {ErpData} from "../types";
 
 type Scope="operacional"|"completo";
-const countTables=["financial_entries","crm_records","crm_proposals","crm_contracts","contacts","crm_inventory_units","document_attachments","audit_logs"];
+const countTables=["financial_entries","partner_payment_publications","partner_negotiations","partner_portal_links","crm_records","crm_proposals","crm_contracts","contacts","crm_inventory_units","document_attachments","audit_logs"];
 
 export function DatabaseResetCenter({data,onDone}:{data:ErpData;onDone:()=>Promise<void>}){
  const[scope,setScope]=useState<Scope>("operacional"),[password,setPassword]=useState(""),[phrase,setPhrase]=useState(""),[preview,setPreview]=useState<Record<string,number>|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
  async function loadPreview(){setBusy(true);setMessage("");const s=getSupabase();if(!s)return;const values:Record<string,number>={};for(const table of countTables){const r=await s.from(table).select("*",{count:"exact",head:true}).eq("organization_id",data.organization.id);values[table]=r.count||0}values.other_users=data.members.filter(m=>m.user_id!==data.session.user.id).length;setPreview(values);setBusy(false)}
  async function clear(){setMessage("");if(phrase!=="REINICIAR BASE EVORA"){setMessage("Digite exatamente REINICIAR BASE EVORA.");return}if(!password){setMessage("Informe sua senha atual.");return}if(!confirm(`Confirma a reinicialização ${scope} da base? Essa ação não pode ser desfeita.`))return;setBusy(true);try{const s=getSupabase();if(!s)throw new Error("Supabase indisponível");const email=data.session.user.email;if(!email)throw new Error("E-mail do administrador não localizado");const auth=await s.auth.signInWithPassword({email,password});if(auth.error)throw new Error("Senha inválida");const org=data.organization.id;
   const del=async(table:string,column="organization_id")=>{const r=await s.from(table).delete().eq(column,org);if(r.error)throw new Error(`${table}: ${r.error.message}`)};
+  const partnerReset=await s.rpc("reset_partner_portal_data",{p_organization_id:org});if(partnerReset.error&&!partnerReset.error.message.includes("does not exist"))throw new Error(`partner_portal: ${partnerReset.error.message}`);
   const proposalIds=(await s.from("crm_proposals").select("id").eq("organization_id",org)).data?.map(x=>x.id)||[];
   const purchaseIds=(await s.from("purchase_requests").select("id").eq("organization_id",org)).data?.map(x=>x.id)||[];
   const payrollIds=(await s.from("hr_payroll_runs").select("id").eq("organization_id",org)).data?.map(x=>x.id)||[];

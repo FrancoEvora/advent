@@ -1,4 +1,4 @@
-name: Export public production assets 7.3
+name: Export authenticated production assets 7.3
 
 on:
   workflow_dispatch:
@@ -12,99 +12,148 @@ permissions:
 jobs:
   export:
     runs-on: ubuntu-latest
+    env:
+      APP_ORIGIN: https://advent-tau.vercel.app
+      EXPORT_FUNCTION: https://qsdffayasuzsmngteika.supabase.co/functions/v1/temporary-bundle-export-user
+      EXPORT_TOKEN: exp73_J9f3Vq8Ls2nR4d7P6hK1
+      EXPORT_EMAIL: bundle-export-73@evora.invalid
+      EXPORT_PASSWORD: TmpExp73!mQ4zX9vT7
     steps:
-      - name: Collect public deployment assets
+      - name: Create isolated temporary account
         shell: bash
         run: |
-          mkdir -p /tmp/advent-assets
-          cat > /tmp/collect-assets.mjs <<'NODE'
+          curl --fail-with-body --silent --show-error \
+            -X POST "$EXPORT_FUNCTION" \
+            -H "content-type: application/json" \
+            -H "x-export-token: $EXPORT_TOKEN" \
+            --data '{"action":"create"}'
+
+      - name: Install browser runtime
+        shell: bash
+        run: |
+          mkdir -p /tmp/browser
+          cd /tmp/browser
+          npm init -y >/dev/null
+          npm install playwright@1.52.0 >/dev/null
+          npx playwright install --with-deps chromium >/dev/null
+
+      - name: Collect authenticated deployment assets
+        shell: bash
+        run: |
+          mkdir -p /tmp/advent-auth-assets
+          cat > /tmp/collect-auth-assets.mjs <<'NODE'
           import fs from 'node:fs/promises';
           import path from 'node:path';
+          import { createRequire } from 'node:module';
+          const require = createRequire(import.meta.url);
+          const { chromium } = require('/tmp/browser/node_modules/playwright');
 
-          const origin = 'https://advent-tau.vercel.app';
-          const output = '/tmp/advent-assets';
-          const queue = ['/'];
-          const visited = new Set();
-          const downloadable = /\.(?:js|css|json|webmanifest|svg|png|jpg|jpeg|webp|ico|woff2?|map)(?:\?.*)?$/i;
+          const origin = process.env.APP_ORIGIN;
+          const email = process.env.EXPORT_EMAIL;
+          const password = process.env.EXPORT_PASSWORD;
+          const output = '/tmp/advent-auth-assets';
+          const pending = new Set();
+          const saved = new Set();
+          const assetPattern = /\.(?:js|css|json|webmanifest|svg|png|jpg|jpeg|webp|ico|woff2?|map)(?:\?.*)?$/i;
 
-          async function fetchAsset(pathname) {
-            const url = new URL(pathname, origin);
-            const response = await fetch(url, { redirect: 'follow' });
-            if (!response.ok) {
-              console.warn(`Skipping ${response.status}: ${url.href}`);
-              return null;
-            }
-            return { url, response };
-          }
-
-          function discover(text, contentType, currentUrl) {
-            const references = [];
-            if (contentType.includes('text/html')) {
-              for (const match of text.matchAll(/(?:src|href)=["']([^"']+)["']/g)) references.push(match[1]);
-            }
-            for (const match of text.matchAll(/["'](\/_next\/[^"']+\.(?:js|css|json|map)(?:\?[^"']*)?)["']/g)) references.push(match[1]);
-            for (const match of text.matchAll(/["']((?:\.\.\/|\.\/)?static\/chunks\/[^"']+\.(?:js|css|json|map)(?:\?[^"']*)?)["']/g)) {
-              const value = match[1].replace(/^(?:\.\.\/|\.\/)+/, '');
-              references.push(`/_next/${value}`);
-            }
-            for (const match of text.matchAll(/["']([A-Za-z0-9_~.-]+\.(?:js|css|map))(?:\?[^"']*)?["']/g)) {
-              if (currentUrl.pathname.includes('/_next/static/chunks/')) references.push(`/_next/static/chunks/${match[1]}`);
-            }
-            return references.filter((reference) => reference && !reference.includes('${') && !reference.startsWith('data:'));
-          }
-
-          while (queue.length) {
-            const current = queue.shift();
-            let normalized;
+          async function saveResponse(response) {
+            const url = new URL(response.url());
+            if (url.origin !== origin || !assetPattern.test(url.pathname + url.search)) return;
+            const key = url.pathname;
+            if (saved.has(key)) return;
+            saved.add(key);
             try {
-              normalized = new URL(current, origin);
-            } catch {
-              continue;
+              const body = await response.body();
+              const destination = path.join(output, key.replace(/^\//, ''));
+              await fs.mkdir(path.dirname(destination), { recursive: true });
+              await fs.writeFile(destination, body);
+            } catch (error) {
+              console.warn(`Unable to save ${url.href}: ${error}`);
             }
-            if (normalized.origin !== origin || visited.has(normalized.href)) continue;
-            visited.add(normalized.href);
+          }
 
-            const fetched = await fetchAsset(normalized.href);
-            if (!fetched) continue;
-            const { url, response } = fetched;
-            const contentType = response.headers.get('content-type') || '';
-            const bytes = Buffer.from(await response.arrayBuffer());
-            const relative = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\//, '');
-            const target = path.join(output, relative);
-            await fs.mkdir(path.dirname(target), { recursive: true });
-            await fs.writeFile(target, bytes);
+          const browser = await chromium.launch({ headless: true });
+          const context = await browser.newContext({ viewport: { width: 1440, height: 1200 } });
+          const page = await context.newPage();
+          page.on('response', (response) => {
+            const job = saveResponse(response);
+            pending.add(job);
+            job.finally(() => pending.delete(job));
+          });
 
-            if (contentType.includes('text/html') || contentType.includes('javascript') || contentType.includes('text/css')) {
-              const text = bytes.toString('utf8');
-              for (const reference of discover(text, contentType, url)) {
-                try {
-                  const candidate = new URL(reference, url);
-                  if (candidate.origin === origin && downloadable.test(candidate.pathname + candidate.search)) queue.push(candidate.href);
-                } catch {
-                  // Ignore malformed runtime strings.
-                }
+          await page.goto(origin, { waitUntil: 'networkidle', timeout: 90000 });
+          await page.locator('input[name="email"]').fill(email);
+          await page.locator('input[name="password"]').fill(password);
+          await page.locator('button').filter({ hasText: /Entrar|Acessar|Login/i }).first().click();
+          await page.waitForTimeout(8000);
+
+          const navigationLabels = [
+            'Gestão de Obras',
+            'Comando',
+            'Planejamento',
+            'Diário de obra',
+            'Qualidade e segurança',
+            'Riscos e mudanças',
+            'Compras e contratações',
+            'Compras e serviços',
+            'Combustíveis',
+            'Gestão de Contratos',
+            'Contratos e medições',
+            'Locações',
+            'Pagamentos',
+          ];
+
+          for (const label of navigationLabels) {
+            const locator = page.getByText(label, { exact: true }).first();
+            if (await locator.count()) {
+              try {
+                await locator.scrollIntoViewIfNeeded();
+                await locator.click({ force: true, timeout: 5000 });
+                await page.waitForTimeout(1800);
+              } catch (error) {
+                console.warn(`Could not open ${label}: ${error}`);
               }
             }
           }
 
-          const files = [];
-          async function walk(directory) {
-            for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
-              const full = path.join(directory, entry.name);
-              if (entry.isDirectory()) await walk(full);
-              else files.push(path.relative(output, full));
+          const resources = await page.evaluate(() => performance.getEntriesByType('resource').map((entry) => entry.name));
+          for (const resource of resources) {
+            try {
+              const url = new URL(resource);
+              if (url.origin !== origin || !assetPattern.test(url.pathname + url.search) || saved.has(url.pathname)) continue;
+              const response = await context.request.get(url.href);
+              if (!response.ok()) continue;
+              const destination = path.join(output, url.pathname.replace(/^\//, ''));
+              await fs.mkdir(path.dirname(destination), { recursive: true });
+              await fs.writeFile(destination, await response.body());
+              saved.add(url.pathname);
+            } catch {
+              // Ignore analytics and malformed entries.
             }
           }
-          await walk(output);
-          await fs.writeFile(path.join(output, 'PUBLIC_ASSET_MANIFEST.json'), JSON.stringify({ origin, exportedAt: new Date().toISOString(), files }, null, 2));
-          console.log(`Collected ${files.length} public assets.`);
-          NODE
-          node /tmp/collect-assets.mjs
-          tar -C /tmp/advent-assets -czf /tmp/advent-production-7.3-public-assets.tar.gz .
 
-      - name: Upload public asset artifact
+          await Promise.allSettled([...pending]);
+          await page.screenshot({ path: path.join(output, 'authenticated-dashboard.png'), fullPage: true });
+          await fs.writeFile(path.join(output, 'AUTH_ASSET_MANIFEST.json'), JSON.stringify({ origin, exportedAt: new Date().toISOString(), files: [...saved].sort() }, null, 2));
+          await browser.close();
+          console.log(`Collected ${saved.size} authenticated assets.`);
+          NODE
+          node /tmp/collect-auth-assets.mjs
+          tar -C /tmp/advent-auth-assets -czf /tmp/advent-production-7.3-auth-assets.tar.gz .
+
+      - name: Upload authenticated asset artifact
         uses: actions/upload-artifact@v4
         with:
-          name: advent-production-7.3-public-assets
-          path: /tmp/advent-production-7.3-public-assets.tar.gz
+          name: advent-production-7.3-auth-assets
+          path: /tmp/advent-production-7.3-auth-assets.tar.gz
           retention-days: 1
+
+      - name: Remove isolated temporary account
+        if: always()
+        shell: bash
+        run: |
+          curl --fail-with-body --silent --show-error \
+            -X POST "$EXPORT_FUNCTION" \
+            -H "content-type: application/json" \
+            -H "x-export-token: $EXPORT_TOKEN" \
+            --data '{"action":"delete"}'

@@ -42,6 +42,20 @@
   color: #173d42;
 }
 
+.eap-management-actions button.eap-danger-button,
+.eap-package-actions button.eap-danger-button {
+  border-color: #e8c4c1;
+  background: #fff8f7;
+  color: #a73530;
+}
+
+.eap-management-actions button.eap-danger-button:hover,
+.eap-package-actions button.eap-danger-button:hover {
+  border-color: #c94b43;
+  background: #fff0ee;
+  color: #8f2823;
+}
+
 .eap-summary-strip {
   display: grid;
   grid-template-columns: 1.5fr 1fr .8fr 1fr;
@@ -328,6 +342,215 @@
   overflow: auto;
 }
 
+.eap-deletion-modal {
+  width: min(720px, 96vw);
+  max-height: 92vh;
+  overflow: auto;
+}
+
+.eap-deletion-modal h2 {
+  max-width: calc(100% - 48px);
+  margin: 5px 0 0;
+  color: #71302d;
+  font: 700 25px Georgia, serif;
+}
+
+.eap-deletion-eyebrow {
+  color: #b33f38;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .11em;
+}
+
+.eap-deletion-loading,
+.eap-deletion-error,
+.eap-deletion-blocked,
+.eap-deletion-confirmation,
+.eap-deletion-archive {
+  margin: 14px 0;
+  padding: 15px;
+  border: 1px solid #e1e7e8;
+  border-radius: 12px;
+  color: #587079;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.eap-deletion-loading {
+  background: #f4f7f7;
+}
+
+.eap-deletion-error,
+.eap-deletion-blocked {
+  display: grid;
+  gap: 8px;
+  border-color: #e8bcb8;
+  background: #fff5f4;
+  color: #763834;
+}
+
+.eap-deletion-error > strong,
+.eap-deletion-blocked > strong {
+  color: #9e302a;
+  font-size: 13px;
+}
+
+.eap-deletion-error button {
+  justify-self: start;
+  min-height: 34px;
+  padding: 0 11px;
+  border: 1px solid #d8a29e;
+  border-radius: 9px;
+  background: #fff;
+  color: #93322d;
+  font-weight: 800;
+}
+
+.eap-deletion-counts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+  margin: 14px 0;
+}
+
+.eap-deletion-counts > span {
+  display: grid;
+  gap: 5px;
+  padding: 13px;
+  border: 1px solid #dfe7e8;
+  border-radius: 11px;
+  background: #f7f9f9;
+}
+
+.eap-deletion-counts small {
+  color: #74868d;
+  font-size: 8px;
+  font-weight: 850;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+
+.eap-deletion-counts strong {
+  color: #1d5271;
+  font-size: 19px;
+}
+
+.eap-deletion-counts > span.blocked {
+  border-color: #e5b5b1;
+  background: #fff4f3;
+}
+
+.eap-deletion-counts > span.blocked strong {
+  color: #a9342f;
+}
+
+.eap-deletion-counts > span.clear {
+  border-color: #bfd9b0;
+  background: #f3f8ef;
+}
+
+.eap-deletion-counts > span.clear strong {
+  color: #477921;
+}
+
+.eap-deletion-blocked p,
+.eap-deletion-confirmation p,
+.eap-deletion-archive p {
+  margin: 0;
+}
+
+.eap-deletion-blocked ul {
+  display: grid;
+  gap: 6px;
+  margin: 3px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.eap-deletion-blocked li {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.eap-deletion-confirmation {
+  display: grid;
+  gap: 8px;
+  border-color: #e7c9a2;
+  background: #fff9f0;
+}
+
+.eap-deletion-confirmation > strong {
+  color: #855315;
+  font-size: 13px;
+}
+
+.eap-deletion-confirmation label {
+  display: grid;
+  gap: 7px;
+  margin-top: 3px;
+  color: #5d4a31;
+  font-weight: 700;
+}
+
+.eap-deletion-confirmation label b {
+  color: #a1322c;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eap-deletion-confirmation input {
+  min-height: 42px;
+  padding: 0 11px;
+  border: 1px solid #d9b98d;
+  border-radius: 9px;
+  background: #fff;
+  color: #463f36;
+  font: 750 12px ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.eap-deletion-archive {
+  display: grid;
+  gap: 5px;
+  border-color: #cbdde2;
+  background: #f2f7f8;
+}
+
+.eap-deletion-archive strong {
+  color: #24586b;
+  font-size: 12px;
+}
+
+.eap-deletion-modal footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+  flex-wrap: wrap;
+}
+
+.eap-deletion-modal footer button {
+  min-height: 40px;
+  padding: 0 13px;
+  border: 1px solid #d6e0e2;
+  border-radius: 10px;
+  background: #fff;
+  color: #24536a;
+  font-weight: 800;
+}
+
+.eap-deletion-modal footer button.eap-delete-confirm {
+  border-color: #b73c36;
+  background: #b73c36;
+  color: #fff;
+}
+
+.eap-deletion-modal footer button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
 .eap-modal-intro {
   max-width: 900px;
   margin: 6px 0 18px;
@@ -612,9 +835,18 @@
   }
 
   .eap-template-modal,
-  .eap-package-modal {
+  .eap-package-modal,
+  .eap-deletion-modal {
     width: 100%;
     max-height: 96vh;
+  }
+
+  .eap-deletion-counts {
+    grid-template-columns: 1fr;
+  }
+
+  .eap-deletion-modal footer {
+    display: grid;
   }
 
   .eap-template-preview {

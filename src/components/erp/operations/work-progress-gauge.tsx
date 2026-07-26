@@ -13,6 +13,7 @@ export interface WorkProgressGaugeProps {
   projects: readonly Project[];
   initialProjectId?: string;
   title?: string;
+  onOpenDetails?: () => void;
 }
 
 const zoneLabels: Record<WorkPaceZone, string> = {
@@ -65,6 +66,7 @@ export function WorkProgressGauge({
   projects,
   initialProjectId,
   title = "Temperatura do andamento da obra",
+  onOpenDetails,
 }: WorkProgressGaugeProps) {
   const projectsWithPackages = projects.filter((project) =>
     packages.some((item) => item.project_id === project.id),
@@ -134,20 +136,31 @@ export function WorkProgressGauge({
           <small>GESTÃO FÍSICA</small>
           <h3>{title}</h3>
         </div>
-        <label className="work-project-selector">
-          <span>Empreendimento</span>
-          <select
-            value={effectiveProjectId}
-            onChange={(event) => setSelectedProjectId(event.target.value)}
-          >
-            {availableProjects.map((item) => (
-              <option key={item.id} value={item.id}>
-                {item.name}
-                {item.code ? ` · ${item.code}` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="work-header-controls">
+          <label className="work-project-selector">
+            <span>Empreendimento</span>
+            <select
+              value={effectiveProjectId}
+              onChange={(event) => setSelectedProjectId(event.target.value)}
+            >
+              {availableProjects.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name}
+                  {item.code ? ` · ${item.code}` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          {onOpenDetails && (
+            <button
+              className="dashboard-work-link"
+              type="button"
+              onClick={onOpenDetails}
+            >
+              Abrir gestão detalhada da obra →
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="work-executive">

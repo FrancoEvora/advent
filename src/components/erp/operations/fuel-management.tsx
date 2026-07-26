@@ -3,6 +3,7 @@
 import { FormEvent, useMemo, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type {
+  DocumentAttachment,
   ErpData,
   FuelDispense,
   FuelRequest,
@@ -70,6 +71,20 @@ const statusLabels: Record<string, string> = {
 
 const brl = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const numberFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+const fuelReceiptBucket = "erp-documents";
+const fuelReceiptMaxBytes = 10 * 1024 * 1024;
+const fuelReceiptAccept =
+  ".pdf,.jpg,.jpeg,.png,.heic,.heif,.webp,application/pdf,image/jpeg,image/png,image/heic,image/heif,image/webp";
+const fuelReceiptMimeByExtension: Record<string, string> = {
+  pdf: "application/pdf",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  heic: "image/heic",
+  heif: "image/heif",
+  webp: "image/webp",
+};
+const fuelReceiptAllowedMimes = new Set(Object.values(fuelReceiptMimeByExtension));
 const dateTimeFormat = new Intl.DateTimeFormat("pt-BR", {
   day: "2-digit",
   month: "2-digit",
@@ -115,6 +130,35 @@ const formatDateTime = (value?: string | null) => {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? value : dateTimeFormat.format(parsed);
 };
+const fileExtension = (name: string) =>
+  name.split(".").pop()?.trim().toLowerCase() || "";
+const safeFileName = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .slice(-100) || "comprovante";
+const fuelReceiptMime = (file: File) =>
+  fuelReceiptMimeByExtension[fileExtension(file.name)] || file.type;
+const fuelReceiptValidationError = (file: File | null) => {
+  if (!file?.size) return "Anexe o comprovante fiscal do abastecimento.";
+  const extension = fileExtension(file.name);
+  const normalizedMime = fuelReceiptMime(file);
+  if (
+    !fuelReceiptMimeByExtension[extension] ||
+    !fuelReceiptAllowedMimes.has(normalizedMime) ||
+    (file.type &&
+      file.type !== "application/octet-stream" &&
+      !fuelReceiptAllowedMimes.has(file.type))
+  ) {
+    return "Formato inválido. Envie PDF, JPG, JPEG, PNG, HEIC, HEIF ou WEBP.";
+  }
+  if (file.size > fuelReceiptMaxBytes) {
+    return "O comprovante fiscal deve ter no máximo 10 MB.";
+  }
+  return null;
+};
 
 export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
   const requests = data.fuelRequests;
@@ -127,6 +171,7 @@ export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
   const [status, setStatus] = useState("");
   const [projectId, setProjectId] = useState("");
   const [fuelType, setFuelType] = useState("");
+  const [receiptError, setReceiptError] = useState("");
 
   const dispensedByRequest = useMemo(() => {
     const totals = new Map<string, number>();
@@ -142,6 +187,37 @@ export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
     Number(request.approved_liters ?? request.requested_liters ?? 0);
   const remainingLiters = (request: FuelRequest) =>
     Math.max(authorizedLiters(request) - usedLiters(request), 0);
+
+  async function accessReceipt(
+    receipt: DocumentAttachment,
+    download: boolean,
+  ) {
+    setReceiptError("");
+    const client = getSupabase();
+    if (!client) {
+      setReceiptError("Supabase indisponível.");
+      return;
+    }
+    const { data: link, error: linkError } = await client.storage
+      .from(fuelReceiptBucket)
+      .createSignedUrl(
+        receipt.storage_path,
+        120,
+        download ? { download: receipt.file_name } : undefined,
+      );
+    if (linkError || !link?.signedUrl) {
+      setReceiptError(
+        linkError?.message || "Não foi possível acessar o comprovante fiscal.",
+      );
+      return;
+    }
+    const anchor = document.createElement("a");
+    anchor.href = link.signedUrl;
+    anchor.target = "_blank";
+    anchor.rel = "noopener noreferrer";
+    if (download) anchor.download = receipt.file_name;
+    anchor.click();
+  }
 
   const filtered = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -266,6 +342,15 @@ export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
         </div>
 
         <div className="fuel-list">
+          {receiptError && (
+            <div
+              className="feedback error fuel-feedback fuel-feedback-error"
+              role="alert"
+              aria-live="polite"
+            >
+              {receiptError}
+            </div>
+          )}
           {filtered.map((request) => {
             const project = data.projects.find((item) => item.id === request.project_id);
             const contract = contracts.find((item) => item.id === request.contract_id);
@@ -274,6 +359,22 @@ export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
             const remaining = remainingLiters(request);
             const requestDocuments = documents.filter(
               (document) => document.request_id === request.id,
+            ).length;
+            const requestDispenses = dispenses
+              .filter((dispense) => dispense.request_id === request.id)
+              .sort((left, right) =>
+                String(right.dispensed_at || right.created_at || "").localeCompare(
+                  String(left.dispensed_at || left.created_at || ""),
+                ),
+              );
+            const dispenseReceipts = requestDispenses.map((dispense) => ({
+              dispense,
+              receipt: data.documents.find(
+                (document) => document.id === dispense.receipt_attachment_id,
+              ),
+            }));
+            const receiptCount = dispenseReceipts.filter(
+              ({ receipt }) => Boolean(receipt),
             ).length;
             const asset =
               request.vehicle_identifier ||
@@ -321,7 +422,7 @@ export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
                   </span>
                   <span>
                     <small>Documentos</small>
-                    <strong>{requestDocuments}</strong>
+                    <strong>{requestDocuments + receiptCount}</strong>
                   </span>
                 </div>
                 {!isPending(request) && !isRejected(request) && (
@@ -344,6 +445,55 @@ export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
                       />
                     </i>
                   </div>
+                )}
+                {!!requestDispenses.length && (
+                  <section
+                    className="fuel-receipt-list"
+                    aria-label={`Comprovantes fiscais de ${request.request_code}`}
+                  >
+                    <header>
+                      <strong>Comprovantes fiscais</strong>
+                      <small>
+                        {receiptCount} de {requestDispenses.length} abastecimento(s)
+                      </small>
+                    </header>
+                    {dispenseReceipts.map(({ dispense, receipt }) => (
+                      <article key={dispense.id}>
+                        <span className="fuel-receipt-icon" aria-hidden="true">
+                          ▧
+                        </span>
+                        <div>
+                          <strong>
+                            {receipt?.file_name || "Comprovante não localizado"}
+                          </strong>
+                          <small>
+                            {dispense.dispense_code} ·{" "}
+                            {formatDateTime(dispense.dispensed_at)}
+                          </small>
+                        </div>
+                        {receipt ? (
+                          <div>
+                            <button
+                              type="button"
+                              onClick={() => accessReceipt(receipt, false)}
+                              aria-label={`Visualizar ${receipt.file_name} do abastecimento ${dispense.dispense_code}`}
+                            >
+                              Visualizar
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => accessReceipt(receipt, true)}
+                              aria-label={`Baixar ${receipt.file_name} do abastecimento ${dispense.dispense_code}`}
+                            >
+                              Baixar
+                            </button>
+                          </div>
+                        ) : (
+                          <em>Registro anterior sem arquivo</em>
+                        )}
+                      </article>
+                    ))}
+                  </section>
                 )}
                 {request.decision_notes && <p className="fuel-row-note">{request.decision_notes}</p>}
                 <footer className="fuel-row-actions">
@@ -405,6 +555,7 @@ export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
       )}
       {modal?.type === "dispense" && (
         <FuelDispenseModal
+          data={data}
           request={modal.request}
           dispenses={dispenses}
           remainingLiters={remainingLiters(modal.request)}
@@ -684,7 +835,15 @@ function FuelRequestModal({
             </label>
           </div>
         </section>
-        {error && <div className="feedback error fuel-feedback fuel-feedback-error">{error}</div>}
+        {error && (
+          <div
+            className="feedback error fuel-feedback fuel-feedback-error"
+            role="alert"
+            aria-live="polite"
+          >
+            {error}
+          </div>
+        )}
         <footer className="fuel-modal-actions">
           <button className="fuel-button fuel-button-secondary" type="button" onClick={close}>
             Cancelar
@@ -856,7 +1015,15 @@ function FuelDecisionModal({
           />
         </label>
         {!approving && <input name="approved_liters" type="hidden" value="" />}
-        {error && <div className="feedback error fuel-feedback fuel-feedback-error">{error}</div>}
+        {error && (
+          <div
+            className="feedback error fuel-feedback fuel-feedback-error"
+            role="alert"
+            aria-live="polite"
+          >
+            {error}
+          </div>
+        )}
         <footer className="fuel-modal-actions">
           <button className="fuel-button fuel-button-secondary" type="button" onClick={close}>
             Cancelar
@@ -955,12 +1122,14 @@ function FuelFinancialFields({
 }
 
 function FuelDispenseModal({
+  data,
   request,
   dispenses,
   remainingLiters,
   mutate,
   close,
 }: {
+  data: ErpData;
   request: FuelRequest;
   dispenses: FuelDispense[];
   remainingLiters: number;
@@ -994,6 +1163,8 @@ function FuelDispenseModal({
     const unitPriceValue = optionalNumber(form.get("unit_price"));
     const odometerValue = optionalNumber(form.get("odometer"));
     const hourMeterValue = optionalNumber(form.get("hour_meter"));
+    const receipt = form.get("receipt") as File | null;
+    const receiptError = fuelReceiptValidationError(receipt);
     if (!litersValue || litersValue <= 0 || litersValue > remainingLiters + 0.0001) {
       setError(`O abastecimento deve ser maior que zero e limitado ao saldo de ${numberFormat.format(remainingLiters)} L.`);
       return;
@@ -1010,12 +1181,20 @@ function FuelDispenseModal({
       setError(`O horímetro não pode ser inferior à última leitura (${numberFormat.format(hourMeterBaseline)} h).`);
       return;
     }
+    if (receiptError || !receipt) {
+      setError(receiptError || "Anexe o comprovante fiscal.");
+      return;
+    }
 
+    const dispenseId = crypto.randomUUID();
+    const attachmentId = crypto.randomUUID();
     const payload = {
+      id: dispenseId,
       liters: litersValue,
       unit_price: unitPriceValue,
       hour_meter: hourMeterValue,
       odometer: odometerValue,
+      receipt_attachment_id: attachmentId,
       notes: optionalText(form.get("notes")),
     };
 
@@ -1025,12 +1204,109 @@ function FuelDispenseModal({
       await mutate(async () => {
         const client = getSupabase();
         if (!client) throw new Error("Supabase indisponível.");
-        const result = await client.rpc("record_fuel_dispense", {
-          p_request_id: request.id,
-          p_dispense: payload,
-        });
-        if (result.error) throw new Error(result.error.message);
-        succeeded = true;
+        const normalizedMime = fuelReceiptMime(receipt);
+        const storagePath = `${data.organization.id}/fuel_request/${request.id}/abastecimentos/${dispenseId}/${attachmentId}-${safeFileName(receipt.name)}`;
+        let uploaded = false;
+        try {
+          const { error: uploadError } = await client.storage
+            .from(fuelReceiptBucket)
+            .upload(storagePath, receipt, {
+              contentType: normalizedMime,
+              upsert: false,
+            });
+          if (uploadError) throw new Error(uploadError.message);
+          uploaded = true;
+
+          const { error: metadataError } = await client
+            .from("document_attachments")
+            .insert({
+              id: attachmentId,
+              organization_id: data.organization.id,
+              entity_type: "fuel_request",
+              entity_id: request.id,
+              document_type: "nota_fiscal",
+              file_name: receipt.name,
+              storage_path: storagePath,
+              mime_type: normalizedMime,
+              size_bytes: receipt.size,
+              notes: `Comprovante fiscal do abastecimento da solicitação ${request.request_code}.`,
+              uploaded_by: data.session.user.id,
+          });
+          if (metadataError) throw new Error(metadataError.message);
+
+          const result = await client.rpc("record_fuel_dispense", {
+            p_request_id: request.id,
+            p_dispense: payload,
+          });
+          if (result.error) throw new Error(result.error.message);
+          succeeded = true;
+        } catch (operationError) {
+          const cleanupErrors: string[] = [];
+          const [dispenseLookup, attachmentLookup] = await Promise.all([
+            client
+              .from("fuel_dispenses")
+              .select("id, request_id, receipt_attachment_id")
+              .eq("id", dispenseId)
+              .maybeSingle(),
+            client
+              .from("document_attachments")
+              .select("id")
+              .eq("id", attachmentId)
+              .eq("organization_id", data.organization.id)
+              .maybeSingle(),
+          ]);
+          const committedDispense = dispenseLookup.data;
+
+          if (
+            !dispenseLookup.error &&
+            committedDispense?.request_id === request.id &&
+            committedDispense.receipt_attachment_id === attachmentId
+          ) {
+            succeeded = true;
+            return;
+          }
+
+          if (dispenseLookup.error || attachmentLookup.error) {
+            const message =
+              operationError instanceof Error
+                ? operationError.message
+                : "Não foi possível registrar o abastecimento.";
+            throw new Error(
+              `${message} Não foi possível confirmar o resultado; o comprovante foi preservado para evitar perda do documento.`,
+            );
+          }
+
+          let metadataRemoved = !attachmentLookup.data;
+          if (attachmentLookup.data) {
+            const { error: metadataCleanupError } = await client
+              .from("document_attachments")
+              .delete()
+              .eq("id", attachmentId)
+              .eq("organization_id", data.organization.id);
+            if (metadataCleanupError) {
+              cleanupErrors.push(metadataCleanupError.message);
+            } else {
+              metadataRemoved = true;
+            }
+          }
+          if (uploaded && metadataRemoved) {
+            const { error: storageCleanupError } = await client.storage
+              .from(fuelReceiptBucket)
+              .remove([storagePath]);
+            if (storageCleanupError) {
+              cleanupErrors.push(storageCleanupError.message);
+            }
+          }
+          const message =
+            operationError instanceof Error
+              ? operationError.message
+              : "Não foi possível registrar o abastecimento.";
+          throw new Error(
+            cleanupErrors.length
+              ? `${message} A limpeza do arquivo também falhou: ${cleanupErrors.join("; ")}`
+              : message,
+          );
+        }
       }, "Abastecimento registrado e saldo da autorização atualizado.");
       if (succeeded) close();
     } finally {
@@ -1134,11 +1410,31 @@ function FuelDispenseModal({
             <input value={brl.format(Number(liters || 0) * Number(unitPrice || 0))} readOnly tabIndex={-1} />
           </label>
           <label className="span-2 fuel-span-2">
-            Observações / comprovante
+            Observações
             <textarea name="notes" rows={3} placeholder="Número do cupom, divergências ou ocorrências" />
           </label>
+          <label className="span-2 fuel-span-2 fuel-receipt-upload">
+            Comprovante fiscal obrigatório
+            <input
+              name="receipt"
+              type="file"
+              accept={fuelReceiptAccept}
+              required
+            />
+            <small>
+              PDF, JPG, JPEG, PNG, HEIC, HEIF ou WEBP · máximo de 10 MB
+            </small>
+          </label>
         </div>
-        {error && <div className="feedback error fuel-feedback fuel-feedback-error">{error}</div>}
+        {error && (
+          <div
+            className="feedback error fuel-feedback fuel-feedback-error"
+            role="alert"
+            aria-live="polite"
+          >
+            {error}
+          </div>
+        )}
         <footer className="fuel-modal-actions">
           <button className="fuel-button fuel-button-secondary" type="button" onClick={close}>
             Cancelar

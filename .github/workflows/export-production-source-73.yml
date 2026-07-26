@@ -1,10 +1,7 @@
-name: Export production source 7.3
+name: Export public production assets 7.3
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - agent/export-production-source-73
   pull_request:
     branches:
       - main
@@ -15,111 +12,74 @@ permissions:
 jobs:
   export:
     runs-on: ubuntu-latest
-    env:
-      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-      VERCEL_TEAM_ID: team_MqRTvNvoaArIVzGLcNA6OU4v
-      VERCEL_DEPLOYMENT_ID: dpl_6byz4r7M2Uh2bBo7xBwU5JFWkPuZ
     steps:
-      - name: Validate token
+      - name: Collect public deployment assets
         shell: bash
         run: |
-          if [ -z "$VERCEL_TOKEN" ]; then
-            echo "VERCEL_TOKEN secret is not configured" >&2
-            exit 1
-          fi
-
-      - name: Download deployment source
-        shell: bash
-        run: |
-          mkdir -p /tmp/vercel-source
-          cat > /tmp/export-vercel-source.mjs <<'NODE'
+          mkdir -p /tmp/advent-assets
+          cat > /tmp/collect-assets.mjs <<'NODE'
           import fs from 'node:fs/promises';
           import path from 'node:path';
 
-          const token = process.env.VERCEL_TOKEN;
-          const teamId = process.env.VERCEL_TEAM_ID;
-          const deploymentId = process.env.VERCEL_DEPLOYMENT_ID;
-          const outputRoot = '/tmp/vercel-source';
-          const excluded = [
-            /^\.env(?:\.|$)/,
-            /^\.git(?:\/|$)/,
-            /^\.next(?:\/|$)/,
-            /^node_modules(?:\/|$)/,
-            /^\.vercel(?:\/|$)/,
-            /(?:^|\/)\.npmrc$/,
-            /(?:^|\/)(?:credentials|secrets?)(?:\.|$)/i,
-            /(?:^|\/)service-role/i,
-          ];
+          const origin = 'https://advent-tau.vercel.app';
+          const output = '/tmp/advent-assets';
+          const queue = ['/'];
+          const visited = new Set();
+          const downloadable = /\.(?:js|css|json|webmanifest|svg|png|jpg|jpeg|webp|ico|woff2?)(?:\?.*)?$/i;
 
-          const headers = { Authorization: `Bearer ${token}` };
-          const withTeam = (url) => `${url}${url.includes('?') ? '&' : '?'}teamId=${encodeURIComponent(teamId)}`;
-
-          async function request(url) {
-            const response = await fetch(withTeam(url), { headers });
-            if (!response.ok) throw new Error(`${response.status} ${response.statusText}: ${await response.text()}`);
-            return response;
+          async function fetchAsset(pathname) {
+            const url = new URL(pathname, origin);
+            const response = await fetch(url, { redirect: 'follow' });
+            if (!response.ok) throw new Error(`${response.status} ${url.href}`);
+            return { url, response };
           }
 
-          const treeResponse = await request(`https://api.vercel.com/v6/deployments/${deploymentId}/files`);
-          const tree = await treeResponse.json();
-          const roots = Array.isArray(tree) ? tree : tree.files || tree.children || [];
-
-          function flatten(nodes, prefix = '') {
-            const result = [];
-            for (const node of nodes || []) {
-              const name = node.name || node.file || node.path;
-              if (!name) continue;
-              const relative = prefix ? `${prefix}/${name}` : name;
-              const children = node.children || node.files;
-              const type = String(node.type || '').toLowerCase();
-              if (Array.isArray(children) || ['directory', 'folder', 'dir'].includes(type)) {
-                result.push(...flatten(children || [], relative));
-              } else {
-                result.push({ relative, uid: node.uid || node.id || node.sha || node.fileId, mode: node.mode });
-              }
-            }
-            return result;
+          function discover(text) {
+            const matches = text.matchAll(/(?:src|href)=["']([^"']+)["']|["'](\/_next\/[^"']+\.(?:js|css|json|map)(?:\?[^"']*)?)["']/g);
+            return [...matches].map((match) => match[1] || match[2]).filter(Boolean);
           }
 
-          const files = flatten(roots).filter(({ relative }) => !excluded.some((pattern) => pattern.test(relative)));
-          if (!files.length) throw new Error('The deployment file tree did not contain source files.');
+          while (queue.length) {
+            const current = queue.shift();
+            const normalized = new URL(current, origin);
+            if (normalized.origin !== origin || visited.has(normalized.href)) continue;
+            visited.add(normalized.href);
 
-          async function decodeFile(response) {
+            const { url, response } = await fetchAsset(normalized.href);
             const contentType = response.headers.get('content-type') || '';
-            if (contentType.includes('application/json')) {
-              const payload = await response.json();
-              const value = payload.data ?? payload.content ?? payload.file ?? payload;
-              if (typeof value === 'string') return Buffer.from(value, payload.encoding === 'utf8' ? 'utf8' : 'base64');
-              if (value && typeof value === 'object' && typeof value.data === 'string') {
-                return Buffer.from(value.data, value.encoding === 'utf8' ? 'utf8' : 'base64');
+            const bytes = Buffer.from(await response.arrayBuffer());
+            const relative = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\//, '');
+            const target = path.join(output, relative);
+            await fs.mkdir(path.dirname(target), { recursive: true });
+            await fs.writeFile(target, bytes);
+
+            if (contentType.includes('text/html') || contentType.includes('javascript') || contentType.includes('text/css')) {
+              const text = bytes.toString('utf8');
+              for (const reference of discover(text)) {
+                const candidate = new URL(reference, url);
+                if (candidate.origin === origin && downloadable.test(candidate.pathname + candidate.search)) queue.push(candidate.href);
               }
-              throw new Error(`Unsupported file response: ${JSON.stringify(payload).slice(0, 300)}`);
             }
-            return Buffer.from(await response.arrayBuffer());
           }
 
-          let downloaded = 0;
-          for (const file of files) {
-            if (!file.uid) throw new Error(`File has no uid: ${file.relative}`);
-            const response = await request(`https://api.vercel.com/v8/deployments/${deploymentId}/files/${encodeURIComponent(file.uid)}`);
-            const content = await decodeFile(response);
-            const destination = path.join(outputRoot, file.relative);
-            const normalized = path.normalize(destination);
-            if (!normalized.startsWith(path.normalize(outputRoot + path.sep))) throw new Error(`Unsafe path: ${file.relative}`);
-            await fs.mkdir(path.dirname(destination), { recursive: true });
-            await fs.writeFile(destination, content, { mode: file.mode || 0o644 });
-            downloaded += 1;
+          const files = [];
+          async function walk(directory) {
+            for (const entry of await fs.readdir(directory, { withFileTypes: true })) {
+              const full = path.join(directory, entry.name);
+              if (entry.isDirectory()) await walk(full);
+              else files.push(path.relative(output, full));
+            }
           }
-
-          await fs.writeFile(path.join(outputRoot, 'VERCEL_SOURCE_EXPORT.json'), JSON.stringify({ deploymentId, teamId, exportedAt: new Date().toISOString(), files: downloaded }, null, 2));
-          console.log(`Downloaded ${downloaded} source files.`);
+          await walk(output);
+          await fs.writeFile(path.join(output, 'PUBLIC_ASSET_MANIFEST.json'), JSON.stringify({ origin, exportedAt: new Date().toISOString(), files }, null, 2));
+          console.log(`Collected ${files.length} public assets.`);
           NODE
-          node /tmp/export-vercel-source.mjs
-          tar -C /tmp/vercel-source -czf /tmp/advent-production-7.3-source.tar.gz .
+          node /tmp/collect-assets.mjs
+          tar -C /tmp/advent-assets -czf /tmp/advent-production-7.3-public-assets.tar.gz .
 
-      - name: Upload sanitized source artifact
+      - name: Upload public asset artifact
         uses: actions/upload-artifact@v4
         with:
-          name: advent-production-7.3-source
-          path: /tmp/advent-production-7.3-source.tar.gz
+          name: advent-production-7.3-public-assets
+          path: /tmp/advent-production-7.3-public-assets.tar.gz
           retention-days: 1

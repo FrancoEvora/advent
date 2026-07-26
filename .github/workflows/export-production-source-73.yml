@@ -25,27 +25,41 @@ jobs:
           const output = '/tmp/advent-assets';
           const queue = ['/'];
           const visited = new Set();
-          const downloadable = /\.(?:js|css|json|webmanifest|svg|png|jpg|jpeg|webp|ico|woff2?)(?:\?.*)?$/i;
+          const downloadable = /\.(?:js|css|json|webmanifest|svg|png|jpg|jpeg|webp|ico|woff2?|map)(?:\?.*)?$/i;
 
           async function fetchAsset(pathname) {
             const url = new URL(pathname, origin);
             const response = await fetch(url, { redirect: 'follow' });
-            if (!response.ok) throw new Error(`${response.status} ${url.href}`);
+            if (!response.ok) {
+              console.warn(`Skipping ${response.status}: ${url.href}`);
+              return null;
+            }
             return { url, response };
           }
 
-          function discover(text) {
-            const matches = text.matchAll(/(?:src|href)=["']([^"']+)["']|["'](\/_next\/[^"']+\.(?:js|css|json|map)(?:\?[^"']*)?)["']/g);
-            return [...matches].map((match) => match[1] || match[2]).filter(Boolean);
+          function discover(text, contentType) {
+            const references = [];
+            if (contentType.includes('text/html')) {
+              for (const match of text.matchAll(/(?:src|href)=["']([^"']+)["']/g)) references.push(match[1]);
+            }
+            for (const match of text.matchAll(/["'](\/_next\/[^"']+\.(?:js|css|json|map)(?:\?[^"']*)?)["']/g)) references.push(match[1]);
+            return references.filter((reference) => reference && !reference.includes('${') && !reference.startsWith('data:'));
           }
 
           while (queue.length) {
             const current = queue.shift();
-            const normalized = new URL(current, origin);
+            let normalized;
+            try {
+              normalized = new URL(current, origin);
+            } catch {
+              continue;
+            }
             if (normalized.origin !== origin || visited.has(normalized.href)) continue;
             visited.add(normalized.href);
 
-            const { url, response } = await fetchAsset(normalized.href);
+            const fetched = await fetchAsset(normalized.href);
+            if (!fetched) continue;
+            const { url, response } = fetched;
             const contentType = response.headers.get('content-type') || '';
             const bytes = Buffer.from(await response.arrayBuffer());
             const relative = url.pathname === '/' ? 'index.html' : url.pathname.replace(/^\//, '');
@@ -55,9 +69,13 @@ jobs:
 
             if (contentType.includes('text/html') || contentType.includes('javascript') || contentType.includes('text/css')) {
               const text = bytes.toString('utf8');
-              for (const reference of discover(text)) {
-                const candidate = new URL(reference, url);
-                if (candidate.origin === origin && downloadable.test(candidate.pathname + candidate.search)) queue.push(candidate.href);
+              for (const reference of discover(text, contentType)) {
+                try {
+                  const candidate = new URL(reference, url);
+                  if (candidate.origin === origin && downloadable.test(candidate.pathname + candidate.search)) queue.push(candidate.href);
+                } catch {
+                  // Ignore malformed runtime strings.
+                }
               }
             }
           }

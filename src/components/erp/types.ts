@@ -67,6 +67,35 @@ export interface ConstructionWorkPackage {
   sort_order: number;
   is_summary: boolean;
 }
+export interface ConstructionEapTemplate {
+  template_code: string;
+  name: string;
+  description: string;
+  category: string;
+  icon: string;
+  estimated_duration_days: number;
+  version: number;
+  sort_order: number;
+  active: boolean;
+  created_at: string;
+}
+export interface ConstructionEapTemplateItem {
+  template_code: string;
+  item_key: string;
+  parent_item_key: string | null;
+  wbs_code: string;
+  name: string;
+  description: string | null;
+  discipline: string;
+  phase: string;
+  sequence: number;
+  start_offset_days: number;
+  duration_days: number;
+  weight_pct: number;
+  budget_pct: number;
+  priority: string;
+  is_summary: boolean;
+}
 export interface FuelRequest {
   id: string;
   organization_id: string;
@@ -308,4 +337,4 @@ export interface ContractMeasurementItem {
   created_at: string;
 }
 export interface Settings { organization_id: string; approval_threshold: number; require_approval: boolean; default_due_alert_days: number; require_cash_risk_approval?: boolean; minimum_cash_buffer?: number; forecast_horizon_days?: number; overdue_treatment_days?: number; procurement_approval_required?: boolean; salary_payment_day?: number; default_employer_charge_rate?: number; termination_reserve_rate?: number; document_max_size_mb?: number; otp_simulation_enabled?: boolean; otp_simulation_expires_at?: string | null; otp_simulation_updated_at?: string | null; otp_simulation_updated_by?: string | null; }
-export interface ErpData { session: Session; organization: Organization; membership: Membership; profile: Profile | null; entries: FinancialEntry[]; costCenters: CostCenter[]; revenueCenters?: RevenueCenter[]; categories: Category[]; bankAccounts: BankAccount[]; contacts: Contact[]; projects: Project[]; members: Membership[]; profiles: Profile[]; invitations: Invitation[]; approvals: ApprovalRequest[]; auditLogs: AuditLog[]; settings: Settings; documents: DocumentAttachment[]; purchaseRequests: PurchaseRequest[]; purchaseItems: PurchaseRequestItem[]; hrEmployees: HrEmployee[]; hrEvents: HrEvent[]; hrPayrollRuns: HrPayrollRun[]; hrPayrollItems: HrPayrollItem[]; crmRecords: CrmRecord[]; crmActions: CrmAction[]; constructionWorkPackages: ConstructionWorkPackage[]; fuelRequests: FuelRequest[]; fuelDispenses: FuelDispense[]; fuelRequestDocuments: FuelRequestDocument[]; operationalContracts: OperationalContract[]; operationalContractItems: OperationalContractItem[]; contractMeasurementPeriods: ContractMeasurementPeriod[]; contractMeasurements: ContractMeasurement[]; contractMeasurementItems: ContractMeasurementItem[]; }
+export interface ErpData { session: Session; organization: Organization; membership: Membership; profile: Profile | null; entries: FinancialEntry[]; costCenters: CostCenter[]; revenueCenters?: RevenueCenter[]; categories: Category[]; bankAccounts: BankAccount[]; contacts: Contact[]; projects: Project[]; members: Membership[]; profiles: Profile[]; invitations: Invitation[]; approvals: ApprovalRequest[]; auditLogs: AuditLog[]; settings: Settings; documents: DocumentAttachment[]; purchaseRequests: PurchaseRequest[]; purchaseItems: PurchaseRequestItem[]; hrEmployees: HrEmployee[]; hrEvents: HrEvent[]; hrPayrollRuns: HrPayrollRun[]; hrPayrollItems: HrPayrollItem[]; crmRecords: CrmRecord[]; crmActions: CrmAction[]; constructionWorkPackages: ConstructionWorkPackage[]; constructionEapTemplates: ConstructionEapTemplate[]; constructionEapTemplateItems: ConstructionEapTemplateItem[]; fuelRequests: FuelRequest[]; fuelDispenses: FuelDispense[]; fuelRequestDocuments: FuelRequestDocument[]; operationalContracts: OperationalContract[]; operationalContractItems: OperationalContractItem[]; contractMeasurementPeriods: ContractMeasurementPeriod[]; contractMeasurements: ContractMeasurement[]; contractMeasurementItems: ContractMeasurementItem[]; }

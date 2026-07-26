@@ -15,6 +15,7 @@ import "./styles/v6-4-contract-portal.css";
 import "./styles/v6-5-activities-notifications.css";
 import "./styles/v6-5-1-session.css";
 import "./styles/v6-6-operations.css";
+import "./styles/v6-6-eap.css";
 import {ServiceWorkerRegister} from "@/components/ServiceWorkerRegister";
 import {GlobalModuleNav} from "@/components/GlobalModuleNav";
 import {GlobalLogoutButton} from "@/components/GlobalLogoutButton";

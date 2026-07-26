@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { ConstructionWorkPackage, ErpData } from "../types";
 import { Empty, Kpi, PanelTitle } from "../views-dashboard";
+import { EapManagement } from "./eap-management";
 import { WorkProgressGauge } from "./work-progress-gauge";
 import { calculateWorkProgress, type WorkProgressPackage } from "./work-progress";
 
@@ -37,13 +38,16 @@ export function WorkManagementView({
   mutate: Mutate;
   can: (permission: string) => boolean;
 }) {
-  const projectsWithWork = data.projects.filter((project) =>
-    data.constructionWorkPackages.some((item) => item.project_id === project.id),
+  const projects = data.projects.filter(
+    (project) =>
+      project.active ||
+      data.constructionWorkPackages.some((item) => item.project_id === project.id),
   );
-  const [projectId, setProjectId] = useState(projectsWithWork[0]?.id || "");
-  const effectiveProjectId = projectsWithWork.some((item) => item.id === projectId)
+  const [projectId, setProjectId] = useState(projects[0]?.id || "");
+  const effectiveProjectId = projects.some((item) => item.id === projectId)
     ? projectId
-    : projectsWithWork[0]?.id || "";
+    : projects[0]?.id || "";
+  const currentProject = projects.find((item) => item.id === effectiveProjectId);
   const leafPackages = useMemo(
     () =>
       data.constructionWorkPackages
@@ -51,10 +55,12 @@ export function WorkManagementView({
         .map(toProgressPackage),
     [data.constructionWorkPackages],
   );
-  const projectPackages = data.constructionWorkPackages
-    .filter((item) => item.project_id === effectiveProjectId && !item.is_summary)
+  const allProjectPackages = data.constructionWorkPackages
+    .filter((item) => item.project_id === effectiveProjectId)
     .sort((a, b) => a.sort_order - b.sort_order);
+  const projectPackages = allProjectPackages.filter((item) => !item.is_summary);
   const summary = calculateWorkProgress(projectPackages.map(toProgressPackage));
+  const hasProjectBaseline = summary.planned_pct > 0;
   const critical = summary.packages.filter(
     (item) => !item.accelerated && ["risco", "critico"].includes(item.zone),
   ).length;
@@ -77,9 +83,12 @@ export function WorkManagementView({
           <span>Empreendimento</span>
           <select
             value={effectiveProjectId}
-            onChange={(event) => setProjectId(event.target.value)}
+            onChange={(event) => {
+              setEditing(null);
+              setProjectId(event.target.value);
+            }}
           >
-            {projectsWithWork.map((project) => (
+            {projects.map((project) => (
               <option key={project.id} value={project.id}>
                 {project.code} · {project.name}
               </option>
@@ -88,91 +97,81 @@ export function WorkManagementView({
         </label>
       </section>
 
-      {!projectsWithWork.length ? (
+      {!projects.length ? (
         <section className="panel">
-          <Empty text="Nenhuma estrutura de etapas foi cadastrada para as obras." />
+          <Empty text="Cadastre um empreendimento para criar a estrutura da obra." />
         </section>
       ) : (
         <>
-          <section className="kpi-grid four">
-            <Kpi
-              label="Avanço realizado"
-              value={`${percent.format(summary.actual_pct)}%`}
-              tone="positive"
-              detail="Ponderado pelo peso das etapas"
-            />
-            <Kpi
-              label="Avanço previsto"
-              value={`${percent.format(summary.planned_pct)}%`}
-              tone="gold"
-              detail="Linha de base atual"
-            />
-            <Kpi
-              label="Desvio físico"
-              value={`${summary.variance_pp > 0 ? "+" : ""}${percent.format(summary.variance_pp)} pp`}
-              tone={summary.variance_pp < 0 ? "danger" : "positive"}
-              detail={`SPI ${summary.spi.toFixed(2)}`}
-            />
-            <Kpi
-              label="Etapas em risco"
-              value={String(critical)}
-              tone={critical ? "warning" : "positive"}
-              detail={`${completed} de ${projectPackages.length} concluídas`}
-            />
-          </section>
+          {!!projectPackages.length && (
+            <>
+              <section className="kpi-grid four">
+                <Kpi
+                  label="Avanço realizado"
+                  value={`${percent.format(summary.actual_pct)}%`}
+                  tone="positive"
+                  detail="Ponderado pelo peso das etapas"
+                />
+                <Kpi
+                  label="Avanço previsto"
+                  value={`${percent.format(summary.planned_pct)}%`}
+                  tone="gold"
+                  detail="Linha de base atual"
+                />
+                <Kpi
+                  label="Desvio físico"
+                  value={`${summary.variance_pp > 0 ? "+" : ""}${percent.format(summary.variance_pp)} pp`}
+                  tone={
+                    !hasProjectBaseline
+                      ? "gold"
+                      : summary.variance_pp < 0
+                        ? "danger"
+                        : "positive"
+                  }
+                  detail={
+                    hasProjectBaseline
+                      ? `SPI ${summary.spi.toFixed(2)}`
+                      : "Sem linha de base"
+                  }
+                />
+                <Kpi
+                  label="Etapas em risco"
+                  value={String(critical)}
+                  tone={
+                    !hasProjectBaseline
+                      ? "gold"
+                      : critical
+                        ? "warning"
+                        : "positive"
+                  }
+                  detail={
+                    hasProjectBaseline
+                      ? `${completed} de ${projectPackages.length} concluídas`
+                      : "Aguardando percentuais previstos"
+                  }
+                />
+              </section>
 
-          <WorkProgressGauge
-            key={effectiveProjectId}
-            packages={leafPackages}
-            projects={data.projects}
-            initialProjectId={effectiveProjectId}
-          />
+              <WorkProgressGauge
+                key={effectiveProjectId}
+                packages={leafPackages}
+                projects={currentProject ? [currentProject] : []}
+                initialProjectId={effectiveProjectId}
+              />
+            </>
+          )}
 
-          <section className="panel work-stage-control">
-            <PanelTitle
-              eyebrow="MEDIÇÃO POR ETAPA"
-              title="Percentuais da estrutura analítica da obra"
+          {currentProject && (
+            <EapManagement
+              key={effectiveProjectId}
+              data={data}
+              project={currentProject}
+              packages={allProjectPackages}
+              mutate={mutate}
+              canManage={can("construction.manage")}
+              onMeasure={setEditing}
             />
-            <div className="work-stage-table">
-              <div className="work-stage-table-head">
-                <span>Etapa</span>
-                <span>Peso</span>
-                <span>Previsto</span>
-                <span>Realizado</span>
-                <span>Desvio</span>
-                <span>Status</span>
-                <span />
-              </div>
-              {projectPackages.map((item) => {
-                const planned = Number(item.planned_progress);
-                const actual = Number(item.actual_progress);
-                return (
-                  <article key={item.id}>
-                    <div>
-                      <small>{item.wbs_code || item.package_code || item.code}</small>
-                      <strong>{item.name}</strong>
-                    </div>
-                    <span>{percent.format(Number(item.weight_pct))}%</span>
-                    <span>{percent.format(planned)}%</span>
-                    <span className="work-stage-measured">{percent.format(actual)}%</span>
-                    <span className={actual - planned < 0 ? "negative" : "positive"}>
-                      {actual - planned > 0 ? "+" : ""}
-                      {percent.format(actual - planned)} pp
-                    </span>
-                    <span className={`work-status work-status-${item.status}`}>
-                      {item.status.replaceAll("_", " ")}
-                    </span>
-                    <button
-                      disabled={!can("construction.manage")}
-                      onClick={() => setEditing(item)}
-                    >
-                      Atualizar
-                    </button>
-                  </article>
-                );
-              })}
-            </div>
-          </section>
+          )}
         </>
       )}
 
@@ -214,9 +213,11 @@ function WorkProgressModal({
           actual_start: String(form.get("actual_start") || "") || null,
           actual_end: String(form.get("actual_end") || "") || null,
           notes: String(form.get("notes") || "") || null,
+          updated_at: new Date().toISOString(),
         })
         .eq("id", item.id)
-        .eq("organization_id", item.organization_id);
+        .eq("organization_id", item.organization_id)
+        .eq("project_id", item.project_id);
       if (error) throw error;
     }, "Avanço físico da etapa atualizado.");
     close();
@@ -226,11 +227,23 @@ function WorkProgressModal({
     <div className="modal-backdrop" onMouseDown={close}>
       <form
         className="modal work-progress-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={`Medir ${item.name}`}
         onSubmit={submit}
         onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") close();
+        }}
       >
         <PanelTitle eyebrow="MEDIÇÃO FÍSICA" title={item.name} />
-        <button className="modal-close" type="button" onClick={close}>
+        <button
+          className="modal-close"
+          type="button"
+          aria-label="Fechar medição"
+          autoFocus
+          onClick={close}
+        >
           ×
         </button>
         <div className="form-grid">

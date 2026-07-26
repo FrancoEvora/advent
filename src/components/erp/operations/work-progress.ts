@@ -1,3 +1,5 @@
+import type { ConstructionWorkPackage, Project } from "../types";
+
 export type WorkPaceZone = "saudavel" | "atencao" | "risco" | "critico";
 
 /**
@@ -38,6 +40,17 @@ export interface WorkProgressSummary {
   accelerated: boolean;
   total_weight_pct: number;
   packages: WorkPackageProgress[];
+}
+
+export interface ConstructionProjectProgress {
+  project: Project;
+  all_packages: ConstructionWorkPackage[];
+  leaf_packages: ConstructionWorkPackage[];
+  progress_packages: WorkProgressPackage[];
+  summary: WorkProgressSummary;
+  has_baseline: boolean;
+  critical_packages: number;
+  completed_packages: number;
 }
 
 const clamp = (value: number, minimum: number, maximum: number) =>
@@ -153,4 +166,61 @@ export function calculateProjectWorkProgress(
   return calculateWorkProgress(
     packages.filter((item) => item.project_id === projectId),
   );
+}
+
+export function toWorkProgressPackage(
+  item: ConstructionWorkPackage,
+): WorkProgressPackage {
+  return {
+    id: item.id,
+    project_id: item.project_id,
+    code: item.wbs_code || item.package_code || item.code,
+    name: item.name,
+    weight_pct: Number(item.weight_pct),
+    actual_progress_pct: Number(item.actual_progress),
+    planned_progress_pct: Number(item.planned_progress),
+    sequence: item.sort_order,
+    active: !["cancelada", "cancelado"].includes(item.status),
+  };
+}
+
+export function listConstructionProjects(
+  projects: readonly Project[],
+  packages: readonly ConstructionWorkPackage[],
+): Project[] {
+  return projects.filter(
+    (project) =>
+      project.active || packages.some((item) => item.project_id === project.id),
+  );
+}
+
+export function buildConstructionProjectProgress(
+  project: Project,
+  packages: readonly ConstructionWorkPackage[],
+): ConstructionProjectProgress {
+  const allPackages = packages
+    .filter((item) => item.project_id === project.id)
+    .sort((left, right) => left.sort_order - right.sort_order);
+  const leafPackages = allPackages.filter(
+    (item) =>
+      !item.is_summary &&
+      !["cancelada", "cancelado"].includes(item.status),
+  );
+  const progressPackages = leafPackages.map(toWorkProgressPackage);
+  const summary = calculateWorkProgress(progressPackages);
+
+  return {
+    project,
+    all_packages: allPackages,
+    leaf_packages: leafPackages,
+    progress_packages: progressPackages,
+    summary,
+    has_baseline: summary.planned_pct > 0,
+    critical_packages: summary.packages.filter(
+      (item) => !item.accelerated && ["risco", "critico"].includes(item.zone),
+    ).length,
+    completed_packages: leafPackages.filter(
+      (item) => Number(item.actual_progress) >= 100,
+    ).length,
+  };
 }

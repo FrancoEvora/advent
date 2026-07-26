@@ -6,23 +6,13 @@ import type { ConstructionWorkPackage, ErpData } from "../types";
 import { Empty, Kpi, PanelTitle } from "../views-dashboard";
 import { EapManagement } from "./eap-management";
 import { WorkProgressGauge } from "./work-progress-gauge";
-import { calculateWorkProgress, type WorkProgressPackage } from "./work-progress";
+import {
+  buildConstructionProjectProgress,
+  listConstructionProjects,
+  toWorkProgressPackage,
+} from "./work-progress";
 
 type Mutate = (operation: () => Promise<void>, success: string) => Promise<void>;
-
-function toProgressPackage(item: ConstructionWorkPackage): WorkProgressPackage {
-  return {
-    id: item.id,
-    project_id: item.project_id,
-    code: item.wbs_code || item.package_code || item.code,
-    name: item.name,
-    weight_pct: Number(item.weight_pct),
-    actual_progress_pct: Number(item.actual_progress),
-    planned_progress_pct: Number(item.planned_progress),
-    sequence: item.sort_order,
-    active: !["cancelada", "cancelado"].includes(item.status),
-  };
-}
 
 const percent = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 1,
@@ -38,10 +28,9 @@ export function WorkManagementView({
   mutate: Mutate;
   can: (permission: string) => boolean;
 }) {
-  const projects = data.projects.filter(
-    (project) =>
-      project.active ||
-      data.constructionWorkPackages.some((item) => item.project_id === project.id),
+  const projects = listConstructionProjects(
+    data.projects,
+    data.constructionWorkPackages,
   );
   const [projectId, setProjectId] = useState(projects[0]?.id || "");
   const effectiveProjectId = projects.some((item) => item.id === projectId)
@@ -52,21 +41,21 @@ export function WorkManagementView({
     () =>
       data.constructionWorkPackages
         .filter((item) => !item.is_summary)
-        .map(toProgressPackage),
+        .map(toWorkProgressPackage),
     [data.constructionWorkPackages],
   );
-  const allProjectPackages = data.constructionWorkPackages
-    .filter((item) => item.project_id === effectiveProjectId)
-    .sort((a, b) => a.sort_order - b.sort_order);
-  const projectPackages = allProjectPackages.filter((item) => !item.is_summary);
-  const summary = calculateWorkProgress(projectPackages.map(toProgressPackage));
-  const hasProjectBaseline = summary.planned_pct > 0;
-  const critical = summary.packages.filter(
-    (item) => !item.accelerated && ["risco", "critico"].includes(item.zone),
-  ).length;
-  const completed = projectPackages.filter(
-    (item) => Number(item.actual_progress) >= 100,
-  ).length;
+  const progress = currentProject
+    ? buildConstructionProjectProgress(
+        currentProject,
+        data.constructionWorkPackages,
+      )
+    : null;
+  const allProjectPackages = progress?.all_packages ?? [];
+  const projectPackages = progress?.leaf_packages ?? [];
+  const summary = progress?.summary;
+  const hasProjectBaseline = progress?.has_baseline ?? false;
+  const critical = progress?.critical_packages ?? 0;
+  const completed = progress?.completed_packages ?? 0;
   const [editing, setEditing] = useState<ConstructionWorkPackage | null>(null);
 
   return (
@@ -103,7 +92,7 @@ export function WorkManagementView({
         </section>
       ) : (
         <>
-          {!!projectPackages.length && (
+          {!!projectPackages.length && summary && (
             <>
               <section className="kpi-grid four">
                 <Kpi

@@ -1,0 +1,293 @@
+.post-sale-works {
+  min-width: 0;
+}
+
+.post-sale-works > .work-progress {
+  margin: 0;
+}
+
+.post-sale-work-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.post-sale-work-card {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid #dfe8ec;
+  border-top: 4px solid #82949b;
+  border-radius: 24px;
+  background: #fff;
+}
+
+.post-sale-work-card[data-zone="saudavel"] {
+  border-top-color: #16835d;
+}
+
+.post-sale-work-card[data-zone="atencao"] {
+  border-top-color: #c89722;
+}
+
+.post-sale-work-card[data-zone="risco"] {
+  border-top-color: #d97706;
+}
+
+.post-sale-work-card[data-zone="critico"] {
+  border-top-color: #c33c35;
+}
+
+.post-sale-work-card > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  padding: 22px 24px 18px;
+}
+
+.post-sale-work-card > header h3,
+.post-sale-milestones-layer h3 {
+  margin: 4px 0;
+}
+
+.post-sale-work-card > header span {
+  color: #6c7b84;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.post-sale-work-card > header > strong {
+  color: #17364a;
+  font-size: clamp(26px, 3vw, 40px);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.post-sale-work-card > header > strong small {
+  display: block;
+  margin-top: 2px;
+  color: #718089;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.post-sale-work-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  border-block: 1px solid #e5ecef;
+  background: #e5ecef;
+}
+
+.post-sale-work-kpis > div {
+  min-width: 0;
+  padding: 14px 18px;
+  background: #f8fafb;
+}
+
+.post-sale-work-kpis dt {
+  color: #718089;
+  font-size: 11px;
+}
+
+.post-sale-work-kpis dd {
+  margin: 4px 0 0;
+  color: #17364a;
+  font-size: 17px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.post-sale-work-stages {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+}
+
+.post-sale-work-stage {
+  min-width: 0;
+  border: 1px solid #e3eaed;
+  border-left: 4px solid #82949b;
+  border-radius: 15px;
+  padding: 14px 16px;
+  background: #fbfcfc;
+}
+
+.post-sale-work-stage[data-zone="saudavel"] {
+  border-left-color: #16835d;
+}
+
+.post-sale-work-stage[data-zone="atencao"] {
+  border-left-color: #c89722;
+}
+
+.post-sale-work-stage[data-zone="risco"] {
+  border-left-color: #d97706;
+}
+
+.post-sale-work-stage[data-zone="critico"] {
+  border-left-color: #c33c35;
+}
+
+.post-sale-work-stage > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.post-sale-work-stage > header span,
+.post-sale-work-stage > header small,
+.post-sale-work-stage > header strong {
+  display: block;
+  min-width: 0;
+}
+
+.post-sale-work-stage > header small {
+  margin-bottom: 3px;
+  color: #687983;
+  font-size: 11px;
+}
+
+.post-sale-work-stage > header > b {
+  color: #17364a;
+  white-space: nowrap;
+}
+
+.post-sale-stage-bar {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr) 54px;
+  gap: 10px;
+  align-items: center;
+  margin-top: 8px;
+  color: #718089;
+  font-size: 11px;
+}
+
+.post-sale-stage-bar > i {
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e4ecef;
+}
+
+.post-sale-stage-bar > i > b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #79b82b;
+}
+
+.post-sale-stage-bar.planned > i > b {
+  background: #1d5271;
+}
+
+.post-sale-stage-bar > strong {
+  color: #425c6a;
+  text-align: right;
+}
+
+.post-sale-work-stage > footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 12px;
+  color: #718089;
+  font-size: 11px;
+}
+
+.post-sale-work-empty {
+  color: #647680;
+}
+
+.post-sale-work-empty strong {
+  color: #17364a;
+}
+
+.post-sale-work-empty p {
+  margin: 6px 0 0;
+}
+
+.post-sale-work-empty.compact {
+  padding: 18px;
+  border: 1px dashed #cad7dc;
+  border-radius: 14px;
+  background: #f8fafb;
+}
+
+.post-sale-work-card > .post-sale-work-empty.compact {
+  margin: 18px;
+}
+
+.post-sale-milestones-layer > header {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.post-sale-milestones-layer > header p {
+  max-width: 720px;
+  margin: 5px 0 0;
+  color: #6c7b84;
+}
+
+.post-sale-milestones-layer > header button {
+  flex: 0 0 auto;
+}
+
+.post-sale-milestones-layer .milestone-row > i {
+  color: #526b78;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .post-sale-work-card > header,
+  .post-sale-milestones-layer > header {
+    flex-direction: column;
+  }
+
+  .post-sale-work-card > header > strong {
+    text-align: left;
+  }
+
+  .post-sale-work-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .post-sale-milestones-layer > header button {
+    width: 100%;
+  }
+
+  .post-sale-milestones-layer .milestone-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .post-sale-milestones-layer .milestone-row > i {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .post-sale-work-card > header,
+  .post-sale-work-stages {
+    padding-inline: 14px;
+  }
+
+  .post-sale-work-kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .post-sale-work-stage {
+    padding: 12px;
+  }
+
+  .post-sale-stage-bar {
+    grid-template-columns: 62px minmax(0, 1fr) 50px;
+    gap: 7px;
+  }
+}

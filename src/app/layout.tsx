@@ -17,6 +17,8 @@ import "./styles/v6-5-1-session.css";
 import "./styles/v6-6-operations.css";
 import "./styles/v6-6-eap.css";
 import "./styles/v6-6-responsive-fixes.css";
+import "./styles/v6-7-post-sale-work-sync.css";
+import "./styles/v6-7-permissions.css";
 import {ServiceWorkerRegister} from "@/components/ServiceWorkerRegister";
 import {GlobalModuleNav} from "@/components/GlobalModuleNav";
 import {GlobalLogoutButton} from "@/components/GlobalLogoutButton";

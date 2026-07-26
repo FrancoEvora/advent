@@ -23,6 +23,7 @@ export async function loadOperationalData(organizationId: string) {
     contractMeasurementPeriods,
     contractMeasurements,
     contractMeasurementItems,
+    equipmentMeterReadings,
   ] = await Promise.all([
     client.from("document_attachments").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
     client.from("purchase_requests").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
@@ -43,6 +44,7 @@ export async function loadOperationalData(organizationId: string) {
     client.from("contract_measurement_periods").select("*").eq("organization_id", organizationId).order("period_start", { ascending: false }),
     client.from("contract_measurements").select("*").eq("organization_id", organizationId).order("submitted_at", { ascending: false }),
     client.from("contract_measurement_items").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
+    client.from("equipment_meter_readings").select("*").eq("organization_id", organizationId).order("reading_at", { ascending: false }),
   ]);
   const failed = [
     documents,
@@ -64,6 +66,7 @@ export async function loadOperationalData(organizationId: string) {
     contractMeasurementPeriods,
     contractMeasurements,
     contractMeasurementItems,
+    equipmentMeterReadings,
   ].find(result => result.error);
   if (failed?.error) throw failed.error;
   return {
@@ -79,5 +82,6 @@ export async function loadOperationalData(organizationId: string) {
     contractMeasurementPeriods: contractMeasurementPeriods.data ?? [],
     contractMeasurements: contractMeasurements.data ?? [],
     contractMeasurementItems: contractMeasurementItems.data ?? [],
+    equipmentMeterReadings: equipmentMeterReadings.data ?? [],
   };
 }

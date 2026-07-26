@@ -6,7 +6,7 @@ export type EntryStatus = "rascunho" | "pendente" | "pago" | "recebido" | "cance
 export type ApprovalStatus = "rascunho" | "pendente" | "aprovado" | "rejeitado";
 export type CashRiskLevel = "baixo" | "medio" | "alto" | "critico";
 export type TreatmentStatus = "nao_aplicavel" | "recomendado" | "em_negociacao" | "acordo_firmado" | "concluido";
-export type ViewId = "dashboard" | "crm" | "posvenda" | "financeiro" | "caixa" | "obras" | "compras" | "contratos_operacionais" | "rh" | "documentos" | "aprovacoes" | "centros" | "cadastros" | "projetos" | "usuarios" | "relatorios" | "auditoria" | "configuracoes";
+export type ViewId = "dashboard" | "crm" | "posvenda" | "financeiro" | "caixa" | "obras" | "compras" | "combustiveis" | "contratos_operacionais" | "rh" | "documentos" | "aprovacoes" | "centros" | "cadastros" | "projetos" | "usuarios" | "relatorios" | "auditoria" | "configuracoes";
 
 export interface Organization { id: string; name: string; trade_name: string | null; document: string | null; currency: string; }
 export interface Membership { id: string; organization_id: string; user_id: string; role: Role; active: boolean; permissions: Record<string, boolean>; }
@@ -307,5 +307,23 @@ export interface ContractMeasurementItem {
   notes: string | null;
   created_at: string;
 }
+export interface EquipmentMeterReading {
+  id: string;
+  organization_id: string;
+  operational_contract_id: string | null;
+  contract_item_id: string | null;
+  project_id: string | null;
+  equipment_identifier: string;
+  reading_type: string;
+  reading_value: number;
+  reading_at: string;
+  productive_hours: number | null;
+  idle_hours: number | null;
+  maintenance_hours: number | null;
+  operator_name: string | null;
+  notes: string | null;
+  created_by: string | null;
+  created_at: string;
+}
 export interface Settings { organization_id: string; approval_threshold: number; require_approval: boolean; default_due_alert_days: number; require_cash_risk_approval?: boolean; minimum_cash_buffer?: number; forecast_horizon_days?: number; overdue_treatment_days?: number; procurement_approval_required?: boolean; salary_payment_day?: number; default_employer_charge_rate?: number; termination_reserve_rate?: number; document_max_size_mb?: number; otp_simulation_enabled?: boolean; otp_simulation_expires_at?: string | null; otp_simulation_updated_at?: string | null; otp_simulation_updated_by?: string | null; }
-export interface ErpData { session: Session; organization: Organization; membership: Membership; profile: Profile | null; entries: FinancialEntry[]; costCenters: CostCenter[]; revenueCenters?: RevenueCenter[]; categories: Category[]; bankAccounts: BankAccount[]; contacts: Contact[]; projects: Project[]; members: Membership[]; profiles: Profile[]; invitations: Invitation[]; approvals: ApprovalRequest[]; auditLogs: AuditLog[]; settings: Settings; documents: DocumentAttachment[]; purchaseRequests: PurchaseRequest[]; purchaseItems: PurchaseRequestItem[]; hrEmployees: HrEmployee[]; hrEvents: HrEvent[]; hrPayrollRuns: HrPayrollRun[]; hrPayrollItems: HrPayrollItem[]; crmRecords: CrmRecord[]; crmActions: CrmAction[]; constructionWorkPackages: ConstructionWorkPackage[]; fuelRequests: FuelRequest[]; fuelDispenses: FuelDispense[]; fuelRequestDocuments: FuelRequestDocument[]; operationalContracts: OperationalContract[]; operationalContractItems: OperationalContractItem[]; contractMeasurementPeriods: ContractMeasurementPeriod[]; contractMeasurements: ContractMeasurement[]; contractMeasurementItems: ContractMeasurementItem[]; }
+export interface ErpData { session: Session; organization: Organization; membership: Membership; profile: Profile | null; entries: FinancialEntry[]; costCenters: CostCenter[]; revenueCenters?: RevenueCenter[]; categories: Category[]; bankAccounts: BankAccount[]; contacts: Contact[]; projects: Project[]; members: Membership[]; profiles: Profile[]; invitations: Invitation[]; approvals: ApprovalRequest[]; auditLogs: AuditLog[]; settings: Settings; documents: DocumentAttachment[]; purchaseRequests: PurchaseRequest[]; purchaseItems: PurchaseRequestItem[]; hrEmployees: HrEmployee[]; hrEvents: HrEvent[]; hrPayrollRuns: HrPayrollRun[]; hrPayrollItems: HrPayrollItem[]; crmRecords: CrmRecord[]; crmActions: CrmAction[]; constructionWorkPackages: ConstructionWorkPackage[]; fuelRequests: FuelRequest[]; fuelDispenses: FuelDispense[]; fuelRequestDocuments: FuelRequestDocument[]; operationalContracts: OperationalContract[]; operationalContractItems: OperationalContractItem[]; contractMeasurementPeriods: ContractMeasurementPeriod[]; contractMeasurements: ContractMeasurement[]; contractMeasurementItems: ContractMeasurementItem[]; equipmentMeterReadings: EquipmentMeterReading[]; }

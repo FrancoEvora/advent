@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { ConstructionWorkPackage, ErpData } from "../types";
 import { Empty, Kpi, PanelTitle } from "../views-dashboard";
@@ -8,6 +8,9 @@ import { WorkProgressGauge } from "./work-progress-gauge";
 import { calculateWorkProgress, type WorkProgressPackage } from "./work-progress";
 
 type Mutate = (operation: () => Promise<void>, success: string) => Promise<void>;
+
+type EapTemplate = { template_code:string; name:string; description:string; category:string; icon:string; estimated_duration_days:number; active:boolean; sort_order:number };
+type EapTemplateItem = { template_code:string; item_key:string; wbs_code:string; name:string; sequence:number; is_summary:boolean };
 
 function toProgressPackage(item: ConstructionWorkPackage): WorkProgressPackage {
   return {
@@ -62,6 +65,36 @@ export function WorkManagementView({
     (item) => Number(item.actual_progress) >= 100,
   ).length;
   const [editing, setEditing] = useState<ConstructionWorkPackage | null>(null);
+  const [showTemplates,setShowTemplates]=useState(false);
+  const [templates,setTemplates]=useState<EapTemplate[]>([]);
+  const [templateItems,setTemplateItems]=useState<EapTemplateItem[]>([]);
+  const [selectedTemplate,setSelectedTemplate]=useState<string | null>(null);
+
+  useEffect(()=>{
+    const client=getSupabase(); if(!client)return;
+    Promise.all([
+      client.from("construction_eap_templates").select("*").eq("active",true).order("sort_order"),
+      client.from("construction_eap_template_items").select("template_code,item_key,wbs_code,name,sequence,is_summary").order("template_code").order("sequence"),
+    ]).then(([templateResult,itemResult])=>{
+      if(!templateResult.error)setTemplates((templateResult.data||[]) as EapTemplate[]);
+      if(!itemResult.error)setTemplateItems((itemResult.data||[]) as EapTemplateItem[]);
+    });
+  },[]);
+
+  async function applyTemplate(template:EapTemplate){
+    if(!effectiveProjectId)return;
+    const project=data.projects.find(item=>item.id===effectiveProjectId);
+    const start=window.prompt("Data inicial da linha de base (AAAA-MM-DD)",project?.start_date||new Date().toISOString().slice(0,10));
+    if(!start)return;
+    const budget=Number(window.prompt("Orçamento total da obra em R$",String(project?.total_budget||0))||0);
+    if(!window.confirm(`Aplicar o modelo ${template.name}? Pacotes já existentes não serão duplicados.`))return;
+    await mutate(async()=>{
+      const client=getSupabase(); if(!client)throw new Error("Supabase indisponível.");
+      const {error}=await client.rpc("apply_construction_eap_template",{p_organization_id:data.organization.id,p_project_id:effectiveProjectId,p_template_code:template.template_code,p_start_date:start,p_total_budget:Number.isFinite(budget)?budget:0});
+      if(error)throw error;
+    },`Modelo ${template.name} aplicado à obra.`);
+    setShowTemplates(false);
+  }
 
   return (
     <div className="stack work-management">
@@ -86,7 +119,10 @@ export function WorkManagementView({
             ))}
           </select>
         </label>
+        <button type="button" onClick={()=>setShowTemplates(value=>!value)}>▦ Modelos de EAP</button>
       </section>
+
+      {showTemplates&&<section className="work-template-library"><header><div><small>BIBLIOTECA DE EAP</small><h3>Modelos editáveis para loteamentos</h3><p>Use uma estrutura de referência e ajuste datas, pesos, responsáveis e orçamento depois da aplicação.</p></div><span>{templates.length} modelos</span></header><div>{templates.map(template=>{const items=templateItems.filter(item=>item.template_code===template.template_code),executive=items.filter(item=>!item.is_summary).length;return <article key={template.template_code} className={selectedTemplate===template.template_code?"selected":""} onClick={()=>setSelectedTemplate(template.template_code)}><i>{template.icon||"▦"}</i><small>{template.category}</small><h4>{template.name}</h4><p>{template.description}</p><footer><span>{executive} pacotes executivos</span><span>{template.estimated_duration_days} dias</span></footer>{selectedTemplate===template.template_code&&<div className="work-template-preview">{items.slice(0,6).map(item=><span key={item.item_key}><b>{item.wbs_code}</b>{item.name}</span>)}<button className="primary" onClick={event=>{event.stopPropagation();applyTemplate(template)}}>Usar como base</button></div>}</article>})}</div></section>}
 
       {!projectsWithWork.length ? (
         <section className="panel">
@@ -153,8 +189,8 @@ export function WorkManagementView({
                       <strong>{item.name}</strong>
                     </div>
                     <span>{percent.format(Number(item.weight_pct))}%</span>
-                    <span>{percent.format(planned)}%</span>
-                    <span className="work-stage-measured">{percent.format(actual)}%</span>
+                    <span className="work-table-progress"><i><b style={{width:`${Math.min(100,Math.max(0,planned))}%`}} /></i><em>{percent.format(planned)}%</em></span>
+                    <span className="work-table-progress work-table-progress-actual"><i><b style={{width:`${Math.min(100,Math.max(0,actual))}%`}} /></i><em>{percent.format(actual)}%</em></span>
                     <span className={actual - planned < 0 ? "negative" : "positive"}>
                       {actual - planned > 0 ? "+" : ""}
                       {percent.format(actual - planned)} pp

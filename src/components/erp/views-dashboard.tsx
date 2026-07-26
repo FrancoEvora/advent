@@ -6,6 +6,7 @@ import { aggregateCounterparties, overdueRecommendation, realizedBalance } from 
 import { buildComprehensiveForecast, operationalCommitments } from "./operational-cash";
 import { dateAtNoon, daysUntil, isSettled, money, shortDate, sumEntries } from "./utils";
 import { ForecastLineChart } from "./forecast-line-chart";
+import { WorkProgressGauge } from "./operations/work-progress-gauge";
 
 export function DashboardView({ data, go }: { data: ErpData; go: (view: ViewId) => void }) {
   const receivable = sumEntries(data.entries, "entrada", false);
@@ -25,10 +26,22 @@ export function DashboardView({ data, go }: { data: ErpData; go: (view: ViewId) 
   const delinquencyRate = receivable ? overdueIncoming.reduce((sum, entry) => sum + Number(entry.amount), 0) / receivable * 100 : 0;
   const operational90 = operationalCommitments(data).filter(item => daysUntil(item.date) <= 90).reduce((sum, item) => sum + item.amount, 0);
   const byProject = useMemo(() => data.projects.map(project => ({ project, incoming: data.entries.filter(entry => entry.project_id === project.id && entry.type === "entrada").reduce((sum, entry) => sum + Number(entry.amount), 0), outgoing: data.entries.filter(entry => entry.project_id === project.id && entry.type === "saida").reduce((sum, entry) => sum + Number(entry.amount), 0) })).filter(item => item.incoming || item.outgoing).sort((a, b) => (b.incoming + b.outgoing) - (a.incoming + a.outgoing)).slice(0, 5), [data]);
+  const workProgressPackages = useMemo(() => data.constructionWorkPackages.filter(item => !item.is_summary).map(item => ({
+    id: item.id,
+    project_id: item.project_id,
+    code: item.wbs_code || item.package_code || item.code,
+    name: item.name,
+    weight_pct: Number(item.weight_pct),
+    actual_progress_pct: Number(item.actual_progress),
+    planned_progress_pct: Number(item.planned_progress),
+    sequence: item.sort_order,
+    active: !["cancelada", "cancelado"].includes(item.status),
+  })), [data.constructionWorkPackages]);
 
   return <div className="dashboard-grid executive-dashboard">
     <section className="executive-card executive-card-v3"><div><small>POSIÇÃO CONSOLIDADA</small><h2>Caixa realizado e projeção de 90 dias</h2><strong>{money.format(realizedBalance(data))}</strong><p>Inclui financeiro, compras aprovadas, folha e eventos de RH previstos.</p><div className="executive-chips"><span>Projetado: <b>{money.format(forecast.at(-1)?.balance ?? 0)}</b></span><span>Compras e RH: <b>{money.format(operational90)}</b></span><span className={negativeDays ? "danger" : "safe"}>Dias abaixo do mínimo: <b>{negativeDays}</b></span></div></div><button onClick={() => go("caixa")}>Abrir análise de caixa →</button></section>
     <section className="kpi-grid six"><Kpi label="A receber" value={money.format(receivable)} tone="positive" detail={`${data.entries.filter(entry => entry.type === "entrada" && !isSettled(entry)).length} títulos`} /><Kpi label="A pagar" value={money.format(payable)} tone="negative" detail={`${data.entries.filter(entry => entry.type === "saida" && !isSettled(entry)).length} títulos`} /><Kpi label="Recebimentos vencidos" value={money.format(overdueIncoming.reduce((sum, entry) => sum + Number(entry.amount), 0))} tone="warning" detail={`${delinquencyRate.toFixed(1)}% da carteira aberta`} /><Kpi label="Pagamentos vencidos" value={money.format(overdueOutgoing.reduce((sum, entry) => sum + Number(entry.amount), 0))} tone="danger" detail={`${overdueOutgoing.length} compromissos`} /><Kpi label="Menor saldo projetado" value={money.format(minForecast)} tone={minForecast < 0 ? "danger" : "gold"} detail="Horizonte de 90 dias" /><Kpi label="Aprovações" value={String(pendingApprovals.length + pendingPurchases.length)} tone="gold" detail={`${cashRisks} com risco de caixa`} /></section>
+    {!!workProgressPackages.length && <div className="dashboard-work-progress span-2"><WorkProgressGauge packages={workProgressPackages} projects={data.projects} /><button className="dashboard-work-link" onClick={() => go("obras")}>Abrir gestão detalhada da obra →</button></div>}
     <section className="panel span-2"><PanelTitle eyebrow="PREVISIBILIDADE" title="Curva de caixa projetada" action="Detalhar fluxo" onAction={() => go("caixa")} /><div className="forecast-chart">{sampledForecast.map(point => <article key={point.date} className={point.balance < Number(data.settings.minimum_cash_buffer || 0) ? "negative" : "positive"}><b style={{ height: `${Math.max(8, Math.min(100, 50 + point.balance / Math.max(Math.abs(minForecast), Math.abs(forecast.at(-1)?.balance || 1), 1) * 45))}%` }} /><span>{shortDate.format(dateAtNoon(point.date)).slice(0, 5)}</span><small>{money.format(point.balance)}</small></article>)}</div></section>
     <section className="panel span-2"><PanelTitle eyebrow="AGENDA FINANCEIRA" title="Próximos vencimentos" action="Ver lançamentos" onAction={() => go("financeiro")} /><div className="table-list">{upcoming.map(entry => <EntryRow key={entry.id} entry={entry} data={data} />)}{!upcoming.length && <Empty text="Nenhum compromisso pendente." />}</div></section>
     <CounterpartyPanel title="Principais devedores" eyebrow="CONTAS A RECEBER" rows={debtors} empty="Nenhuma carteira de clientes aberta." />

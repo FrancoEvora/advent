@@ -3,7 +3,27 @@ import { getSupabase } from "@/lib/supabase";
 export async function loadOperationalData(organizationId: string) {
   const client = getSupabase();
   if (!client) throw new Error("Supabase indisponível.");
-  const [documents, purchaseRequests, purchaseItems, hrEmployees, hrEvents, hrPayrollRuns, hrPayrollItems, revenueCenters, crmRecords, crmActions] = await Promise.all([
+  const [
+    documents,
+    purchaseRequests,
+    purchaseItems,
+    hrEmployees,
+    hrEvents,
+    hrPayrollRuns,
+    hrPayrollItems,
+    revenueCenters,
+    crmRecords,
+    crmActions,
+    constructionWorkPackages,
+    fuelRequests,
+    fuelDispenses,
+    fuelRequestDocuments,
+    operationalContracts,
+    operationalContractItems,
+    contractMeasurementPeriods,
+    contractMeasurements,
+    contractMeasurementItems,
+  ] = await Promise.all([
     client.from("document_attachments").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
     client.from("purchase_requests").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
     client.from("purchase_request_items").select("*").order("description"),
@@ -14,12 +34,50 @@ export async function loadOperationalData(organizationId: string) {
     client.from("revenue_centers").select("*").eq("organization_id", organizationId).order("code"),
     client.from("crm_records").select("*").eq("organization_id", organizationId).order("updated_at", { ascending: false }),
     client.from("crm_actions").select("*").eq("organization_id", organizationId).order("scheduled_at", { ascending: true }),
+    client.from("construction_work_packages").select("*").eq("organization_id", organizationId).order("sort_order"),
+    client.from("fuel_requests").select("*").eq("organization_id", organizationId).order("submitted_at", { ascending: false }),
+    client.from("fuel_dispenses").select("*").eq("organization_id", organizationId).order("dispensed_at", { ascending: false }),
+    client.from("fuel_request_documents").select("*").eq("organization_id", organizationId).order("submitted_at", { ascending: false }),
+    client.from("operational_contracts").select("*").eq("organization_id", organizationId).order("updated_at", { ascending: false }),
+    client.from("operational_contract_items").select("*").eq("organization_id", organizationId).order("line_number"),
+    client.from("contract_measurement_periods").select("*").eq("organization_id", organizationId).order("period_start", { ascending: false }),
+    client.from("contract_measurements").select("*").eq("organization_id", organizationId).order("submitted_at", { ascending: false }),
+    client.from("contract_measurement_items").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }),
   ]);
-  const failed = [documents, purchaseRequests, purchaseItems, hrEmployees, hrEvents, hrPayrollRuns, hrPayrollItems, revenueCenters, crmRecords, crmActions].find(result => result.error);
+  const failed = [
+    documents,
+    purchaseRequests,
+    purchaseItems,
+    hrEmployees,
+    hrEvents,
+    hrPayrollRuns,
+    hrPayrollItems,
+    revenueCenters,
+    crmRecords,
+    crmActions,
+    constructionWorkPackages,
+    fuelRequests,
+    fuelDispenses,
+    fuelRequestDocuments,
+    operationalContracts,
+    operationalContractItems,
+    contractMeasurementPeriods,
+    contractMeasurements,
+    contractMeasurementItems,
+  ].find(result => result.error);
   if (failed?.error) throw failed.error;
   return {
     documents: documents.data ?? [], purchaseRequests: purchaseRequests.data ?? [], purchaseItems: purchaseItems.data ?? [],
     hrEmployees: hrEmployees.data ?? [], hrEvents: hrEvents.data ?? [], hrPayrollRuns: hrPayrollRuns.data ?? [], hrPayrollItems: hrPayrollItems.data ?? [],
     revenueCenters: revenueCenters.data ?? [], crmRecords: crmRecords.data ?? [], crmActions: crmActions.data ?? [],
+    constructionWorkPackages: constructionWorkPackages.data ?? [],
+    fuelRequests: fuelRequests.data ?? [],
+    fuelDispenses: fuelDispenses.data ?? [],
+    fuelRequestDocuments: fuelRequestDocuments.data ?? [],
+    operationalContracts: operationalContracts.data ?? [],
+    operationalContractItems: operationalContractItems.data ?? [],
+    contractMeasurementPeriods: contractMeasurementPeriods.data ?? [],
+    contractMeasurements: contractMeasurements.data ?? [],
+    contractMeasurementItems: contractMeasurementItems.data ?? [],
   };
 }

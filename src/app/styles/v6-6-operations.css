@@ -464,13 +464,14 @@
 
 .fuel-kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr));
   gap: 13px;
 }
 
 .fuel-kpi {
   display: grid;
   gap: 7px;
+  min-width: 0;
   padding: 20px;
   border: 1px solid #dce5e7;
   border-top: 4px solid #1d5271;
@@ -496,8 +497,14 @@
 }
 
 .fuel-kpi strong {
+  min-width: 0;
+  max-width: 100%;
   color: #143f52;
-  font-size: 27px;
+  font-size: clamp(20px, 2.1vw, 27px);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  font-variant-numeric: tabular-nums;
 }
 
 .fuel-kpi span {
@@ -634,8 +641,94 @@
   justify-content: flex-end;
 }
 
+.fuel-receipt-list {
+  display: grid;
+  gap: 8px;
+  padding: 13px;
+  border: 1px solid #dfe8e8;
+  border-radius: 12px;
+  background: #f8faf9;
+}
+
+.fuel-receipt-list > header,
+.fuel-receipt-list > article,
+.fuel-receipt-list > article > div:last-child {
+  display: flex;
+  align-items: center;
+}
+
+.fuel-receipt-list > header {
+  justify-content: space-between;
+  gap: 12px;
+  color: #244f5e;
+}
+
+.fuel-receipt-list > header small,
+.fuel-receipt-list > article small {
+  color: #526a74;
+  font-size: 9px;
+}
+
+.fuel-receipt-list > article {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 50px;
+  padding: 9px 10px;
+  border: 1px solid #e1e8e9;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.fuel-receipt-list > article > div:nth-child(2) {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.fuel-receipt-list > article > div:nth-child(2) strong {
+  overflow: hidden;
+  color: #244f5e;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fuel-receipt-list > article > div:last-child {
+  gap: 7px;
+}
+
+.fuel-receipt-list button {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 9px;
+  border: 1px solid #d7e1e2;
+  border-radius: 8px;
+  background: #fff;
+  color: #1d5271;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.fuel-receipt-list em {
+  color: #8b550f;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 750;
+}
+
+.fuel-receipt-icon {
+  display: grid;
+  width: 31px;
+  height: 31px;
+  place-items: center;
+  border-radius: 9px;
+  background: #e8f1e1;
+  color: #5d8e25;
+}
+
 .fuel-button {
-  min-height: 38px;
+  min-height: 44px;
   padding: 0 13px;
   border: 1px solid #dce5e7;
   border-radius: 9px;
@@ -702,10 +795,11 @@
   margin: 17px 0;
 }
 
-.fuel-decision-summary > span,
-.fuel-dispense-summary > span {
+.fuel-decision-summary > article,
+.fuel-dispense-summary > article {
   display: grid;
   gap: 4px;
+  min-width: 0;
   padding: 12px;
   border-radius: 10px;
   background: #f1f5f5;
@@ -713,6 +807,28 @@
 
 .fuel-modal-actions {
   margin-top: 20px;
+}
+
+.fuel-modal-close {
+  width: 44px;
+  height: 44px;
+}
+
+.fuel-receipt-upload {
+  padding: 13px;
+  border: 1px dashed #b8caca;
+  border-radius: 11px;
+  background: #f7faf9;
+}
+
+.fuel-receipt-upload input[type="file"] {
+  background: #fff;
+}
+
+.fuel-receipt-upload small {
+  color: #526a74;
+  font-size: 9px;
+  font-weight: 650;
 }
 
 .contract-ops-layout {
@@ -1056,6 +1172,21 @@
   .fuel-decision-summary,
   .fuel-dispense-summary {
     grid-template-columns: 1fr;
+  }
+
+  .fuel-receipt-list > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .fuel-receipt-list > article {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .fuel-receipt-list > article > div:last-child,
+  .fuel-receipt-list > article > em {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
   }
 
   .contract-ops-measurement-list > article {

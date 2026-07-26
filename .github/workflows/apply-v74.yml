@@ -1,0 +1,50 @@
+name: Apply Évora Gestão 7.4
+
+on:
+  push:
+    branches:
+      - agent/evora-v7-4-obras-combustiveis
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          ref: agent/evora-v7-4-obras-combustiveis
+          fetch-depth: 0
+
+      - name: Skip when transformation is already applied
+        id: state
+        shell: bash
+        run: |
+          if [ -f src/app/styles/v7-4-works.css ]; then
+            echo "applied=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "applied=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Apply transformation
+        if: steps.state.outputs.applied == 'false'
+        run: node scripts/apply-v74.mjs
+
+      - name: Validate generated source
+        if: steps.state.outputs.applied == 'false'
+        shell: bash
+        run: |
+          node --check scripts/apply-v74.mjs
+          git diff --check
+
+      - name: Commit generated changes
+        if: steps.state.outputs.applied == 'false'
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public src scripts/apply-v74.mjs
+          git commit -m "feat: aprimora obras, combustíveis e horímetros"
+          git push origin HEAD:agent/evora-v7-4-obras-combustiveis

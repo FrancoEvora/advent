@@ -53,7 +53,10 @@ function pointForScore(score: number, radius: number) {
 function gaugeArc(startScore: number, endScore: number) {
   const start = pointForScore(startScore, 78);
   const end = pointForScore(endScore, 78);
-  const largeArc = endScore - startScore > 50 ? 1 : 0;
+  // The complete gauge spans 180 degrees, so every 0–100 interval is a
+  // semicircle (or less) and must use SVG's minor arc. Using 50 as the
+  // threshold incorrectly turned the 0–60 critical band into a 252° arc.
+  const largeArc = Math.abs(endScore - startScore) > 100 ? 1 : 0;
   return `M ${start.x} ${start.y} A 78 78 0 ${largeArc} 1 ${end.x} ${end.y}`;
 }
 
@@ -88,10 +91,15 @@ export function WorkProgressGauge({
     packages,
     effectiveProjectId,
   );
-  const needle = pointForScore(summary.score, 58);
-  const statusLabel = summary.accelerated
-    ? "Ritmo acelerado"
-    : zoneLabels[summary.zone];
+  const hasBaseline = summary.packages.length > 0 && summary.planned_pct > 0;
+  const needle = pointForScore(hasBaseline ? summary.score : 50, 58);
+  const displayZone = hasBaseline ? summary.zone : "neutral";
+  const gaugeColor = hasBaseline ? zoneColors[summary.zone] : "#82949b";
+  const statusLabel = !hasBaseline
+    ? "Sem linha de base"
+    : summary.accelerated
+      ? "Ritmo acelerado"
+      : zoneLabels[summary.zone];
   const sortedPackages = [...summary.packages].sort((left, right) => {
     const sequenceDifference =
       (left.package.sequence ?? Number.MAX_SAFE_INTEGER) -
@@ -102,7 +110,9 @@ export function WorkProgressGauge({
     );
   });
   const ariaDescription = project
-    ? `${project.name}: ${formatPercentage(summary.actual_pct)} realizado, ${formatPercentage(summary.planned_pct)} previsto, desvio de ${formatVariance(summary.variance_pp)} e índice de ritmo ${summary.score} de 100.`
+    ? hasBaseline
+      ? `${project.name}: ${formatPercentage(summary.actual_pct)} realizado, ${formatPercentage(summary.planned_pct)} previsto, desvio de ${formatVariance(summary.variance_pp)} e índice de ritmo ${summary.score} de 100.`
+      : `${project.name}: ${formatPercentage(summary.actual_pct)} realizado. O índice de ritmo aguarda uma linha de base prevista.`
     : "Nenhuma obra disponível para análise.";
 
   if (!availableProjects.length) {
@@ -116,7 +126,7 @@ export function WorkProgressGauge({
 
   return (
     <section
-      className={`work-progress work-zone-${summary.zone}`}
+      className={`work-progress work-zone-${displayZone}`}
       aria-label={ariaDescription}
     >
       <header className="work-header">
@@ -144,8 +154,13 @@ export function WorkProgressGauge({
         <figure className="work-gauge">
           <svg
             viewBox="0 0 200 126"
+            preserveAspectRatio="xMidYMid meet"
             role="img"
-            aria-label={`Índice de ritmo ${summary.score} de 100: ${statusLabel}`}
+            aria-label={
+              hasBaseline
+                ? `Índice de ritmo ${summary.score} de 100: ${statusLabel}`
+                : "Índice de ritmo indisponível: linha de base ainda não informada"
+            }
           >
             <path
               className="work-gauge-zone work-gauge-critical"
@@ -181,7 +196,7 @@ export function WorkProgressGauge({
               y1="100"
               x2={needle.x}
               y2={needle.y}
-              stroke={zoneColors[summary.zone]}
+              stroke={gaugeColor}
               strokeWidth="4"
               strokeLinecap="round"
             />
@@ -190,7 +205,7 @@ export function WorkProgressGauge({
               cx="100"
               cy="100"
               r="7"
-              fill={zoneColors[summary.zone]}
+              fill={gaugeColor}
             />
             <text
               className="work-gauge-score"
@@ -198,10 +213,10 @@ export function WorkProgressGauge({
               y="122"
               textAnchor="middle"
             >
-              {summary.score}/100
+              {hasBaseline ? `${summary.score}/100` : "—/100"}
             </text>
           </svg>
-          <figcaption className="work-gauge-caption">
+          <figcaption className="work-gauge-caption" aria-live="polite">
             <strong>{statusLabel}</strong>
             <span>Índice de ritmo da obra</span>
           </figcaption>
@@ -222,7 +237,7 @@ export function WorkProgressGauge({
           </div>
           <div className="work-summary-item work-summary-spi">
             <dt>SPI</dt>
-            <dd>{ratio.format(summary.spi)}</dd>
+            <dd>{hasBaseline ? ratio.format(summary.spi) : "—"}</dd>
           </div>
         </dl>
       </div>
@@ -237,12 +252,16 @@ export function WorkProgressGauge({
         </div>
 
         {sortedPackages.map((item) => {
-          const itemStatus = item.accelerated
-            ? "Acelerada"
-            : zoneLabels[item.zone];
+          const itemHasBaseline = item.planned_pct > 0;
+          const itemZone = itemHasBaseline ? item.zone : "neutral";
+          const itemStatus = !itemHasBaseline
+            ? "Sem linha de base"
+            : item.accelerated
+              ? "Acelerada"
+              : zoneLabels[item.zone];
           return (
             <article
-              className={`work-stage work-zone-${item.zone}`}
+              className={`work-stage work-zone-${itemZone}`}
               key={item.package.id}
             >
               <header className="work-stage-header">

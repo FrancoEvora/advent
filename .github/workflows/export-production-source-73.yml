@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - agent/export-production-source-73
+  pull_request:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -86,9 +89,7 @@ jobs:
             if (contentType.includes('application/json')) {
               const payload = await response.json();
               const value = payload.data ?? payload.content ?? payload.file ?? payload;
-              if (typeof value === 'string') {
-                return Buffer.from(value, payload.encoding === 'utf8' ? 'utf8' : 'base64');
-              }
+              if (typeof value === 'string') return Buffer.from(value, payload.encoding === 'utf8' ? 'utf8' : 'base64');
               if (value && typeof value === 'object' && typeof value.data === 'string') {
                 return Buffer.from(value.data, value.encoding === 'utf8' ? 'utf8' : 'base64');
               }

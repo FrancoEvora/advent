@@ -37,12 +37,19 @@ jobs:
             return { url, response };
           }
 
-          function discover(text, contentType) {
+          function discover(text, contentType, currentUrl) {
             const references = [];
             if (contentType.includes('text/html')) {
               for (const match of text.matchAll(/(?:src|href)=["']([^"']+)["']/g)) references.push(match[1]);
             }
             for (const match of text.matchAll(/["'](\/_next\/[^"']+\.(?:js|css|json|map)(?:\?[^"']*)?)["']/g)) references.push(match[1]);
+            for (const match of text.matchAll(/["']((?:\.\.\/|\.\/)?static\/chunks\/[^"']+\.(?:js|css|json|map)(?:\?[^"']*)?)["']/g)) {
+              const value = match[1].replace(/^(?:\.\.\/|\.\/)+/, '');
+              references.push(`/_next/${value}`);
+            }
+            for (const match of text.matchAll(/["']([A-Za-z0-9_~.-]+\.(?:js|css|map))(?:\?[^"']*)?["']/g)) {
+              if (currentUrl.pathname.includes('/_next/static/chunks/')) references.push(`/_next/static/chunks/${match[1]}`);
+            }
             return references.filter((reference) => reference && !reference.includes('${') && !reference.startsWith('data:'));
           }
 
@@ -69,7 +76,7 @@ jobs:
 
             if (contentType.includes('text/html') || contentType.includes('javascript') || contentType.includes('text/css')) {
               const text = bytes.toString('utf8');
-              for (const reference of discover(text, contentType)) {
+              for (const reference of discover(text, contentType, url)) {
                 try {
                   const candidate = new URL(reference, url);
                   if (candidate.origin === origin && downloadable.test(candidate.pathname + candidate.search)) queue.push(candidate.href);

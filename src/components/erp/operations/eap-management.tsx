@@ -1,6 +1,12 @@
 "use client";
 
-import { FormEvent, useMemo, useState, type CSSProperties } from "react";
+import {
+  FormEvent,
+  useEffect,
+  useMemo,
+  useState,
+  type CSSProperties,
+} from "react";
 import { getSupabase } from "@/lib/supabase";
 import type {
   ConstructionWorkPackage,
@@ -10,6 +16,26 @@ import type {
 import { PanelTitle } from "../views-dashboard";
 
 type Mutate = (operation: () => Promise<void>, success: string) => Promise<void>;
+
+interface EapDeletionDependency {
+  key: string;
+  label: string;
+  count: number;
+}
+
+interface EapDeletionPreview {
+  scope: "package" | "eap";
+  element_count: number;
+  target_token: string;
+  descendant_count: number;
+  dependency_total: number;
+  can_delete: boolean;
+  dependencies: EapDeletionDependency[];
+}
+
+type EapDeletionTarget =
+  | { scope: "eap" }
+  | { scope: "package"; item: ConstructionWorkPackage };
 
 const percent = new Intl.NumberFormat("pt-BR", {
   minimumFractionDigits: 1,
@@ -188,6 +214,60 @@ function sortHierarchically(packages: ConstructionWorkPackage[]) {
   return result;
 }
 
+function parseDeletionPreview(value: unknown): EapDeletionPreview {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("A análise de exclusão retornou uma resposta inválida.");
+  }
+
+  const result = value as Record<string, unknown>;
+  const scope = result.scope === "package" ? "package" : "eap";
+  const elementCount = Math.max(0, Number(result.element_count || 0));
+  const targetToken =
+    typeof result.target_token === "string" ? result.target_token.trim() : "";
+  const descendantCount = Math.max(0, Number(result.descendant_count || 0));
+  const dependencyTotal = Math.max(0, Number(result.dependency_total || 0));
+  const dependencies = Array.isArray(result.dependencies)
+    ? result.dependencies.flatMap((dependency) => {
+        if (
+          !dependency ||
+          typeof dependency !== "object" ||
+          Array.isArray(dependency)
+        ) {
+          return [];
+        }
+        const entry = dependency as Record<string, unknown>;
+        const count = Math.max(0, Number(entry.count || 0));
+        if (!count) return [];
+        return [
+          {
+            key: String(entry.key || "dependency"),
+            label: String(entry.label || "Registros vinculados"),
+            count,
+          },
+        ];
+      })
+    : [];
+
+  if (
+    !targetToken ||
+    !Number.isFinite(elementCount) ||
+    !Number.isFinite(descendantCount) ||
+    !Number.isFinite(dependencyTotal)
+  ) {
+    throw new Error("A análise de exclusão retornou contagens inválidas.");
+  }
+
+  return {
+    scope,
+    element_count: elementCount,
+    target_token: targetToken,
+    descendant_count: descendantCount,
+    dependency_total: dependencyTotal,
+    can_delete: result.can_delete === true && dependencyTotal === 0,
+    dependencies,
+  };
+}
+
 export function EapManagement({
   data,
   project,
@@ -208,6 +288,7 @@ export function EapManagement({
     item: ConstructionWorkPackage | null;
     parentId: string | null;
   } | null>(null);
+  const [deletion, setDeletion] = useState<EapDeletionTarget | null>(null);
   const sorted = useMemo(() => sortHierarchically(packages), [packages]);
   const byId = useMemo(
     () => new Map(sorted.map((item) => [item.id, item])),
@@ -239,6 +320,15 @@ export function EapManagement({
               <button type="button" onClick={() => setCatalogOpen(true)}>
                 {templateCode ? "Consultar modelos" : "Modelos predefinidos"}
               </button>
+              {!!sorted.length && (
+                <button
+                  className="eap-danger-button"
+                  type="button"
+                  onClick={() => setDeletion({ scope: "eap" })}
+                >
+                  Excluir EAP
+                </button>
+              )}
               <button
                 className="primary"
                 type="button"
@@ -414,6 +504,17 @@ export function EapManagement({
                         Editar
                       </button>
                     )}
+                    {canManage && (
+                      <button
+                        className="eap-danger-button"
+                        aria-label={`Excluir ${item.name}`}
+                        onClick={() =>
+                          setDeletion({ scope: "package", item })
+                        }
+                      >
+                        Excluir
+                      </button>
+                    )}
                   </div>
                 </article>
               );
@@ -444,7 +545,334 @@ export function EapManagement({
           close={() => setEditor(null)}
         />
       )}
+
+      {deletion && (
+        <EapDeletionModal
+          key={
+            deletion.scope === "eap"
+              ? `eap-${project.id}`
+              : `package-${deletion.item.id}`
+          }
+          data={data}
+          project={project}
+          packages={packages}
+          target={deletion}
+          mutate={mutate}
+          close={() => setDeletion(null)}
+        />
+      )}
     </>
+  );
+}
+
+function EapDeletionModal({
+  data,
+  project,
+  packages,
+  target,
+  mutate,
+  close,
+}: {
+  data: ErpData;
+  project: Project;
+  packages: ConstructionWorkPackage[];
+  target: EapDeletionTarget;
+  mutate: Mutate;
+  close: () => void;
+}) {
+  const [preview, setPreview] = useState<EapDeletionPreview | null>(null);
+  const [previewError, setPreviewError] = useState("");
+  const [reloadToken, setReloadToken] = useState(0);
+  const [confirmation, setConfirmation] = useState("");
+  const [busy, setBusy] = useState<"delete" | "archive" | null>(null);
+  const itemCode =
+    target.scope === "package"
+      ? target.item.wbs_code || target.item.package_code || target.item.code
+      : "";
+  const confirmationPhrase =
+    target.scope === "eap" ? "EXCLUIR EAP" : `EXCLUIR ${itemCode}`;
+  const title =
+    target.scope === "eap"
+      ? `Excluir a EAP de ${project.name}`
+      : `Excluir ${itemCode} · ${target.item.name}`;
+
+  useEffect(() => {
+    let ignore = false;
+
+    async function loadPreview() {
+      setPreview(null);
+      setPreviewError("");
+      const client = getSupabase();
+      if (!client) {
+        setPreviewError("Supabase indisponível.");
+        return;
+      }
+
+      const response =
+        target.scope === "eap"
+          ? await client.rpc("preview_construction_eap_deletion", {
+              p_organization_id: data.organization.id,
+              p_project_id: project.id,
+            })
+          : await client.rpc("preview_construction_work_package_deletion", {
+              p_organization_id: data.organization.id,
+              p_package_id: target.item.id,
+            });
+
+      if (ignore) return;
+      if (response.error) {
+        setPreviewError(response.error.message);
+        return;
+      }
+
+      try {
+        setPreview(parseDeletionPreview(response.data));
+      } catch (error) {
+        setPreviewError(
+          error instanceof Error
+            ? error.message
+            : "Não foi possível analisar os vínculos da EAP.",
+        );
+      }
+    }
+
+    void loadPreview();
+    return () => {
+      ignore = true;
+    };
+  }, [
+    data.organization.id,
+    project.id,
+    reloadToken,
+    target,
+  ]);
+
+  async function archive() {
+    if (busy) return;
+    let archived = false;
+    setBusy("archive");
+    try {
+      await mutate(async () => {
+        const client = getSupabase();
+        if (!client) throw new Error("Supabase indisponível.");
+        const payload = {
+          status: "cancelado",
+          updated_at: new Date().toISOString(),
+        };
+        const response =
+          target.scope === "eap"
+            ? await client
+                .from("construction_work_packages")
+                .update(payload)
+                .eq("organization_id", data.organization.id)
+                .eq("project_id", project.id)
+            : await client
+                .from("construction_work_packages")
+                .update(payload)
+                .eq("organization_id", data.organization.id)
+                .eq("project_id", project.id)
+                .in("id", [
+                  target.item.id,
+                  ...descendantsOf(target.item.id, packages),
+                ]);
+        if (response.error) throw response.error;
+        archived = true;
+      }, target.scope === "eap"
+        ? "EAP arquivada como cancelada."
+        : "Etapa e suas subetapas arquivadas como canceladas.");
+    } finally {
+      setBusy(null);
+    }
+    if (archived) close();
+  }
+
+  async function remove() {
+    if (
+      busy ||
+      !preview?.can_delete ||
+      confirmation.trim() !== confirmationPhrase
+    ) {
+      return;
+    }
+    let removed = false;
+    setBusy("delete");
+    try {
+      await mutate(async () => {
+        const client = getSupabase();
+        if (!client) throw new Error("Supabase indisponível.");
+        const response =
+          target.scope === "eap"
+            ? await client.rpc("delete_construction_eap", {
+                p_organization_id: data.organization.id,
+                p_project_id: project.id,
+                p_expected_count: preview.element_count,
+                p_expected_token: preview.target_token,
+              })
+            : await client.rpc("delete_construction_work_package", {
+                p_organization_id: data.organization.id,
+                p_package_id: target.item.id,
+                p_expected_count: preview.element_count,
+                p_expected_token: preview.target_token,
+                p_include_descendants: preview.descendant_count > 0,
+              });
+        if (response.error) throw response.error;
+        removed = true;
+      }, target.scope === "eap"
+        ? "EAP excluída permanentemente."
+        : "Elemento da EAP excluído permanentemente.");
+    } finally {
+      setBusy(null);
+    }
+    if (removed) close();
+  }
+
+  const blocked = !!preview && !preview.can_delete;
+  const confirmed = confirmation.trim() === confirmationPhrase;
+
+  return (
+    <div className="modal-backdrop" onMouseDown={busy ? undefined : close}>
+      <section
+        className="modal eap-deletion-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="eap-deletion-title"
+        aria-describedby="eap-deletion-description"
+        onMouseDown={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && !busy) close();
+        }}
+      >
+        <div>
+          <small className="eap-deletion-eyebrow">ZONA DE EXCLUSÃO</small>
+          <h2 id="eap-deletion-title">{title}</h2>
+        </div>
+        <button
+          className="modal-close"
+          type="button"
+          aria-label="Fechar confirmação de exclusão"
+          autoFocus
+          disabled={!!busy}
+          onClick={close}
+        >
+          ×
+        </button>
+
+        <p id="eap-deletion-description" className="eap-modal-intro">
+          A exclusão permanente remove somente a estrutura desta obra. Os
+          modelos predefinidos da biblioteca continuam disponíveis e não são
+          alterados.
+        </p>
+
+        {!preview && !previewError && (
+          <div className="eap-deletion-loading" role="status">
+            Analisando hierarquia e vínculos operacionais...
+          </div>
+        )}
+
+        {previewError && (
+          <div className="eap-deletion-error" role="alert">
+            <strong>Não foi possível concluir a análise de segurança.</strong>
+            <span>{previewError}</span>
+            <button
+              type="button"
+              disabled={!!busy}
+              onClick={() => setReloadToken((value) => value + 1)}
+            >
+              Tentar novamente
+            </button>
+          </div>
+        )}
+
+        {preview && (
+          <>
+            <div className="eap-deletion-counts">
+              <span>
+                <small>Elementos afetados</small>
+                <strong>{preview.element_count}</strong>
+              </span>
+              <span>
+                <small>Subetapas incluídas</small>
+                <strong>{preview.descendant_count}</strong>
+              </span>
+              <span className={preview.dependency_total ? "blocked" : "clear"}>
+                <small>Vínculos operacionais</small>
+                <strong>{preview.dependency_total}</strong>
+              </span>
+            </div>
+
+            {blocked ? (
+              <div className="eap-deletion-blocked">
+                <strong>Exclusão permanente bloqueada</strong>
+                <p>
+                  Existem registros operacionais vinculados. Para preservar o
+                  histórico e a rastreabilidade, arquive/cancele a estrutura ou
+                  trate os vínculos antes de excluir.
+                </p>
+                <ul>
+                  {preview.dependencies.map((dependency) => (
+                    <li key={dependency.key}>
+                      <span>{dependency.label}</span>
+                      <strong>{dependency.count}</strong>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <div className="eap-deletion-confirmation">
+                <strong>Esta ação não poderá ser desfeita.</strong>
+                {preview.descendant_count > 0 && (
+                  <p>
+                    O elemento selecionado possui subetapas. A confirmação
+                    excluirá toda a subárvore em uma única operação.
+                  </p>
+                )}
+                <label htmlFor="eap-deletion-confirmation">
+                  Digite <b>{confirmationPhrase}</b> para confirmar
+                  <input
+                    id="eap-deletion-confirmation"
+                    value={confirmation}
+                    autoComplete="off"
+                    disabled={!!busy}
+                    onChange={(event) => setConfirmation(event.target.value)}
+                  />
+                </label>
+              </div>
+            )}
+          </>
+        )}
+
+        <div className="eap-deletion-archive">
+          <strong>Alternativa recomendada: arquivar/cancelar</strong>
+          <p>
+            Mantém os registros vinculados e retira a estrutura dos cálculos
+            ativos, permitindo consulta posterior.
+          </p>
+        </div>
+
+        <footer>
+          <button type="button" disabled={!!busy} onClick={close}>
+            Voltar
+          </button>
+          <button
+            type="button"
+            disabled={!!busy}
+            onClick={() => void archive()}
+          >
+            {busy === "archive" ? "Arquivando..." : "Arquivar/cancelar"}
+          </button>
+          {preview?.can_delete && (
+            <button
+              className="eap-delete-confirm"
+              type="button"
+              disabled={!confirmed || !!busy}
+              onClick={() => void remove()}
+            >
+              {busy === "delete" ? "Excluindo..." : "Excluir permanentemente"}
+            </button>
+          )}
+        </footer>
+      </section>
+    </div>
   );
 }
 

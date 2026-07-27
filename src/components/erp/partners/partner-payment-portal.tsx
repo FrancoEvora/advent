@@ -146,12 +146,68 @@ function confirmedPaymentDate(payment: PartnerPayment) {
   return payment.paid_on || payment.paid_at || null;
 }
 
+function processingStartedDate(payment: PartnerPayment) {
+  if (!["em_processamento", "pago"].includes(payment.public_status)) {
+    return null;
+  }
+  return payment.processing_started_at || null;
+}
+
 function paymentForecast(payment: PartnerPayment) {
   if (!payment.forecast_start && !payment.forecast_end) return null;
   if (payment.forecast_start === payment.forecast_end) {
     return formatDate(payment.forecast_start);
   }
   return `${formatDate(payment.forecast_start)} a ${formatDate(payment.forecast_end)}`;
+}
+
+function paymentExecutionSummary(
+  payment: PartnerPayment,
+  scheduledDate: string | null,
+  processingDate: string | null,
+  paidDate: string | null,
+) {
+  switch (payment.public_status) {
+    case "pago":
+      return {
+        label: "PAGAMENTO CONCLUÍDO",
+        value: paidDate ? formatDate(paidDate) : "Liquidação confirmada",
+        detail: "A conclusão do pagamento foi confirmada pela Évora.",
+      };
+    case "em_processamento":
+      return {
+        label: "PROCESSAMENTO INICIADO",
+        value: processingDate
+          ? formatDateTime(processingDate)
+          : "Em processamento",
+        detail: scheduledDate
+          ? `Programado para ${formatDate(scheduledDate)}. A liquidação ainda não foi confirmada.`
+          : "A ordem foi iniciada, mas a liquidação ainda não foi confirmada.",
+      };
+    case "programado":
+      return {
+        label: "PROGRAMAÇÃO EFETIVA REGISTRADA",
+        value: scheduledDate ? formatDate(scheduledDate) : "Data não publicada",
+        detail:
+          "Esta é a data atualmente definida para encaminhamento. Ela não representa confirmação de pagamento.",
+      };
+    case "suspenso":
+      return {
+        label: "PROGRAMAÇÃO SUSPENSA",
+        value: "Sem data ativa",
+        detail:
+          "A programação anterior não deve ser considerada enquanto a conferência estiver em andamento.",
+      };
+    default:
+      return {
+        label: "SEM PROGRAMAÇÃO EFETIVA",
+        value: "Aguardando definição de data",
+        detail:
+          payment.public_status === "previsto"
+            ? "A previsão abaixo é apenas informativa e não representa uma programação."
+            : "Nenhuma data efetiva de pagamento foi publicada.",
+      };
+  }
 }
 
 async function requestPortal(
@@ -248,16 +304,10 @@ export function PartnerPaymentPortal() {
         payment.public_status !== "pago" &&
         payment.public_status !== "suspenso",
     );
-    const dated = actionable
+    const scheduled = actionable
       .map(payment => ({
         payment,
-        date:
-          scheduledPaymentDate(payment) ||
-          payment.forecast_start ||
-          payment.forecast_end,
-        kind: scheduledPaymentDate(payment)
-          ? "Pagamento programado"
-          : "Previsão informativa",
+        date: scheduledPaymentDate(payment),
       }))
       .filter(
         (
@@ -265,7 +315,6 @@ export function PartnerPaymentPortal() {
         ): item is {
           payment: PartnerPayment;
           date: string;
-          kind: string;
         } => Boolean(item.date),
       )
       .sort((a, b) => a.date.localeCompare(b.date));
@@ -276,7 +325,7 @@ export function PartnerPaymentPortal() {
       publishedAmount: payments
         .filter(payment => payment.public_status !== "pago")
         .reduce((total, payment) => total + Number(payment.amount || 0), 0),
-      nextPayment: dated[0] || null,
+      nextScheduledPayment: scheduled[0] || null,
       processing: payments.filter(
         payment => payment.public_status === "em_processamento",
       ).length,
@@ -644,16 +693,16 @@ export function PartnerPaymentPortal() {
             <span>{portal.payments.length} título(s) visível(is)</span>
           </article>
           <article>
-            <small>PRÓXIMA DATA PUBLICADA</small>
+            <small>PRÓXIMA PROGRAMAÇÃO EFETIVA</small>
             <strong>
-              {summary.nextPayment
-                ? formatDate(summary.nextPayment.date)
-                : "Ainda não programado"}
+              {summary.nextScheduledPayment
+                ? formatDate(summary.nextScheduledPayment.date)
+                : "Sem data programada"}
             </strong>
             <span>
-              {summary.nextPayment
-                ? summary.nextPayment.kind
-                : "Nenhuma programação ou previsão disponível"}
+              {summary.nextScheduledPayment
+                ? "Data registrada; pagamento ainda não confirmado"
+                : "Previsões informativas não são consideradas aqui"}
             </span>
           </article>
           <article>
@@ -671,12 +720,12 @@ export function PartnerPaymentPortal() {
         <section className="partner-section partner-payments-section">
           <div className="partner-section-heading">
             <div>
-              <small>PRÓXIMOS PAGAMENTOS</small>
-              <h2>Previsão e processamento</h2>
+              <small>PAGAMENTOS E STATUS</small>
+              <h2>Programação e conclusão</h2>
               <p>
-                Emissão, vencimento contratual, programação e conclusão são
-                etapas distintas. “Programado” não significa “pago”: consulte
-                abaixo a situação efetivamente publicada pela Évora.
+                O vencimento é a data contratual. A programação efetiva é a
+                data registrada para encaminhar o pagamento. Somente o status
+                “Pago” confirma a conclusão.
               </p>
             </div>
             <button
@@ -686,6 +735,40 @@ export function PartnerPaymentPortal() {
             >
               + Solicitar negociação
             </button>
+          </div>
+
+          <div
+            className="partner-payment-guide"
+            aria-label="Como interpretar as etapas do pagamento"
+          >
+            <article>
+              <span>1</span>
+              <div>
+                <strong>Vencimento contratual</strong>
+                <p>Data original da obrigação.</p>
+              </div>
+            </article>
+            <article>
+              <span>2</span>
+              <div>
+                <strong>Programação efetiva</strong>
+                <p>Data definida e publicada para encaminhamento.</p>
+              </div>
+            </article>
+            <article>
+              <span>3</span>
+              <div>
+                <strong>Em processamento</strong>
+                <p>Ordem de pagamento iniciada.</p>
+              </div>
+            </article>
+            <article>
+              <span>4</span>
+              <div>
+                <strong>Pago</strong>
+                <p>Liquidação efetivamente confirmada.</p>
+              </div>
+            </article>
           </div>
 
           <div className="partner-payment-list">
@@ -854,8 +937,15 @@ function PaymentCard({
 }) {
   const status = paymentStatus[payment.public_status];
   const scheduledDate = scheduledPaymentDate(payment);
+  const processingDate = processingStartedDate(payment);
   const paidDate = confirmedPaymentDate(payment);
   const forecast = paymentForecast(payment);
+  const executionSummary = paymentExecutionSummary(
+    payment,
+    scheduledDate,
+    processingDate,
+    paidDate,
+  );
   return (
     <article className={`partner-payment-card partner-tone-${status.tone}`}>
       <header>
@@ -883,35 +973,69 @@ function PaymentCard({
         </div>
         <strong>{currency.format(Number(payment.amount || 0))}</strong>
       </div>
-      <div className="partner-payment-dates">
-        <span>
-          <small>Emissão</small>
-          <strong>
-            {payment.issue_date
-              ? formatDate(payment.issue_date)
-              : "Não informada"}
-          </strong>
-        </span>
-        <span>
-          <small>Vencimento contratual</small>
-          <strong>{formatDate(payment.contractual_due_date)}</strong>
-        </span>
-        <span>
-          <small>Pagamento programado</small>
-          <strong>
-            {scheduledDate
-              ? formatDate(scheduledDate)
-              : payment.public_status === "pago"
-                ? "Não registrada"
-                : "Ainda não programado"}
-          </strong>
-        </span>
-        <span>
-          <small>Pagamento concluído</small>
-          <strong>
-            {paidDate ? formatDate(paidDate) : "Ainda não concluído"}
-          </strong>
-        </span>
+
+      <section
+        className="partner-payment-execution-summary"
+        aria-label="Situação efetiva do pagamento"
+      >
+        <small>{executionSummary.label}</small>
+        <strong>{executionSummary.value}</strong>
+        <p>{executionSummary.detail}</p>
+      </section>
+
+      <div className="partner-payment-date-groups">
+        <section className="partner-payment-date-group">
+          <header>
+            <small>REFERÊNCIA DO TÍTULO</small>
+            <p>Datas documentais e contratuais</p>
+          </header>
+          <div>
+            <span>
+              <small>Emissão</small>
+              <strong>
+                {payment.issue_date
+                  ? formatDate(payment.issue_date)
+                  : "Não informada"}
+              </strong>
+            </span>
+            <span>
+              <small>Vencimento contratual</small>
+              <strong>{formatDate(payment.contractual_due_date)}</strong>
+            </span>
+          </div>
+        </section>
+        <section className="partner-payment-date-group partner-payment-date-group-execution">
+          <header>
+            <small>EXECUÇÃO DO PAGAMENTO</small>
+            <p>Somente informações efetivamente publicadas</p>
+          </header>
+          <div>
+            <span>
+              <small>Programação efetiva</small>
+              <strong>
+                {scheduledDate
+                  ? formatDate(scheduledDate)
+                  : payment.public_status === "pago"
+                    ? "Não registrada"
+                    : "Não programado"}
+              </strong>
+            </span>
+            <span>
+              <small>Processamento iniciado</small>
+              <strong>
+                {processingDate
+                  ? formatDateTime(processingDate)
+                  : "Não iniciado"}
+              </strong>
+            </span>
+            <span>
+              <small>Pagamento confirmado</small>
+              <strong>
+                {paidDate ? formatDate(paidDate) : "Não confirmado"}
+              </strong>
+            </span>
+          </div>
+        </section>
       </div>
       {forecast && !scheduledDate && payment.public_status === "previsto" && (
         <div className="partner-payment-forecast">
@@ -1687,6 +1811,46 @@ const partnerStyles = `
     display: grid;
     gap: 16px;
   }
+  .partner-payment-guide {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 10px;
+    margin: -5px 0 24px;
+    padding: 12px;
+    border: 1px solid #d9e3e3;
+    border-radius: 16px;
+    background: #f4f7f5;
+  }
+  .partner-payment-guide article {
+    display: flex;
+    min-width: 0;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px;
+  }
+  .partner-payment-guide article > span {
+    display: grid;
+    width: 25px;
+    height: 25px;
+    flex: 0 0 25px;
+    place-items: center;
+    border-radius: 50%;
+    color: white;
+    background: var(--partner-navy);
+    font-size: 10px;
+    font-weight: 900;
+  }
+  .partner-payment-guide strong {
+    display: block;
+    color: var(--partner-navy);
+    font-size: 12px;
+  }
+  .partner-payment-guide p {
+    margin: 4px 0 0;
+    color: var(--partner-muted);
+    font-size: 10px;
+    line-height: 1.4;
+  }
   .partner-payment-card {
     --partner-card-tone: var(--partner-blue);
     overflow: hidden;
@@ -1704,8 +1868,7 @@ const partnerStyles = `
   .partner-tone-suspended { --partner-card-tone: #b8473e; }
   .partner-payment-card > header,
   .partner-payment-card > footer,
-  .partner-payment-main,
-  .partner-payment-dates {
+  .partner-payment-main {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -1761,30 +1924,93 @@ const partnerStyles = `
     line-height: 1;
     letter-spacing: -.04em;
   }
-  .partner-payment-dates {
-    align-items: stretch;
-    justify-content: flex-start;
+  .partner-payment-execution-summary {
+    display: grid;
+    grid-template-columns: minmax(0, auto) minmax(160px, auto) minmax(240px, 1fr);
+    align-items: center;
+    gap: 12px 18px;
+    margin-bottom: 14px;
+    padding: 16px 18px;
+    border: 1px solid color-mix(in srgb, var(--partner-card-tone) 30%, white);
+    border-left: 5px solid var(--partner-card-tone);
+    border-radius: 13px;
+    background: color-mix(in srgb, var(--partner-card-tone) 7%, white);
   }
-  .partner-payment-dates > span {
+  .partner-payment-execution-summary small {
+    color: var(--partner-card-tone);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .06em;
+  }
+  .partner-payment-execution-summary strong {
+    color: var(--partner-navy-deep);
+    font-size: 18px;
+  }
+  .partner-payment-execution-summary p {
+    margin: 0;
+    color: var(--partner-muted);
+    font-size: 11px;
+    line-height: 1.5;
+  }
+  .partner-payment-date-groups {
+    display: grid;
+    grid-template-columns: minmax(250px, .8fr) minmax(0, 1.2fr);
+    gap: 12px;
+  }
+  .partner-payment-date-group {
     min-width: 0;
-    flex: 1 1 0;
-    padding: 14px 16px;
     border: 1px solid var(--partner-line);
     border-radius: 13px;
     background: white;
   }
-  .partner-payment-dates small,
-  .partner-payment-dates strong {
+  .partner-payment-date-group > header {
+    padding: 12px 14px 10px;
+    border-bottom: 1px solid var(--partner-line);
+    background: #f7f9f8;
+  }
+  .partner-payment-date-group > header small,
+  .partner-payment-date-group > header p {
+    display: block;
+    margin: 0;
+  }
+  .partner-payment-date-group > header small {
+    color: var(--partner-navy);
+    font-size: 9px;
+    font-weight: 900;
+    letter-spacing: .07em;
+  }
+  .partner-payment-date-group > header p {
+    margin-top: 3px;
+    color: var(--partner-muted);
+    font-size: 10px;
+  }
+  .partner-payment-date-group > div {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .partner-payment-date-group-execution > div {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .partner-payment-date-group span {
+    min-width: 0;
+    padding: 13px 14px 14px;
+  }
+  .partner-payment-date-group span + span {
+    border-left: 1px solid var(--partner-line);
+  }
+  .partner-payment-date-group span small,
+  .partner-payment-date-group span strong {
     display: block;
   }
-  .partner-payment-dates small {
-    margin-bottom: 6px;
+  .partner-payment-date-group span small {
+    margin-bottom: 5px;
     color: var(--partner-muted);
-    font-size: 11px;
+    font-size: 10px;
   }
-  .partner-payment-dates strong {
+  .partner-payment-date-group span strong {
+    overflow-wrap: anywhere;
     color: var(--partner-navy);
-    font-size: 15px;
+    font-size: 14px;
   }
   .partner-payment-forecast {
     display: flex;
@@ -2243,6 +2469,12 @@ const partnerStyles = `
     .partner-summary-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
+    .partner-payment-guide {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+    .partner-payment-date-groups {
+      grid-template-columns: 1fr;
+    }
     .partner-negotiation-layout {
       grid-template-columns: 1fr;
     }
@@ -2335,8 +2567,7 @@ const partnerStyles = `
       padding: 18px;
     }
     .partner-payment-card > header,
-    .partner-payment-main,
-    .partner-payment-dates {
+    .partner-payment-main {
       align-items: flex-start;
       flex-direction: column;
     }
@@ -2344,10 +2575,17 @@ const partnerStyles = `
       max-width: 100%;
       overflow-wrap: anywhere;
     }
-    .partner-payment-dates > span {
-      width: 100%;
-      min-width: 0;
-      box-sizing: border-box;
+    .partner-payment-execution-summary {
+      grid-template-columns: 1fr;
+      gap: 5px;
+    }
+    .partner-payment-date-group > div,
+    .partner-payment-date-group-execution > div {
+      grid-template-columns: 1fr;
+    }
+    .partner-payment-date-group span + span {
+      border-top: 1px solid var(--partner-line);
+      border-left: 0;
     }
     .partner-payment-forecast {
       align-items: flex-start;
@@ -2372,6 +2610,9 @@ const partnerStyles = `
       left: 13px;
       width: 2px;
       height: 12px;
+    }
+    .partner-payment-guide {
+      grid-template-columns: 1fr;
     }
     .partner-payment-explanation {
       text-align: left;

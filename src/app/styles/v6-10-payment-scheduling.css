@@ -26,6 +26,143 @@
   line-height: 1.35;
 }
 
+.entry-primary-section {
+  min-width: 0;
+}
+
+.entry-main-grid > label,
+.entry-main-grid input,
+.entry-main-grid select {
+  min-width: 0;
+}
+
+.entry-date-section {
+  min-width: 0;
+  margin-top: 18px;
+  padding: 17px;
+  border: 1px solid #dce6e2;
+  border-radius: 16px;
+  background: #f7faf9;
+}
+
+.entry-date-section > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.entry-date-section h5 {
+  margin: 0 0 4px;
+  color: var(--green-900);
+  font-size: 14px;
+}
+
+.entry-date-section p {
+  max-width: 650px;
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.entry-date-section > header > span {
+  flex: 0 0 auto;
+  padding: 6px 9px;
+  border-radius: 999px;
+  background: var(--green-100);
+  color: var(--green-800);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+.entry-date-grid {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.entry-date-grid.with-schedule {
+  grid-template-areas:
+    "issue competence"
+    "due scheduled";
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.entry-date-grid.without-schedule {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.entry-date-card {
+  display: grid;
+  align-content: start;
+  min-width: 0;
+  min-height: 116px;
+  gap: 7px;
+  padding: 12px;
+  border: 1px solid #e0e8e5;
+  border-radius: 12px;
+  color: #34453e;
+  font-size: 13px;
+  font-weight: 720;
+  background: #fff;
+}
+
+.entry-date-grid.with-schedule .entry-date-card.issue {
+  grid-area: issue;
+}
+
+.entry-date-grid.with-schedule .entry-date-card.due {
+  grid-area: due;
+}
+
+.entry-date-card.scheduled {
+  border-color: #bdd8ad;
+  background: #f3f8ee;
+  box-shadow: inset 3px 0 var(--evora-green, #79b82b);
+}
+
+.entry-date-grid.with-schedule .entry-date-card.scheduled {
+  grid-area: scheduled;
+}
+
+.entry-date-grid.with-schedule .entry-date-card.competence {
+  grid-area: competence;
+}
+
+.entry-date-card > span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.entry-date-card > span > em {
+  padding: 3px 6px;
+  border-radius: 999px;
+  background: #fff;
+  color: var(--green-800);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.entry-date-card input {
+  min-width: 0;
+}
+
+.entry-date-card > small {
+  min-height: 30px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
 @media (max-width: 1200px) {
   .finance-table .table-header,
   .finance-table .finance-row {
@@ -33,8 +170,48 @@
   }
 }
 
+@media (max-width: 760px) {
+  .entry-date-section > header {
+    display: grid;
+  }
+
+  .entry-date-section > header > span {
+    justify-self: start;
+  }
+
+  .entry-date-grid.without-schedule {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 650px) {
   .entry-row > span {
     display: none;
+  }
+
+  .entry-date-section {
+    margin-top: 14px;
+    padding: 13px;
+  }
+
+  .entry-date-grid.with-schedule,
+  .entry-date-grid.without-schedule {
+    grid-template-areas: none;
+    grid-template-columns: 1fr;
+  }
+
+  .entry-date-card.issue,
+  .entry-date-card.due,
+  .entry-date-card.scheduled,
+  .entry-date-card.competence {
+    grid-area: auto;
+  }
+
+  .entry-date-card {
+    min-height: 0;
+  }
+
+  .entry-date-card > small {
+    min-height: 0;
   }
 }

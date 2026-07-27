@@ -24,7 +24,91 @@ export function EntryFields({ data, revenueCenters, entry, entryType, setEntryTy
   const today = new Date().toISOString().slice(0, 10);
   const categories = data.categories.filter(category => category.active && (category.movement_type === entryType || category.movement_type === "ambos"));
   return <>
-    <div className="form-section"><h4>Dados principais</h4><div className="form-grid three"><label>Tipo<select name="type" value={entryType} onChange={(event) => { const nextType = event.target.value as EntryType; setEntryType(nextType); setContactId(""); if (nextType === "entrada") setScheduledPaymentDate(""); }}><option value="saida">Conta a pagar</option><option value="entrada">Conta a receber</option></select></label><label>Emissão<input name="issue_date" type="date" defaultValue={entry?.issue_date || today} required /></label><label>Vencimento contratual<input name="due_date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required /></label>{entryType === "saida" && <label>Pagamento programado<input name="scheduled_payment_date" type="date" value={scheduledPaymentDate} onChange={(event) => setScheduledPaymentDate(event.target.value)} /><small>Data efetivamente incluída na programação financeira. Não altera o vencimento.</small></label>}<label className={entryType === "saida" ? "" : "span-2"}>Descrição<input name="description" defaultValue={entry?.description || ""} required /></label><label>Valor<CurrencyInput name="amount" defaultValue={entry?.amount || 0} required onValueChange={amountChanged} /></label><label>Competência<input name="competence_date" type="date" defaultValue={entry?.competence_date || entry?.due_date || today} required /></label><label>Número do documento<input name="document_number" defaultValue={entry?.document_number || ""} /></label><label>Status<select name="status" defaultValue={entry?.status || "pendente"}><option value="rascunho">Rascunho</option><option value="pendente">Pendente</option><option value="pago">Pago</option><option value="recebido">Recebido</option><option value="cancelado">Cancelado</option></select></label></div></div>
+    <div className="form-section entry-primary-section">
+      <h4>Dados principais</h4>
+      <div className="form-grid three entry-main-grid">
+        <label>
+          Tipo
+          <select
+            name="type"
+            value={entryType}
+            onChange={(event) => {
+              const nextType = event.target.value as EntryType;
+              setEntryType(nextType);
+              setContactId("");
+              if (nextType === "entrada") setScheduledPaymentDate("");
+            }}
+          >
+            <option value="saida">Conta a pagar</option>
+            <option value="entrada">Conta a receber</option>
+          </select>
+        </label>
+        <label className="span-2">
+          Descrição
+          <input name="description" defaultValue={entry?.description || ""} required />
+        </label>
+        <label>
+          Valor
+          <CurrencyInput name="amount" defaultValue={entry?.amount || 0} required onValueChange={amountChanged} />
+        </label>
+        <label>
+          Número do documento
+          <input name="document_number" defaultValue={entry?.document_number || ""} />
+        </label>
+        <label>
+          Status
+          <select name="status" defaultValue={entry?.status || "pendente"}>
+            <option value="rascunho">Rascunho</option>
+            <option value="pendente">Pendente</option>
+            <option value="pago">Pago</option>
+            <option value="recebido">Recebido</option>
+            <option value="cancelado">Cancelado</option>
+          </select>
+        </label>
+      </div>
+
+      <section className="entry-date-section" aria-labelledby="entry-dates-title">
+        <header>
+          <div>
+            <h5 id="entry-dates-title">Datas do título</h5>
+            <p>O vencimento contratual permanece preservado mesmo quando o pagamento for reprogramado.</p>
+          </div>
+          {entryType === "saida" && <span>Programação financeira</span>}
+        </header>
+        <div className={`entry-date-grid ${entryType === "saida" ? "with-schedule" : "without-schedule"}`}>
+          <label className="entry-date-card issue">
+            <span>Emissão</span>
+            <input name="issue_date" type="date" defaultValue={entry?.issue_date || today} required />
+            <small>Data de origem do documento.</small>
+          </label>
+          <label className="entry-date-card due">
+            <span>Vencimento contratual</span>
+            <input name="due_date" type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} required />
+            <small>Prazo originalmente pactuado com o credor.</small>
+          </label>
+          {entryType === "saida" && (
+            <label className="entry-date-card scheduled">
+              <span>
+                Programação efetiva do pagamento
+                <em>Opcional</em>
+              </span>
+              <input
+                name="scheduled_payment_date"
+                type="date"
+                value={scheduledPaymentDate}
+                onChange={(event) => setScheduledPaymentDate(event.target.value)}
+              />
+              <small>Data definida pelo financeiro para processamento. Não altera o vencimento.</small>
+            </label>
+          )}
+          <label className="entry-date-card competence">
+            <span>Competência contábil</span>
+            <input name="competence_date" type="date" defaultValue={entry?.competence_date || entry?.due_date || today} required />
+            <small>Período ao qual o lançamento pertence.</small>
+          </label>
+        </div>
+      </section>
+    </div>
     <div className="form-section"><h4>Classificação gerencial</h4><div className="form-grid three">
       {entryType === "saida" ? <label>Centro de custo<select name="cost_center_id" defaultValue={entry?.cost_center_id || ""} required><option value="">Selecione</option>{data.costCenters.filter(center => center.active).map(center => <option key={center.id} value={center.id}>{center.code} · {center.name}</option>)}</select></label> : <label>Centro de recebimento<select name="revenue_center_id" defaultValue={entry?.revenue_center_id || ""} required><option value="">Selecione</option>{revenueCenters.filter(center => center.active).map(center => <option key={center.id} value={center.id}>{center.code} · {center.name}</option>)}</select></label>}
       <label>Categoria financeira<select name="category_id" defaultValue={entry?.category_id || ""} required><option value="">Selecione</option>{categories.map(category => <option key={category.id} value={category.id}>{category.code} · {category.name}</option>)}</select></label>

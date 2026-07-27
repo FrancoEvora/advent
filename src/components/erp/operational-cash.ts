@@ -1,6 +1,6 @@
 import type { ErpData, FinancialEntry } from "./types";
 import { realizedBalance } from "./analytics";
-import { isSettled } from "./utils";
+import { financialPlanningDate, isSettled } from "./utils";
 
 export type OperationalCommitment = {
   id: string;
@@ -58,10 +58,15 @@ export function buildComprehensiveForecast(data: ErpData, days = 90): Comprehens
   const points: ComprehensiveForecastPoint[] = [];
   for (let offset = 0; offset <= days; offset += 1) {
     const date = addDays(start, offset);
-    const dayEntries = pending.filter(entry => entry.due_date === date);
+    const dayEntries = pending.filter(entry => {
+      const planningDate = financialPlanningDate(entry);
+      return (planningDate < start ? start : planningDate) === date;
+    });
     const incoming = dayEntries.filter(entry => entry.type === "entrada").reduce((sum, entry) => sum + Number(entry.amount), 0);
     const financialOutgoing = dayEntries.filter(entry => entry.type === "saida").reduce((sum, entry) => sum + Number(entry.amount), 0);
-    const operational = commitments.filter(item => item.date === date).reduce((sum, item) => sum + item.amount, 0);
+    const operational = commitments
+      .filter(item => (item.date < start ? start : item.date) === date)
+      .reduce((sum, item) => sum + item.amount, 0);
     const outgoing = financialOutgoing + operational;
     balance += incoming - outgoing;
     points.push({ date, balance, incoming, outgoing, operational });
@@ -76,7 +81,7 @@ export function analyzeComprehensivePaymentRisk(data: ErpData, candidate: { amou
   const horizon = Math.max(30, Number(data.settings.forecast_horizon_days || 365));
   const financialEvents = data.entries
     .filter(entry => entry.id !== candidate.excludeEntryId && !isSettled(entry) && entry.status !== "cancelado" && belongsToAccount(entry, candidate.accountId))
-    .map(entry => ({ date: entry.due_date, amount: entry.type === "entrada" ? Number(entry.amount) : -Number(entry.amount) }));
+    .map(entry => ({ date: financialPlanningDate(entry), amount: entry.type === "entrada" ? Number(entry.amount) : -Number(entry.amount) }));
   const commitments = candidate.accountId ? [] : operationalCommitments(data).map(item => ({ date: item.date, amount: -item.amount }));
   const events = [...financialEvents, ...commitments];
   const balanceAt = (date: string) => events.filter(item => item.date <= date).reduce((balance, item) => balance + item.amount, realizedBalance(data, candidate.accountId));

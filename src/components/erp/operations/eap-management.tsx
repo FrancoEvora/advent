@@ -13,6 +13,7 @@ import type {
   ErpData,
   Project,
 } from "../types";
+import type { ActivityDeepLinkTarget } from "../activities/activity-links";
 import { PanelTitle } from "../views-dashboard";
 
 type Mutate = (operation: () => Promise<void>, success: string) => Promise<void>;
@@ -275,6 +276,7 @@ export function EapManagement({
   mutate,
   canManage,
   onMeasure,
+  focus,
 }: {
   data: ErpData;
   project: Project;
@@ -282,6 +284,7 @@ export function EapManagement({
   mutate: Mutate;
   canManage: boolean;
   onMeasure: (item: ConstructionWorkPackage) => void;
+  focus?: ActivityDeepLinkTarget | null;
 }) {
   const [catalogOpen, setCatalogOpen] = useState(false);
   const [editor, setEditor] = useState<{
@@ -290,6 +293,13 @@ export function EapManagement({
   } | null>(null);
   const [deletion, setDeletion] = useState<EapDeletionTarget | null>(null);
   const sorted = useMemo(() => sortHierarchically(packages), [packages]);
+  const focusedPackageId =
+    focus?.sourceType === "construction_work_packages"
+      ? focus.recordId
+      : null;
+  const focusedPackageVisible = Boolean(
+    focusedPackageId && sorted.some((item) => item.id === focusedPackageId),
+  );
   const byId = useMemo(
     () => new Map(sorted.map((item) => [item.id, item])),
     [sorted],
@@ -306,6 +316,18 @@ export function EapManagement({
   const template = data.constructionEapTemplates.find(
     (item) => item.template_code === templateCode,
   );
+
+  useEffect(() => {
+    if (!focusedPackageId || !focusedPackageVisible) return;
+    const frame = requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>(
+        `[data-record-id="${focusedPackageId}"]`,
+      );
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [focusedPackageId, focusedPackageVisible]);
 
   return (
     <>
@@ -411,9 +433,11 @@ export function EapManagement({
               return (
                 <article
                   key={item.id}
+                  data-record-id={item.id}
+                  tabIndex={item.id === focusedPackageId ? -1 : undefined}
                   className={`${item.is_summary ? "summary" : "work-package"} ${
                     item.status === "cancelado" ? "cancelled" : ""
-                  }`}
+                  } ${item.id === focusedPackageId ? "agenda-linked-target" : ""}`}
                   style={{ "--eap-depth": depth } as CSSProperties}
                 >
                   <div className="eap-package-identity">

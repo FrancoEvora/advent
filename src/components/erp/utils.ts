@@ -5,6 +5,12 @@ export const shortDate = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", mont
 export const roleLabels: Record<Role, string> = { admin: "Administrador", diretoria: "Diretoria", financeiro: "Financeiro", engenharia: "Engenharia", comercial: "Comercial", compras: "Compras", consulta: "Consulta", gestor_crm: "Gestor de CRM", sdr: "SDR / Pré-vendas", corretor: "Corretor", marketing: "Marketing" };
 export const statusLabels: Record<EntryStatus, string> = { rascunho: "Rascunho", pendente: "Pendente", pago: "Pago", recebido: "Recebido", cancelado: "Cancelado", vencido: "Vencido" };
 export const isSettled = (entry: FinancialEntry) => entry.status === "pago" || entry.status === "recebido";
+export const financialPlanningDate = (entry: FinancialEntry) =>
+  entry.type === "saida" && entry.scheduled_payment_date
+    ? entry.scheduled_payment_date
+    : entry.due_date;
+export const isPaymentScheduled = (entry: FinancialEntry) =>
+  entry.type === "saida" && Boolean(entry.scheduled_payment_date);
 export const dateAtNoon = (value: string) => new Date(`${value}T12:00:00`);
 export const daysUntil = (value: string) => { const now = new Date(); now.setHours(12, 0, 0, 0); return Math.ceil((dateAtNoon(value).getTime() - now.getTime()) / 86400000); };
 export const initials = (name: string) => name.split(/\s+/).filter(Boolean).map((part) => part[0]).slice(0, 2).join("").toUpperCase();

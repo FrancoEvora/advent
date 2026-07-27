@@ -73,6 +73,9 @@ const count = (value: number) => value.toLocaleString("pt-BR");
 const currency = (value: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value);
 const average = (values: number[]) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 const normalized = (value: unknown) => string(value).trim().toLowerCase();
+const dateLabel = (value: string | null | undefined) => value
+  ? new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("pt-BR")
+  : "Sem programação";
 const labelize = (value: string) => value
   .replaceAll("_", " ")
   .replace(/\b\p{L}/gu, letter => letter.toUpperCase());
@@ -126,6 +129,7 @@ export const reportModes: Record<ReportArea, Array<{ id: string; label: string }
   financeiro: [
     { id: "mensal", label: "Resultado mensal" },
     { id: "aging", label: "Aging de vencimentos" },
+    { id: "programacao_pagamentos", label: "Programação de pagamentos" },
     { id: "devedores", label: "Principais devedores" },
     { id: "credores", label: "Principais credores" },
     { id: "classificacao", label: "Centros gerenciais" },
@@ -192,6 +196,88 @@ export function buildReport(area: ReportArea, mode: string, context: ReportConte
 }
 
 function financeReport(mode: string, { data, revenueCenters, filters }: ReportContext): ReportResult {
+  if (mode === "programacao_pagamentos") {
+    const entries = data.entries.filter(entry =>
+      entry.type === "saida"
+      && !isSettled(entry)
+      && entry.status !== "cancelado"
+      && inPeriod(entry.scheduled_payment_date || entry.due_date, filters)
+      && inProject(entry.project_id, filters)
+      && (filters.type === "todos" || entry.type === filters.type)
+      && (filters.status === "todos" || entry.status === filters.status)
+      && (filters.contactId === "todos" || entry.contact_id === filters.contactId)
+    );
+    const scheduled = entries.filter(entry => Boolean(entry.scheduled_payment_date));
+    const unscheduled = entries.filter(entry => !entry.scheduled_payment_date);
+    const late = entries.filter(entry => daysUntil(entry.due_date) < 0);
+    const nextScheduledDate = scheduled
+      .map(entry => entry.scheduled_payment_date)
+      .filter((value): value is string => Boolean(value))
+      .filter(value => daysUntil(value) >= 0)
+      .sort()[0] || null;
+    const rows = group(entries, entry => entry.contact_id || "sem-fornecedor")
+      .map(([contactId, creditorEntries]) => {
+        const creditorScheduled = creditorEntries.filter(entry => Boolean(entry.scheduled_payment_date));
+        const creditorUnscheduled = creditorEntries.filter(entry => !entry.scheduled_payment_date);
+        const creditorLate = creditorEntries.filter(entry => daysUntil(entry.due_date) < 0);
+        const nextProgramming = creditorScheduled
+          .map(entry => entry.scheduled_payment_date)
+          .filter((value): value is string => Boolean(value))
+          .filter(value => daysUntil(value) >= 0)
+          .sort()[0] || null;
+        return {
+          id: contactId,
+          label: contactId === "sem-fornecedor" ? "Sem fornecedor" : contactName(data, contactId),
+          detail: `${creditorScheduled.length} programado(s) · ${creditorUnscheduled.length} sem programação`,
+          values: {
+            programado: creditorScheduled.reduce((total, entry) => total + number(entry.amount), 0),
+            nao_programado: creditorUnscheduled.reduce((total, entry) => total + number(entry.amount), 0),
+            vencido: creditorLate.reduce((total, entry) => total + number(entry.amount), 0),
+            proxima_programacao: nextProgramming ? dateLabel(nextProgramming) : "Sem programação futura",
+            quantidade: creditorEntries.length,
+          },
+        };
+      })
+      .sort((a, b) =>
+        number(b.values.vencido) - number(a.values.vencido)
+        || number(b.values.nao_programado) - number(a.values.nao_programado)
+        || number(b.values.programado) - number(a.values.programado)
+      );
+    const scheduledAmount = scheduled.reduce((total, entry) => total + number(entry.amount), 0);
+    const unscheduledAmount = unscheduled.reduce((total, entry) => total + number(entry.amount), 0);
+    const overdueAmount = late.reduce((total, entry) => total + number(entry.amount), 0);
+    const nextScheduledAmount = nextScheduledDate
+      ? scheduled
+        .filter(entry => entry.scheduled_payment_date === nextScheduledDate)
+        .reduce((total, entry) => total + number(entry.amount), 0)
+      : 0;
+
+    return {
+      eyebrow: "CONTROLADORIA E FINANÇAS",
+      title: "Programação de pagamentos",
+      description: "Contas a pagar abertas agrupadas por credor. A programação operacional não altera o vencimento contratual.",
+      columns: [
+        { key: "programado", label: "Programado", format: "money" },
+        { key: "nao_programado", label: "Sem programação", format: "money" },
+        { key: "vencido", label: "Vencido", format: "money" },
+        { key: "proxima_programacao", label: "Próxima programação", format: "text" },
+        { key: "quantidade", label: "Títulos", format: "number" },
+      ],
+      rows,
+      kpis: [
+        kpi("Programado", currency(scheduledAmount), `${scheduled.length} títulos abertos`, "positive"),
+        kpi("Sem programação", currency(unscheduledAmount), `${unscheduled.length} títulos requerem definição`, "warning"),
+        kpi("Vencido", currency(overdueAmount), `${late.length} títulos pelo vencimento contratual`, "danger"),
+        kpi(
+          "Próxima programação",
+          nextScheduledDate ? dateLabel(nextScheduledDate) : "Sem data",
+          nextScheduledDate ? `${currency(nextScheduledAmount)} previsto nessa data` : "Nenhum pagamento programado",
+          "gold",
+        ),
+      ],
+    };
+  }
+
   const filtered = data.entries.filter(entry =>
     inPeriod(entry.due_date, filters)
     && inProject(entry.project_id, filters)

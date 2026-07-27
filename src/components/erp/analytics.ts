@@ -1,5 +1,5 @@
 import type { EntryType, ErpData, FinancialEntry } from "./types";
-import { daysUntil, isSettled } from "./utils";
+import { daysUntil, financialPlanningDate, isSettled } from "./utils";
 
 const DAY = 86_400_000;
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -40,10 +40,10 @@ export function analyzePaymentRisk(
   const start = todayIso();
   const events = data.entries
     .filter((entry) => entry.id !== candidate.excludeEntryId && !isSettled(entry) && entry.status !== "cancelado" && belongsToAccount(entry, candidate.accountId))
-    .sort((a, b) => a.due_date.localeCompare(b.due_date));
+    .sort((a, b) => financialPlanningDate(a).localeCompare(financialPlanningDate(b)));
 
   const balanceAt = (date: string) => events
-    .filter((entry) => entry.due_date <= date)
+    .filter((entry) => financialPlanningDate(entry) <= date)
     .reduce((balance, entry) => balance + (entry.type === "entrada" ? Number(entry.amount) : -Number(entry.amount)), realizedBalance(data, candidate.accountId));
 
   const projectedBalance = balanceAt(candidate.dueDate) - amount;
@@ -72,7 +72,10 @@ export function buildForecast(data: ErpData, days = 90): ForecastPoint[] {
   const points: ForecastPoint[] = [];
   for (let offset = 0; offset <= days; offset += 1) {
     const date = addDays(start, offset);
-    const dayEntries = pending.filter((entry) => entry.due_date === date);
+    const dayEntries = pending.filter((entry) => {
+      const planningDate = financialPlanningDate(entry);
+      return (planningDate < start ? start : planningDate) === date;
+    });
     const incoming = dayEntries.filter((entry) => entry.type === "entrada").reduce((sum, entry) => sum + Number(entry.amount), 0);
     const outgoing = dayEntries.filter((entry) => entry.type === "saida").reduce((sum, entry) => sum + Number(entry.amount), 0);
     balance += incoming - outgoing;

@@ -28,6 +28,7 @@ export function EntryModal({ data, revenueCenters, entry, close, mutate }: { dat
   const [entryType, setEntryType] = useState<EntryType>(entry?.type || "saida");
   const [amount, setAmount] = useState(Number(entry?.amount || 0));
   const [dueDate, setDueDate] = useState(entry?.due_date || new Date().toISOString().slice(0, 10));
+  const [scheduledPaymentDate, setScheduledPaymentDate] = useState(entry?.scheduled_payment_date || "");
   const [accountId, setAccountId] = useState(entry?.bank_account_id || "");
   const [contactId, setContactId] = useState(entry?.contact_id || "");
   const [quickContact, setQuickContact] = useState(false);
@@ -36,7 +37,8 @@ export function EntryModal({ data, revenueCenters, entry, close, mutate }: { dat
   const linkedDocuments = entry ? data.documents.filter(item => item.entity_type === "financial_entry" && item.entity_id === entry.id) : [];
   const contactTypes = entryType === "saida" ? ["fornecedor", "ambos", "colaborador"] : ["cliente", "ambos", "corretor"];
   const contacts = data.contacts.filter(contact => contact.active && contactTypes.includes(contact.contact_type));
-  const risk = useMemo(() => entryType === "saida" ? analyzeComprehensivePaymentRisk(data, { amount, dueDate, accountId: accountId || null, excludeEntryId: entry?.id }) : null, [data, entryType, amount, dueDate, accountId, entry?.id]);
+  const riskDate = scheduledPaymentDate || dueDate;
+  const risk = useMemo(() => entryType === "saida" ? analyzeComprehensivePaymentRisk(data, { amount, dueDate: riskDate, accountId: accountId || null, excludeEntryId: entry?.id }) : null, [data, entryType, amount, riskDate, accountId, entry?.id]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,6 +56,24 @@ export function EntryModal({ data, revenueCenters, entry, close, mutate }: { dat
     const thresholdApproval = Boolean(data.settings.require_approval) && amount >= Number(data.settings.approval_threshold) && !["admin", "diretoria"].includes(data.membership.role);
     const cashApproval = Boolean(risk?.risky && (data.settings.require_cash_risk_approval ?? true));
     const requiresApproval = thresholdApproval || cashApproval;
+    const issueDate = String(form.get("issue_date") || "");
+    const status = (form.get("status") as EntryStatus) || "pendente";
+    if (entryType === "saida" && scheduledPaymentDate && issueDate && scheduledPaymentDate < issueDate) {
+      setError("A data de programação não pode ser anterior à emissão do título.");
+      return;
+    }
+    if (entryType === "saida" && scheduledPaymentDate && requiresApproval) {
+      setError("Este pagamento ainda exige aprovação. Salve o título sem a programação e defina a data durante a aprovação.");
+      return;
+    }
+    if (entryType === "saida" && scheduledPaymentDate && status === "cancelado") {
+      setError("Um título cancelado não pode permanecer na programação de pagamentos.");
+      return;
+    }
+    if (entryType === "saida" && scheduledPaymentDate && entry?.payment_blocked) {
+      setError(entry.payment_block_reason || "O pagamento está bloqueado e não pode ser programado.");
+      return;
+    }
     const payload = {
       organization_id: data.organization.id,
       user_id: data.session.user.id,
@@ -69,9 +89,10 @@ export function EntryModal({ data, revenueCenters, entry, close, mutate }: { dat
       project_id: String(form.get("project_id") || "") || null,
       amount,
       due_date: dueDate,
-      issue_date: String(form.get("issue_date")),
+      scheduled_payment_date: entryType === "saida" ? scheduledPaymentDate || null : null,
+      issue_date: issueDate,
       competence_date: String(form.get("competence_date")),
-      status: (form.get("status") as EntryStatus) || "pendente",
+      status,
       approval_status: (requiresApproval ? "pendente" : "aprovado") as ApprovalStatus,
       payment_method: String(form.get("payment_method") || "") || null,
       document_number: String(form.get("document_number") || "") || null,
@@ -129,9 +150,9 @@ export function EntryModal({ data, revenueCenters, entry, close, mutate }: { dat
 
   return <>
     <div className="modal-backdrop" onMouseDown={close}><form className="modal large" onSubmit={submit} onMouseDown={event => event.stopPropagation()}><PanelTitle eyebrow={entry ? "EDITAR MOVIMENTO" : "NOVO MOVIMENTO"} title={entry ? entry.description : "Adicionar lançamento financeiro"} /><button className="modal-close" type="button" onClick={close}>×</button>
-      <EntryFields data={data} revenueCenters={revenueCenters} entry={entry} entryType={entryType} setEntryType={setEntryType} amountChanged={setAmount} dueDate={dueDate} setDueDate={setDueDate} accountId={accountId} setAccountId={setAccountId} contactId={contactId} setContactId={setContactId} contacts={contacts} openContact={() => setQuickContact(true)} />
+      <EntryFields data={data} revenueCenters={revenueCenters} entry={entry} entryType={entryType} setEntryType={setEntryType} amountChanged={setAmount} dueDate={dueDate} setDueDate={setDueDate} scheduledPaymentDate={scheduledPaymentDate} setScheduledPaymentDate={setScheduledPaymentDate} accountId={accountId} setAccountId={setAccountId} contactId={contactId} setContactId={setContactId} contacts={contacts} openContact={() => setQuickContact(true)} />
       <div className="form-section entry-documents-section"><div className="entry-documents-heading"><div><h4>Documentos do lançamento</h4><small>Anexe nota fiscal, boleto, contrato ou comprovante. Os arquivos ficam em armazenamento privado.</small></div>{entry && <button type="button" onClick={() => setDocumentsOpen(true)}>Gerenciar documentos <b>{linkedDocuments.length}</b></button>}</div><div className="form-grid three"><label>Tipo do documento<select name="attachment_type" defaultValue="nota_fiscal">{documentTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="span-2">Arquivos<input name="attachments" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.csv" /></label></div></div>
-      {risk?.risky && <div className={`cash-risk-alert ${risk.level}`}><div><b>!</b><span><strong>Risco de caixa {risk.level}</strong><small>Saldo projetado após o pagamento: {money.format(risk.projectedBalance)}</small></span></div><p>{risk.reason}</p>{risk.recommendedDate && <button type="button" onClick={() => setDueDate(risk.recommendedDate!)}>Usar data recomendada: {shortDate.format(dateAtNoon(risk.recommendedDate))}</button>}<em>Este pagamento será encaminhado para aprovação administrativa.</em></div>}
+      {risk?.risky && <div className={`cash-risk-alert ${risk.level}`}><div><b>!</b><span><strong>Risco de caixa {risk.level}</strong><small>Saldo projetado após o pagamento: {money.format(risk.projectedBalance)}</small></span></div><p>{risk.reason}</p>{risk.recommendedDate && <button type="button" onClick={() => setScheduledPaymentDate(risk.recommendedDate!)}>Programar para a data recomendada: {shortDate.format(dateAtNoon(risk.recommendedDate))}</button>}<em>O vencimento contratual será preservado. A programação somente será confirmada após as aprovações necessárias.</em></div>}
       {error && <div className="feedback error"><strong>Não foi possível salvar.</strong><span>{error}</span></div>}
       <footer><button type="button" onClick={close}>Cancelar</button><button className="primary">{entry ? "Salvar alterações" : "Salvar lançamento"}</button></footer>
     </form></div>

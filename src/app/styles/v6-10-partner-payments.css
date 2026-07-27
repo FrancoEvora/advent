@@ -309,8 +309,9 @@
 .partner-management .partner-payment-list > article {
   display: grid;
   grid-template-columns:
-    minmax(220px, 1.5fr)
-    minmax(130px, 0.65fr)
+    minmax(210px, 1.35fr)
+    minmax(145px, 0.72fr)
+    minmax(155px, 0.78fr)
     minmax(170px, 0.85fr)
     minmax(130px, 0.55fr)
     auto;
@@ -331,6 +332,7 @@
 
 .partner-management .partner-payment-main,
 .partner-management .partner-payment-contractual,
+.partner-management .partner-payment-scheduled,
 .partner-management .partner-payment-public,
 .partner-management .partner-payment-value {
   display: grid;
@@ -347,6 +349,7 @@
 
 .partner-management .partner-payment-main > small,
 .partner-management .partner-payment-contractual > small,
+.partner-management .partner-payment-scheduled > small,
 .partner-management .partner-payment-public > small,
 .partner-management .partner-payment-value > small {
   color: var(--partner-muted);
@@ -359,6 +362,7 @@
 }
 
 .partner-management .partner-payment-contractual > strong,
+.partner-management .partner-payment-scheduled > strong,
 .partner-management .partner-payment-public > strong {
   font-size: 0.88rem;
   line-height: 1.3;
@@ -366,6 +370,7 @@
 }
 
 .partner-management .partner-payment-contractual > span,
+.partner-management .partner-payment-scheduled > span,
 .partner-management .partner-payment-public > span {
   color: var(--partner-muted);
   font-size: 0.7rem;
@@ -876,7 +881,7 @@
 
 .partner-management .partner-publication-summary {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   min-width: 0;
   gap: 9px;
 }

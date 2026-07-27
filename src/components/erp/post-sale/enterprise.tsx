@@ -22,6 +22,7 @@ import {
 } from "./views-operations";
 import { brl, contractContext } from "./utils";
 import { CustomerPortalAdmin } from "./portal-admin";
+import type { ActivityDeepLinkTarget } from "../activities/activity-links";
 export const postSaleSections: Array<{
   id: PostSaleSection;
   label: string;
@@ -76,12 +77,14 @@ export function PostSaleEnterprise({
   setSection,
   mutate,
   can,
+  focus = null,
 }: {
   data: ErpData;
   section: PostSaleSection;
   setSection: (s: PostSaleSection) => void;
   mutate: (operation: () => Promise<void>, success: string) => Promise<void>;
   can?: (permission: string) => boolean;
+  focus?: ActivityDeepLinkTarget | null;
 }) {
   const { postSale, loading, error, reload } = usePostSaleData(data);
   const canManagePortal = !can || can("portal.manage");
@@ -120,7 +123,12 @@ export function PostSaleEnterprise({
           <JourneyView data={data} ps={postSale} reload={reload} />
         )}{" "}
         {activeSection === "tickets" && (
-          <TicketsView data={data} ps={postSale} reload={reload} />
+          <TicketsView
+            data={data}
+            ps={postSale}
+            reload={reload}
+            focusId={focus?.sourceType === "post_sale_tickets" ? focus.recordId : null}
+          />
         )}{" "}
         {activeSection === "collections" && (
           <CollectionsView data={data} ps={postSale} reload={reload} />

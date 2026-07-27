@@ -196,6 +196,10 @@ function partnerName(contact: Contact | undefined) {
   return contact?.trade_name || contact?.name || "Parceiro não identificado";
 }
 
+function scheduledPaymentDate(entry: FinancialEntry | undefined) {
+  return entry?.scheduled_payment_date || null;
+}
+
 function publicTiming(publication: PartnerPublication | undefined) {
   if (!publication) return "Ainda não comunicado";
   if (publication.public_status === "previsto")
@@ -209,7 +213,9 @@ function publicTiming(publication: PartnerPublication | undefined) {
       publication.public_status,
     )
   )
-    return safeDate(publication.scheduled_date);
+    return publication.scheduled_date
+      ? safeDate(publication.scheduled_date)
+      : "Ainda não programado";
   return publicStatusLabels[publication.public_status];
 }
 
@@ -537,6 +543,7 @@ export function PartnerManagementView({
 
   function openPublication(entry: FinancialEntry) {
     const publication = publicationsByEntry.get(entry.id);
+    const effectiveScheduledDate = scheduledPaymentDate(entry);
     const scheduleReleased =
       entry.approval_status === "aprovado" &&
       !entry.payment_blocked &&
@@ -577,6 +584,7 @@ export function PartnerManagementView({
       forecastStart: publication?.forecast_start || futureDate(7),
       forecastEnd: publication?.forecast_end || futureDate(14),
       scheduledDate:
+        effectiveScheduledDate ||
         publication?.scheduled_date ||
         (entry.due_date >= new Date().toISOString().slice(0, 10)
           ? entry.due_date
@@ -858,6 +866,13 @@ export function PartnerManagementView({
   const paymentEntry = paymentEntryId
     ? entriesById.get(paymentEntryId)
     : undefined;
+  const paymentEntryPublication = paymentEntryId
+    ? publicationsByEntry.get(paymentEntryId)
+    : undefined;
+  const paymentEntryScheduledDate =
+    scheduledPaymentDate(paymentEntry) ||
+    paymentEntryPublication?.scheduled_date ||
+    null;
   const paymentEntryCanSchedule =
     paymentEntry?.approval_status === "aprovado" &&
     !paymentEntry.payment_blocked &&
@@ -1006,6 +1021,9 @@ export function PartnerManagementView({
               const publication = publicationsByEntry.get(entry.id);
               const contact = contactsById.get(entry.contact_id || "");
               const project = projectsById.get(entry.project_id || "");
+              const canonicalScheduledDate = scheduledPaymentDate(entry);
+              const effectiveScheduledDate =
+                canonicalScheduledDate || publication?.scheduled_date || null;
               return (
                 <article
                   key={entry.id}
@@ -1034,9 +1052,30 @@ export function PartnerManagementView({
                     )}
                   </div>
                   <div className="partner-payment-contractual">
-                    <small>Vencimento interno</small>
-                    <strong>{safeDate(entry.due_date)}</strong>
-                    <span>{entry.approval_status}</span>
+                    <small>Emissão e vencimento contratual</small>
+                    <strong>
+                      {entry.issue_date
+                        ? safeDate(entry.issue_date)
+                        : "Emissão não informada"}
+                    </strong>
+                    <span>Vence em {safeDate(entry.due_date)}</span>
+                  </div>
+                  <div className="partner-payment-scheduled">
+                    <small>Programação efetiva</small>
+                    <strong>
+                      {effectiveScheduledDate
+                        ? safeDate(effectiveScheduledDate)
+                        : entry.status === "pago"
+                          ? "Não registrada"
+                          : "Ainda não programado"}
+                    </strong>
+                    <span>
+                      {effectiveScheduledDate
+                        ? canonicalScheduledDate
+                          ? "Data registrada no lançamento"
+                          : "Programação publicada; sincronização confirmada"
+                        : "Nenhuma data foi definida"}
+                    </span>
                   </div>
                   <div className="partner-payment-public">
                     <small>Informação ao parceiro</small>
@@ -1730,12 +1769,26 @@ export function PartnerManagementView({
                 </strong>
               </span>
               <span>
-                <small>Vencimento interno</small>
+                <small>Emissão</small>
+                <strong>
+                  {paymentEntry.issue_date
+                    ? safeDate(paymentEntry.issue_date)
+                    : "Não informada"}
+                </strong>
+              </span>
+              <span>
+                <small>Vencimento contratual</small>
                 <strong>{safeDate(paymentEntry.due_date)}</strong>
               </span>
               <span>
-                <small>Aprovação interna</small>
-                <strong>{paymentEntry.approval_status}</strong>
+                <small>Programação efetiva atual</small>
+                <strong>
+                  {paymentEntryScheduledDate
+                    ? safeDate(paymentEntryScheduledDate)
+                    : paymentEntry.status === "pago"
+                      ? "Não registrada"
+                      : "Ainda não programado"}
+                </strong>
               </span>
             </section>
             <label>
@@ -1759,7 +1812,7 @@ export function PartnerManagementView({
                       value="programado"
                       disabled={!paymentEntryCanSchedule}
                     >
-                      Programado — data aprovada
+                      Programado — data efetiva registrada
                     </option>
                     <option value="suspenso">Suspender comunicação</option>
                   </>
@@ -1820,8 +1873,8 @@ export function PartnerManagementView({
               <label>
                 <span>
                   {publicationForm.publicStatus === "programado"
-                    ? "Data aprovada"
-                    : "Data de processamento"}
+                    ? "Data efetiva da programação"
+                    : "Data programada em processamento"}
                 </span>
                 <input
                   type="date"
@@ -1867,9 +1920,11 @@ export function PartnerManagementView({
             <aside className="partner-publication-warning">
               <b>!</b>
               <p>
-                “Previsão” é estimativa. “Programado” deve ser usado apenas
-                depois da aprovação financeira. O portal não exibirá fluxo de
-                caixa, risco ou justificativas internas.
+                “Previsão” é apenas uma estimativa. “Programado” registra a
+                data efetiva da programação atual, mas não confirma a
+                liquidação. Somente “Pago” indica pagamento concluído. O
+                portal não exibirá fluxo de caixa, risco ou justificativas
+                internas.
               </p>
             </aside>
             <footer>

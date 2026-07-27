@@ -42,19 +42,22 @@ const paymentStatus: Record<
   },
   previsto: {
     label: "Previsto",
-    detail: "Janela estimada, ainda sujeita às aprovações necessárias.",
+    detail:
+      "Janela estimada para orientação. Ainda não existe uma data efetivamente programada.",
     tone: "forecast",
     step: 1,
   },
   programado: {
     label: "Programado",
-    detail: "Pagamento aprovado e incluído na programação financeira.",
+    detail:
+      "Data registrada na programação atual. O pagamento somente estará concluído após a confirmação da liquidação.",
     tone: "scheduled",
     step: 2,
   },
   em_processamento: {
     label: "Em processamento",
-    detail: "A ordem de pagamento está em processamento bancário.",
+    detail:
+      "O processamento foi iniciado. A conclusão depende da confirmação da liquidação.",
     tone: "processing",
     step: 3,
   },
@@ -127,32 +130,28 @@ function optionalNumber(value: FormDataEntryValue | null) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function paymentDate(payment: PartnerPayment) {
-  if (payment.public_status === "previsto") {
-    return {
-      label: "Previsão de pagamento",
-      value:
-        payment.forecast_start === payment.forecast_end
-          ? formatDate(payment.forecast_start)
-          : `${formatDate(payment.forecast_start)} a ${formatDate(payment.forecast_end)}`,
-    };
-  }
+function scheduledPaymentDate(payment: PartnerPayment) {
   if (
-    payment.public_status === "programado" ||
-    payment.public_status === "em_processamento"
+    !["programado", "em_processamento", "pago"].includes(
+      payment.public_status,
+    )
   ) {
-    return {
-      label: "Data programada",
-      value: formatDate(payment.scheduled_date),
-    };
+    return null;
   }
-  if (payment.public_status === "pago") {
-    return {
-      label: "Pagamento confirmado",
-      value: formatDate(payment.paid_on),
-    };
+  return payment.scheduled_payment_date || payment.scheduled_date || null;
+}
+
+function confirmedPaymentDate(payment: PartnerPayment) {
+  if (payment.public_status !== "pago") return null;
+  return payment.paid_on || payment.paid_at || null;
+}
+
+function paymentForecast(payment: PartnerPayment) {
+  if (!payment.forecast_start && !payment.forecast_end) return null;
+  if (payment.forecast_start === payment.forecast_end) {
+    return formatDate(payment.forecast_start);
   }
-  return { label: "Programação", value: "Em definição" };
+  return `${formatDate(payment.forecast_start)} a ${formatDate(payment.forecast_end)}`;
 }
 
 async function requestPortal(
@@ -253,9 +252,12 @@ export function PartnerPaymentPortal() {
       .map(payment => ({
         payment,
         date:
-          payment.scheduled_date ||
+          scheduledPaymentDate(payment) ||
           payment.forecast_start ||
           payment.forecast_end,
+        kind: scheduledPaymentDate(payment)
+          ? "Pagamento programado"
+          : "Previsão informativa",
       }))
       .filter(
         (
@@ -263,6 +265,7 @@ export function PartnerPaymentPortal() {
         ): item is {
           payment: PartnerPayment;
           date: string;
+          kind: string;
         } => Boolean(item.date),
       )
       .sort((a, b) => a.date.localeCompare(b.date));
@@ -641,16 +644,16 @@ export function PartnerPaymentPortal() {
             <span>{portal.payments.length} título(s) visível(is)</span>
           </article>
           <article>
-            <small>PRÓXIMA PREVISÃO OU PROGRAMAÇÃO</small>
+            <small>PRÓXIMA DATA PUBLICADA</small>
             <strong>
               {summary.nextPayment
                 ? formatDate(summary.nextPayment.date)
-                : "Sem data publicada"}
+                : "Ainda não programado"}
             </strong>
             <span>
               {summary.nextPayment
-                ? paymentStatus[summary.nextPayment.payment.public_status].label
-                : "Aguardando atualização"}
+                ? summary.nextPayment.kind
+                : "Nenhuma programação ou previsão disponível"}
             </span>
           </article>
           <article>
@@ -671,9 +674,9 @@ export function PartnerPaymentPortal() {
               <small>PRÓXIMOS PAGAMENTOS</small>
               <h2>Previsão e processamento</h2>
               <p>
-                O vencimento contratual e a programação financeira são
-                informações distintas. Consulte abaixo a situação publicada
-                pela Évora.
+                Emissão, vencimento contratual, programação e conclusão são
+                etapas distintas. “Programado” não significa “pago”: consulte
+                abaixo a situação efetivamente publicada pela Évora.
               </p>
             </div>
             <button
@@ -850,7 +853,9 @@ function PaymentCard({
   onNegotiate: () => void;
 }) {
   const status = paymentStatus[payment.public_status];
-  const date = paymentDate(payment);
+  const scheduledDate = scheduledPaymentDate(payment);
+  const paidDate = confirmedPaymentDate(payment);
+  const forecast = paymentForecast(payment);
   return (
     <article className={`partner-payment-card partner-tone-${status.tone}`}>
       <header>
@@ -880,14 +885,41 @@ function PaymentCard({
       </div>
       <div className="partner-payment-dates">
         <span>
+          <small>Emissão</small>
+          <strong>
+            {payment.issue_date
+              ? formatDate(payment.issue_date)
+              : "Não informada"}
+          </strong>
+        </span>
+        <span>
           <small>Vencimento contratual</small>
           <strong>{formatDate(payment.contractual_due_date)}</strong>
         </span>
         <span>
-          <small>{date.label}</small>
-          <strong>{date.value}</strong>
+          <small>Pagamento programado</small>
+          <strong>
+            {scheduledDate
+              ? formatDate(scheduledDate)
+              : payment.public_status === "pago"
+                ? "Não registrada"
+                : "Ainda não programado"}
+          </strong>
+        </span>
+        <span>
+          <small>Pagamento concluído</small>
+          <strong>
+            {paidDate ? formatDate(paidDate) : "Ainda não concluído"}
+          </strong>
         </span>
       </div>
+      {forecast && !scheduledDate && payment.public_status === "previsto" && (
+        <div className="partner-payment-forecast">
+          <strong>Previsão informativa</strong>
+          <span>{forecast}</span>
+          <small>Esta janela não representa programação de pagamento.</small>
+        </div>
+      )}
       <PaymentTimeline status={payment.public_status} />
       <p className="partner-payment-explanation">{status.detail}</p>
       {payment.public_note && (
@@ -1734,7 +1766,8 @@ const partnerStyles = `
     justify-content: flex-start;
   }
   .partner-payment-dates > span {
-    min-width: 210px;
+    min-width: 0;
+    flex: 1 1 0;
     padding: 14px 16px;
     border: 1px solid var(--partner-line);
     border-radius: 13px;
@@ -1752,6 +1785,28 @@ const partnerStyles = `
   .partner-payment-dates strong {
     color: var(--partner-navy);
     font-size: 15px;
+  }
+  .partner-payment-forecast {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+    padding: 12px 15px;
+    border: 1px solid #ead9b8;
+    border-radius: 12px;
+    color: #72511a;
+    background: #fff9ec;
+    font-size: 12px;
+  }
+  .partner-payment-forecast strong,
+  .partner-payment-forecast span {
+    flex: 0 0 auto;
+  }
+  .partner-payment-forecast small {
+    min-width: 0;
+    margin-left: auto;
+    color: #846d44;
+    text-align: right;
   }
   .partner-payment-timeline {
     display: grid;
@@ -2293,6 +2348,14 @@ const partnerStyles = `
       width: 100%;
       min-width: 0;
       box-sizing: border-box;
+    }
+    .partner-payment-forecast {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+    .partner-payment-forecast small {
+      margin-left: 0;
+      text-align: left;
     }
     .partner-payment-timeline {
       grid-template-columns: 1fr;

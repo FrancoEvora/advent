@@ -10,6 +10,7 @@ import {
   type OperationalSignal,
   type SignalArea,
 } from "./activity-intelligence";
+import { getActivityRelatedLink } from "./activity-links";
 
 type Ctx = {
   organization: Organization;
@@ -406,6 +407,7 @@ export function ActivityPlanner({ context }: { context: Ctx }) {
 
   const taskCard = (item: Activity) => {
     const isOverdue = item.due_at && new Date(item.due_at) < now && item.board_status !== "concluida";
+    const relatedLink = getActivityRelatedLink(item.related_type, item.related_id);
     return <article className={`task-card ${isOverdue ? "overdue" : ""} ${item.board_status === "aguardando" ? "blocked" : ""}`} key={item.id}>
       <header>
         <i data-priority={item.priority}>{item.priority}</i>
@@ -423,6 +425,7 @@ export function ActivityPlanner({ context }: { context: Ctx }) {
       </div>
       <footer>
         <span>{item.checklist?.filter(value => value.done).length || 0}/{item.checklist?.length || 0} itens</span>
+        {relatedLink && <a className="task-related-link" href={relatedLink.href} aria-label={`${relatedLink.label}: ${item.title}`}>{relatedLink.label}<span aria-hidden="true">→</span></a>}
         {canEdit(item) && <button type="button" onClick={() => openProgress(item)}>Atualizar</button>}
         <select aria-label={`Situação de ${item.title}`} value={item.board_status || "backlog"} disabled={!canEdit(item)} onChange={event => move(item, event.target.value)}>
           {columns.map(column => <option key={column.id} value={column.id}>{column.label}</option>)}
@@ -500,6 +503,7 @@ export function ActivityPlanner({ context }: { context: Ctx }) {
             {filteredSignals.slice(0, 8).map(signal => {
               const linked = items.some(item => item.related_type === signal.sourceType && item.related_id === signal.sourceId);
               const meta = signalAreaMeta[signal.area];
+              const relatedLink = getActivityRelatedLink(signal.sourceType, signal.sourceId);
               return <article key={signal.id} data-severity={signal.severity}>
                 <b>{signal.score}</b>
                 <i>{meta.icon}</i>
@@ -512,6 +516,7 @@ export function ActivityPlanner({ context }: { context: Ctx }) {
                     <em>{dayLabel(signal.dueAt)}</em>
                     {signal.impact && <em>{signal.impact}</em>}
                     <em>{projectName(signal.projectId)}</em>
+                    {relatedLink && <a className="signal-related-link" href={relatedLink.href} aria-label={`${relatedLink.label}: ${signal.title}`}>{relatedLink.label}<span aria-hidden="true">→</span></a>}
                   </footer>
                 </div>
                 <button type="button" disabled={linked} onClick={() => createFromSignal(signal)}>{linked ? "Em acompanhamento" : "Criar atividade"}</button>

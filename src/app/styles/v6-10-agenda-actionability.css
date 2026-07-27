@@ -1,0 +1,424 @@
+/*
+ * Agenda 6.10 — legibilidade, ação contextual e Kanban responsivo.
+ *
+ * Esta folha é carregada por último para neutralizar estilos globais legados
+ * sem alterar a apresentação dos portais públicos.
+ */
+
+.agenda-v69 .agenda-card,
+.agenda-v69 .task-board,
+.agenda-v69 .task-board > section,
+.agenda-v69 .task-card {
+  min-width: 0;
+}
+
+/* A classe global `.overdue` do portal do comprador não pode pintar o card. */
+.agenda-v69 .task-card.overdue {
+  border-color: #d17878;
+  border-left: 4px solid #b33f45;
+  background: #fff7f7 !important;
+  color: #173f52;
+}
+
+.agenda-v69 .task-card.overdue:hover {
+  border-color: #bd5a5f;
+  box-shadow: 0 9px 24px rgba(133, 45, 49, 0.1);
+}
+
+/* Recupera os estilos que ainda estavam vinculados à antiga agenda-v65. */
+.agenda-v69 .task-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  margin: 14px 0 12px;
+}
+
+.agenda-v69 .task-progress > i {
+  display: block;
+  height: 8px;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e1e8ea;
+}
+
+.agenda-v69 .task-progress > i > b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #79b82b, #1d5271);
+}
+
+.agenda-v69 .task-progress > span {
+  color: #274b5b;
+  font-size: 12px;
+  font-weight: 850;
+  line-height: 1;
+}
+
+.agenda-v69 .task-progress-note {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-left: 3px solid #8eb759;
+  border-radius: 9px;
+  color: #405963;
+  background: #f1f6ef;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Evita que o título e a descrição do quadro sejam tratados como ações. */
+.agenda-v69 .agenda-card > header > div:only-child {
+  display: grid;
+  align-items: initial;
+  gap: 5px;
+  min-width: 0;
+}
+
+.agenda-v69 .agenda-card > header > div:only-child > small {
+  color: #507663;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: 0.13em;
+}
+
+.agenda-v69 .agenda-card > header > div:only-child > h2 {
+  margin: 0;
+  color: #173f52;
+  font-size: clamp(24px, 2.4vw, 34px);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+}
+
+.agenda-v69 .agenda-card > header > div:only-child > p {
+  max-width: 760px;
+  margin: 1px 0 0;
+  color: #4e646d;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Hierarquia e contraste dos cartões. */
+.agenda-v69 .task-card {
+  padding: 17px;
+}
+
+.agenda-v69 .task-card > header {
+  align-items: flex-start;
+  flex-wrap: wrap;
+  row-gap: 5px;
+}
+
+.agenda-v69 .task-card > header > i {
+  color: #526a74;
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.04em;
+}
+
+.agenda-v69 .task-card > header > i[data-priority="urgente"] {
+  color: #98383e;
+}
+
+.agenda-v69 .task-card > header > time {
+  margin-left: auto;
+  color: #536a74;
+  font-size: 12px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.agenda-v69 .task-card > h3 {
+  margin: 11px 0 7px;
+  color: #173f52;
+  font-size: 18px;
+  line-height: 1.25;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+
+.agenda-v69 .task-card > p:not(.task-progress-note) {
+  margin: 0 0 11px;
+  color: #405963;
+  font-size: 14px;
+  line-height: 1.52;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.agenda-v69 .task-tags {
+  gap: 6px;
+  margin-bottom: 11px;
+}
+
+.agenda-v69 .task-tags span {
+  padding: 4px 8px;
+  color: #385661;
+  background: #eaf1f2;
+  font-size: 10px;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.agenda-v69 .task-context {
+  gap: 6px 13px;
+  margin-top: 11px;
+}
+
+.agenda-v69 .task-context small {
+  color: #536a74;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+/* Contador em uma linha; ações e situação em áreas clicáveis confortáveis. */
+.agenda-v69 .task-card > footer {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: stretch;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top-color: #dfe7e9;
+}
+
+.agenda-v69 .task-card > footer > span {
+  grid-column: 1 / -1;
+  color: #294b5a;
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.35;
+}
+
+.agenda-v69 .task-card > footer > button,
+.agenda-v69 .task-card > footer > select,
+.agenda-v69 .task-card > footer > .task-related-link {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  min-height: 44px;
+  margin: 0;
+  border: 1px solid #c9d7dc;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 750;
+  line-height: 1.25;
+}
+
+.agenda-v69 .task-card > footer > button {
+  padding: 8px 11px;
+  color: #1d5271;
+  background: #fff;
+}
+
+.agenda-v69 .task-card > footer > select {
+  grid-column: 1 / -1;
+  padding-right: 34px;
+  color: #294b5a;
+  background-color: #fff;
+}
+
+/* Links para o item originário da atividade/sinal. */
+.agenda-v69 .task-related-link,
+.agenda-v69 .signal-related-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 42px;
+  padding: 9px 12px;
+  border: 1px solid #1d5271;
+  border-radius: 10px;
+  color: #fff;
+  background: #1d5271;
+  box-shadow: 0 6px 15px rgba(29, 82, 113, 0.14);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.25;
+  text-align: center;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  transition:
+    background-color 160ms ease,
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.agenda-v69 .signal-related-link {
+  justify-self: end;
+  max-width: 170px;
+  color: #265e43;
+  border-color: #b8d1bf;
+  background: #eef7ef;
+  box-shadow: none;
+}
+
+.agenda-v69 .task-related-link:hover {
+  border-color: #153f57;
+  background: #153f57;
+  box-shadow: 0 8px 18px rgba(29, 82, 113, 0.2);
+  transform: translateY(-1px);
+}
+
+.agenda-v69 .signal-related-link:hover {
+  color: #1f5138;
+  border-color: #8fba9c;
+  background: #e2f2e5;
+  transform: translateY(-1px);
+}
+
+.agenda-v69 .task-related-link:focus-visible,
+.agenda-v69 .signal-related-link:focus-visible,
+.agenda-v69 .task-card > footer > button:focus-visible,
+.agenda-v69 .task-card > footer > select:focus-visible {
+  outline: 3px solid rgba(121, 184, 43, 0.42);
+  outline-offset: 2px;
+}
+
+.agenda-v69 .task-related-link[aria-disabled="true"],
+.agenda-v69 .signal-related-link[aria-disabled="true"],
+.agenda-v69 .task-related-link:disabled,
+.agenda-v69 .signal-related-link:disabled {
+  color: #6f7f85;
+  border-color: #d4dddf;
+  background: #edf1f2;
+  box-shadow: none;
+  cursor: not-allowed;
+  opacity: 0.72;
+  pointer-events: none;
+  transform: none;
+}
+
+/* Destino aberto a partir da Agenda, em qualquer módulo do ERP. */
+.agenda-linked-target {
+  position: relative;
+  z-index: 1;
+  scroll-margin-block: 110px;
+  outline: 3px solid rgba(112, 166, 46, 0.72);
+  outline-offset: 3px;
+  background-color: #f5faee !important;
+  box-shadow: 0 0 0 7px rgba(112, 166, 46, 0.12) !important;
+  animation: agenda-linked-pulse 1.25s ease-out 2;
+}
+
+.agenda-linked-target:focus {
+  outline-color: #5f9727;
+}
+
+@keyframes agenda-linked-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 7px rgba(112, 166, 46, 0.12);
+  }
+
+  50% {
+    box-shadow: 0 0 0 12px rgba(112, 166, 46, 0.2);
+  }
+}
+
+/* Kanban: cartões confortáveis no desktop e navegação previsível no mobile. */
+.agenda-v69 .task-board {
+  grid-template-columns: repeat(4, minmax(285px, 1fr));
+  gap: 16px;
+  padding: 2px 2px 13px;
+  overscroll-behavior-inline: contain;
+  scrollbar-color: #aebfc5 #edf2f3;
+  scrollbar-width: thin;
+  scroll-snap-type: x proximity;
+}
+
+.agenda-v69 .task-board > section {
+  scroll-snap-align: start;
+}
+
+.agenda-v69 .task-board > section > header {
+  align-items: center;
+  gap: 10px;
+}
+
+.agenda-v69 .task-board > section > header strong {
+  color: #1f4353;
+  font-size: 15px;
+  line-height: 1.3;
+}
+
+.agenda-v69 .task-board > section > header span {
+  flex: 0 0 auto;
+  color: #3f5964;
+  font-weight: 750;
+}
+
+@media (max-width: 1180px) {
+  .agenda-v69 .task-board {
+    grid-template-columns: repeat(4, minmax(290px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .agenda-v69 .agenda-board-card {
+    padding: 18px;
+  }
+
+  .agenda-v69 .task-board {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: min(86vw, 330px);
+    gap: 12px;
+    scroll-snap-type: x mandatory;
+  }
+
+  .agenda-v69 .task-board > section {
+    width: 100%;
+  }
+}
+
+@media (max-width: 680px) {
+  .agenda-v69 .decision-queue > div > article > .signal-related-link {
+    grid-column: 2;
+    justify-self: start;
+    max-width: 100%;
+  }
+}
+
+@media (max-width: 560px) {
+  .agenda-v69 .agenda-board-card {
+    padding: 14px;
+    border-radius: 17px;
+  }
+
+  .agenda-v69 .agenda-card > header {
+    margin-bottom: 16px;
+  }
+
+  .agenda-v69 .agenda-card > header > div:only-child > h2 {
+    font-size: 24px;
+  }
+
+  .agenda-v69 .task-board {
+    grid-auto-columns: min(88vw, 310px);
+  }
+
+  .agenda-v69 .task-card {
+    padding: 15px;
+  }
+
+  .agenda-v69 .task-card > header > time {
+    flex-basis: 100%;
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agenda-v69 .task-related-link,
+  .agenda-v69 .signal-related-link {
+    transition: none;
+  }
+
+  .agenda-linked-target {
+    animation: none;
+  }
+}

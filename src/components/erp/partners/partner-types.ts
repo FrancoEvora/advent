@@ -40,10 +40,16 @@ export interface PartnerPayment {
   installment_number: number | null;
   installment_total: number | null;
   amount: number;
+  issue_date: string | null;
   contractual_due_date: string;
   public_status: PartnerPaymentStatus;
   forecast_start: string | null;
   forecast_end: string | null;
+  /**
+   * Fonte financeira canônica. `scheduled_date` permanece como snapshot
+   * compatível da publicação feita ao parceiro.
+   */
+  scheduled_payment_date: string | null;
   scheduled_date: string | null;
   processing_started_at: string | null;
   paid_on: string | null;

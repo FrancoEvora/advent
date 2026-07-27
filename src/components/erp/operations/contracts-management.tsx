@@ -1,7 +1,8 @@
 "use client";
 
-import { type FormEvent, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
+import type { ActivityDeepLinkTarget } from "../activities/activity-links";
 import type {
   ContractMeasurement,
   ContractMeasurementItem,
@@ -114,22 +115,41 @@ export function ContractsManagement({
   data,
   mutate,
   can,
+  focus,
 }: {
   data: ErpData;
   mutate: Mutate;
   can: Can;
+  focus?: ActivityDeepLinkTarget | null;
 }) {
   const contracts = data.operationalContracts;
   const items = data.operationalContractItems;
   const measurements = data.contractMeasurements;
   const measurementItems = data.contractMeasurementItems;
   const periods = data.contractMeasurementPeriods;
+  const focusedMeasurement =
+    focus?.sourceType === "contract_measurements"
+      ? measurements.find((item) => item.id === focus.recordId)
+      : undefined;
+  const focusedMeasurementId = focusedMeasurement?.id || null;
+  const focusedContractId = focusedMeasurement?.contract_id || null;
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
   const [projectId, setProjectId] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const [measureContract, setMeasureContract] = useState<OperationalContract | null>(null);
   const [decision, setDecision] = useState<ContractMeasurement | null>(null);
+
+  useEffect(() => {
+    if (!focusedContractId) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) setSelectedId(focusedContractId);
+    });
+    return () => {
+      active = false;
+    };
+  }, [focusedContractId]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLocaleLowerCase("pt-BR");
@@ -235,6 +255,7 @@ export function ContractsManagement({
               onMeasure={() => setMeasureContract(selected)}
               onDecision={setDecision}
               canRegister={canRegister}
+              focusedMeasurementId={focusedMeasurementId}
             />
           : <Empty text="Selecione um contrato para acompanhar os horímetros." />}
       </div>
@@ -272,6 +293,7 @@ function ContractDetail({
   onMeasure,
   onDecision,
   canRegister,
+  focusedMeasurementId,
 }: {
   contract: OperationalContract;
   data: ErpData;
@@ -283,6 +305,7 @@ function ContractDetail({
   onMeasure: () => void;
   onDecision: (measurement: ContractMeasurement) => void;
   canRegister: boolean;
+  focusedMeasurementId: string | null;
 }) {
   const supplier = data.contacts.find(contact => contact.id === contract.supplier_contact_id);
   const project = data.projects.find(item => item.id === contract.project_id);
@@ -291,6 +314,24 @@ function ContractDetail({
     .filter(measurement => measurement.contract_id === contract.id)
     .sort((a, b) => b.measurement_number - a.measurement_number);
   const contractPeriods = periods.filter(period => period.contract_id === contract.id);
+  const hasFocusedMeasurement = Boolean(
+    focusedMeasurementId
+      && contractMeasurements.some(
+        (measurement) => measurement.id === focusedMeasurementId,
+      ),
+  );
+
+  useEffect(() => {
+    if (!focusedMeasurementId || !hasFocusedMeasurement) return;
+    const frame = requestAnimationFrame(() => {
+      const target = document.querySelector<HTMLElement>(
+        `[data-record-id="${focusedMeasurementId}"]`,
+      );
+      target?.scrollIntoView({ behavior: "smooth", block: "center" });
+      target?.focus({ preventScroll: true });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [contract.id, focusedMeasurementId, hasFocusedMeasurement]);
 
   return <div className="contract-ops-detail-content">
     <header>
@@ -342,7 +383,8 @@ function ContractDetail({
             return sum;
           }, { raw: 0, downtime: 0, productive: 0 });
           const ready = measurement.status === "submetida" && measurement.document_workflow_status === "pronto_para_aprovacao";
-          return <article key={measurement.id}>
+          const focused = measurement.id === focusedMeasurementId;
+          return <article key={measurement.id} data-record-id={measurement.id} tabIndex={focused ? -1 : undefined} className={focused ? "agenda-linked-target" : undefined}>
             <div><span className={`contract-ops-status ${measurement.status}`}>{label(measurement.status)}</span><strong>{measurement.measurement_code || `Medição ${measurement.measurement_number}`}</strong><small>{safeDate(measurement.period_start)} a {safeDate(measurement.period_end)} · {label(measurement.document_workflow_status)}</small></div>
             <span><small>Brutas</small><strong>{hour.format(hours.raw)} h</strong></span>
             <span><small>Paradas</small><strong>{hour.format(hours.downtime)} h</strong></span>

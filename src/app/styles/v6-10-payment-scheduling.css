@@ -1,0 +1,40 @@
+.entry-row > span {
+  display: grid;
+  gap: 2px;
+}
+
+.entry-row > span small {
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.finance-table .table-header,
+.finance-table .finance-row {
+  grid-template-columns:
+    minmax(250px, 1.3fr)
+    minmax(200px, 1fr)
+    minmax(160px, 180px)
+    115px
+    135px
+    105px;
+}
+
+.form-grid label > small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+@media (max-width: 1200px) {
+  .finance-table .table-header,
+  .finance-table .finance-row {
+    min-width: 1060px;
+  }
+}
+
+@media (max-width: 650px) {
+  .entry-row > span {
+    display: none;
+  }
+}

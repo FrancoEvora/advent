@@ -9,6 +9,7 @@ export type FinancialEntry = {
   category: string;
   amount: number;
   due_date: string;
+  scheduled_payment_date?: string | null;
   status: EntryStatus;
   notes: string | null;
   created_at: string;

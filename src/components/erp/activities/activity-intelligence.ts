@@ -95,6 +95,15 @@ function withinDays(value: string | null, now: Date, days: number) {
   return time >= now.getTime() && time <= now.getTime() + days * 86_400_000;
 }
 
+function calendarDaysUntil(value: string | null, now: Date) {
+  if (!value) return null;
+  const target = new Date(`${value.slice(0, 10)}T12:00:00`);
+  if (Number.isNaN(target.getTime())) return null;
+  const today = new Date(now);
+  today.setHours(12, 0, 0, 0);
+  return Math.round((target.getTime() - today.getTime()) / 86_400_000);
+}
+
 function scoreSignal(signal: Omit<OperationalSignal, "score">, now: Date) {
   const severity = signal.severity === "critical" ? 84 : signal.severity === "attention" ? 64 : 44;
   const deadline = overdue(signal.dueAt, now) ? 12 : withinDays(signal.dueAt, now, 2) ? 7 : withinDays(signal.dueAt, now, 7) ? 3 : 0;
@@ -110,31 +119,85 @@ function financialSignals(rows: Entity[], now: Date) {
   return rows.flatMap(row => {
     const status = normalizedStatus(row);
     if (terminalFinancialStatus.has(status)) return [];
-    const dueAt = dateValue(row, "due_date", "recommended_due_date");
-    const isOverdue = overdue(dueAt, now);
-    const cashRisk = row.cash_risk === true;
-    if (!isOverdue && !cashRisk) return [];
     const type = text(row, "type");
     const amount = numeric(row, "amount");
-    return [createSignal({
-      id: `financial_entries:${identifier(row)}`,
-      sourceType: "financial_entries",
-      sourceId: identifier(row),
-      sourceLabel: "Financeiro",
-      area: "financeiro",
-      title: isOverdue
-        ? `${type === "entrada" ? "Recebimento" : "Pagamento"} vencido`
-        : "Risco de caixa identificado",
-      detail: text(row, "description") || "Lançamento financeiro sem descrição.",
-      recommendation: type === "entrada"
-        ? "Registrar a tratativa de cobrança e a próxima data de contato."
-        : "Validar disponibilidade de caixa, aprovação e eventual reprogramação.",
-      severity: isOverdue ? "critical" : "attention",
-      dueAt,
-      projectId: text(row, "project_id") || null,
-      ownerUserId: text(row, "created_by", "user_id") || null,
-      impact: amount ? money.format(amount) : null,
-    }, now)];
+    const sourceId = identifier(row);
+    const detail = text(row, "description") || "Lançamento financeiro sem descrição.";
+    const projectId = text(row, "project_id") || null;
+    const ownerUserId = text(row, "created_by", "user_id") || null;
+    const impact = amount ? money.format(amount) : null;
+    const contractualDueAt = dateValue(row, "due_date");
+    const scheduledAt = type === "saida" ? dateValue(row, "scheduled_payment_date") : null;
+    const contractualDays = calendarDaysUntil(contractualDueAt, now);
+    const scheduledDays = calendarDaysUntil(scheduledAt, now);
+    const cashRisk = row.cash_risk === true;
+    const signals: OperationalSignal[] = [];
+
+    if (contractualDays !== null && contractualDays < 0) {
+      signals.push(createSignal({
+        id: `financial_entries:${sourceId}:contractual-due`,
+        sourceType: "financial_entries",
+        sourceId,
+        sourceLabel: "Financeiro",
+        area: "financeiro",
+        title: type === "entrada" ? "Recebimento vencido" : "Vencimento contratual do pagamento ultrapassado",
+        detail,
+        recommendation: type === "entrada"
+          ? "Registrar a tratativa de cobrança e a próxima data de contato."
+          : "Tratar o vencimento com o credor e manter a programação financeira separada da data contratual.",
+        severity: "critical",
+        dueAt: contractualDueAt,
+        projectId,
+        ownerUserId,
+        impact,
+      }, now));
+    }
+
+    if (scheduledAt && scheduledDays !== null && scheduledDays <= 7) {
+      const scheduledLate = scheduledDays < 0;
+      signals.push(createSignal({
+        id: `financial_entries:${sourceId}:scheduled-payment`,
+        sourceType: "financial_entries",
+        sourceId,
+        sourceLabel: "Programação financeira",
+        area: "financeiro",
+        title: scheduledLate
+          ? "Pagamento programado não liquidado"
+          : scheduledDays === 0
+            ? "Pagamento programado para hoje"
+            : "Pagamento programado nos próximos 7 dias",
+        detail,
+        recommendation: scheduledLate
+          ? "Confirmar a execução e a baixa; se o pagamento não ocorreu, reprogramar com justificativa e comunicar o parceiro quando aplicável."
+          : "Confirmar saldo, aprovação, documentos e instrução de pagamento antes da data programada.",
+        severity: scheduledLate || cashRisk ? "critical" : "attention",
+        dueAt: scheduledAt,
+        projectId,
+        ownerUserId,
+        impact,
+      }, now));
+    }
+
+    if (!signals.length && cashRisk) {
+      const planningAt = scheduledAt || contractualDueAt || dateValue(row, "recommended_due_date");
+      signals.push(createSignal({
+        id: `financial_entries:${sourceId}:cash-risk`,
+        sourceType: "financial_entries",
+        sourceId,
+        sourceLabel: "Financeiro",
+        area: "financeiro",
+        title: "Risco de caixa identificado",
+        detail,
+        recommendation: "Validar disponibilidade de caixa, aprovação e eventual reprogramação.",
+        severity: "attention",
+        dueAt: planningAt,
+        projectId,
+        ownerUserId,
+        impact,
+      }, now));
+    }
+
+    return signals;
   });
 }
 

@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
+import type { ActivityDeepLinkTarget } from "../activities/activity-links";
 import type { ConstructionWorkPackage, ErpData } from "../types";
 import { Empty, Kpi, PanelTitle } from "../views-dashboard";
 import { EapManagement } from "./eap-management";
@@ -23,16 +24,27 @@ export function WorkManagementView({
   data,
   mutate,
   can,
+  focus,
 }: {
   data: ErpData;
   mutate: Mutate;
   can: (permission: string) => boolean;
+  focus?: ActivityDeepLinkTarget | null;
 }) {
   const projects = listConstructionProjects(
     data.projects,
     data.constructionWorkPackages,
   );
   const [projectId, setProjectId] = useState(projects[0]?.id || "");
+  const [editing, setEditing] = useState<ConstructionWorkPackage | null>(null);
+  const focusedPackage =
+    focus?.sourceType === "construction_work_packages"
+      ? data.constructionWorkPackages.find((item) => item.id === focus.recordId)
+      : undefined;
+  const focusedProjectId = focusedPackage?.project_id || "";
+  const focusedProjectAvailable = projects.some(
+    (item) => item.id === focusedProjectId,
+  );
   const effectiveProjectId = projects.some((item) => item.id === projectId)
     ? projectId
     : projects[0]?.id || "";
@@ -56,7 +68,19 @@ export function WorkManagementView({
   const hasProjectBaseline = progress?.has_baseline ?? false;
   const critical = progress?.critical_packages ?? 0;
   const completed = progress?.completed_packages ?? 0;
-  const [editing, setEditing] = useState<ConstructionWorkPackage | null>(null);
+
+  useEffect(() => {
+    if (!focusedProjectId || !focusedProjectAvailable) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      setEditing(null);
+      setProjectId(focusedProjectId);
+    });
+    return () => {
+      active = false;
+    };
+  }, [focusedProjectAvailable, focusedProjectId]);
 
   return (
     <div className="stack work-management">
@@ -159,6 +183,7 @@ export function WorkManagementView({
               mutate={mutate}
               canManage={can("construction.manage")}
               onMeasure={setEditing}
+              focus={focus}
             />
           )}
         </>

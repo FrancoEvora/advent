@@ -1,7 +1,8 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
+import type { ActivityDeepLinkTarget } from "../activities/activity-links";
 import type {
   DocumentAttachment,
   ErpData,
@@ -24,6 +25,7 @@ type FuelManagementProps = {
   data: ErpData;
   mutate: (operation: () => Promise<void>, success: string) => Promise<void>;
   can: (key: string) => boolean;
+  focus?: ActivityDeepLinkTarget | null;
 };
 
 type ModalState =
@@ -160,7 +162,7 @@ const fuelReceiptValidationError = (file: File | null) => {
   return null;
 };
 
-export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
+export function FuelManagement({ data, mutate, can, focus }: FuelManagementProps) {
   const requests = data.fuelRequests;
   const dispenses = data.fuelDispenses;
   const documents = data.fuelRequestDocuments;
@@ -172,6 +174,19 @@ export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
   const [projectId, setProjectId] = useState("");
   const [fuelType, setFuelType] = useState("");
   const [receiptError, setReceiptError] = useState("");
+  const focusedRequestId = focus?.sourceType === "fuel_requests" ? focus.recordId : null;
+  const focusedRequestRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!focusedRequestId) return;
+    const frame = window.requestAnimationFrame(() => {
+      setSearch("");
+      setStatus("");
+      setProjectId("");
+      setFuelType("");
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [focusedRequestId]);
 
   const dispensedByRequest = useMemo(() => {
     const totals = new Map<string, number>();
@@ -244,6 +259,14 @@ export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
       );
     });
   }, [data.projects, fuelType, projectId, requests, search, status]);
+
+  useEffect(() => {
+    if (!focusedRequestId || !filtered.some((request) => request.id === focusedRequestId)) return;
+    const element = focusedRequestRef.current;
+    if (!element) return;
+    element.focus({ preventScroll: true });
+    element.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, [filtered, focusedRequestId]);
 
   const currentMonth = new Date().toISOString().slice(0, 7);
   const monthDispenses = dispenses.filter((item) =>
@@ -382,8 +405,15 @@ export function FuelManagement({ data, mutate, can }: FuelManagementProps) {
               request.equipment_identifier ||
               "Veículo/equipamento não identificado";
             const normalized = normalizedStatus(request.status);
+            const linked = focusedRequestId === request.id;
             return (
-              <article className="fuel-row" key={request.id}>
+              <article
+                ref={linked ? focusedRequestRef : undefined}
+                className={`fuel-row${linked ? " agenda-linked-target" : ""}`}
+                data-record-id={request.id}
+                tabIndex={linked ? -1 : undefined}
+                key={request.id}
+              >
                 <header className="fuel-row-header">
                   <div className="fuel-row-title">
                     <span className={`fuel-status fuel-status-${normalized}`}>

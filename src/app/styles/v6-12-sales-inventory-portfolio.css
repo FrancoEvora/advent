@@ -1,0 +1,109 @@
+.sales-status-summary button {
+  appearance: none;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-top: 4px solid var(--status, #96a4ab);
+  border-radius: 16px;
+  background: #fff;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    box-shadow 0.18s ease,
+    background 0.18s ease,
+    border-color 0.18s ease;
+}
+
+.sales-status-summary button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(29, 82, 113, 0.12);
+}
+
+.sales-status-summary button:focus-visible {
+  outline: 3px solid
+    color-mix(in srgb, var(--status, #96a4ab) 45%, white);
+  outline-offset: 3px;
+}
+
+.sales-status-summary button[aria-pressed="true"] {
+  border-color: var(--status, #96a4ab);
+  background: color-mix(in srgb, var(--status, #96a4ab) 10%, white);
+  box-shadow:
+    0 0 0 3px
+      color-mix(in srgb, var(--status, #96a4ab) 28%, transparent),
+    0 12px 28px rgba(29, 82, 113, 0.12);
+}
+
+.sales-map-filter-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 0 0;
+  padding: 0 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.sales-map-filter-status button {
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--evora-blue);
+  font: inherit;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.inventory-vgv-grid article {
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.inventory-vgv-grid small,
+.inventory-vgv-grid span,
+.inventory-vgv-grid strong {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.inventory-vgv-grid strong {
+  line-height: 1.08;
+  font-variant-numeric: tabular-nums;
+  white-space: normal;
+}
+
+.post-sale-kpis.compact {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.portfolio-filters .form-grid {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+}
+
+.portfolio-filters > p {
+  margin: 16px 0 0;
+  padding: 11px 13px;
+  border-radius: 12px;
+  background: #f3f7f9;
+  color: #60717b;
+}
+
+.portfolio-filters button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+@media (max-width: 520px) {
+  .sales-status-summary {
+    grid-template-columns: 1fr;
+  }
+
+  .post-sale-kpis.compact,
+  .portfolio-filters .form-grid {
+    grid-template-columns: 1fr;
+  }
+}

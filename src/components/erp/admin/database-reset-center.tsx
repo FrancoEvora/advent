@@ -4,7 +4,7 @@ import {getSupabase} from "@/lib/supabase";
 import type {ErpData} from "../types";
 
 type Scope="operacional"|"completo";
-const countTables=["financial_entries","partner_payment_publications","partner_negotiations","partner_portal_links","crm_records","crm_proposals","crm_contracts","contacts","crm_inventory_units","document_attachments","audit_logs"];
+const countTables=["financial_entries","partner_payment_publications","partner_landowner_publications","partner_landowner_repass_entries","partner_negotiations","partner_portal_links","crm_records","crm_proposals","crm_contracts","contacts","crm_inventory_units","document_attachments","audit_logs"];
 
 export function DatabaseResetCenter({data,onDone}:{data:ErpData;onDone:()=>Promise<void>}){
  const[scope,setScope]=useState<Scope>("operacional"),[password,setPassword]=useState(""),[phrase,setPhrase]=useState(""),[preview,setPreview]=useState<Record<string,number>|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState("");

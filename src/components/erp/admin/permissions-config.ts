@@ -83,6 +83,12 @@ export const permissionGroups:PermissionGroup[]=[
     label:"Criar, renovar e revogar acessos ao portal",
     requires:["partners.view"],
    },
+   {
+    key:"partners.landowners.publish",
+    label:"Configurar e publicar o painel dos terrenistas",
+    description:"Controla os indicadores, detalhes de vendas, repasses e avanço de obra expostos em cada fechamento.",
+    requires:["partners.view","financial.view"],
+   },
   ],
  },
  {

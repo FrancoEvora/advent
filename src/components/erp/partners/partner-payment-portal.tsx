@@ -19,6 +19,7 @@ import type {
   PartnerPaymentPortalPayload,
   PartnerPaymentStatus,
 } from "./partner-types";
+import { LandownerPortalDashboard } from "./landowner-portal-dashboard";
 
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -101,6 +102,8 @@ const partnerKindLabels: Record<PartnerKind, string> = {
   credor_financeiro: "Credor financeiro",
   terrenista: "Terrenista",
   parceiro: "Parceiro",
+  colaborador: "Colaborador",
+  beneficiario: "Beneficiário",
 };
 
 const closedNegotiationStatuses = new Set<PartnerNegotiationStatus>([
@@ -216,7 +219,7 @@ async function requestPortal(
 ): Promise<PartnerPaymentPortalPayload> {
   const client = getSupabase();
   if (!client) throw new Error("O portal está temporariamente indisponível.");
-  const result = await client.rpc("get_partner_payment_portal", {
+  const result = await client.rpc("get_partner_payment_portal_v2", {
     p_token: token,
     p_document_last4: documentLast4,
   });
@@ -244,6 +247,11 @@ async function requestPortal(
     negotiations: Array.isArray(payload.negotiations)
       ? payload.negotiations
       : [],
+    landowner:
+      payload.landowner &&
+      Array.isArray(payload.landowner.publications)
+        ? payload.landowner
+        : null,
   };
 }
 
@@ -684,6 +692,10 @@ export function PartnerPaymentPortal() {
               ×
             </button>
           </div>
+        )}
+
+        {portal.partner.kind === "terrenista" && portal.landowner && (
+          <LandownerPortalDashboard portal={portal.landowner} />
         )}
 
         <section className="partner-summary-grid" aria-label="Resumo">

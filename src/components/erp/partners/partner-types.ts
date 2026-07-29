@@ -2,7 +2,9 @@ export type PartnerKind =
   | "fornecedor"
   | "credor_financeiro"
   | "terrenista"
-  | "parceiro";
+  | "parceiro"
+  | "colaborador"
+  | "beneficiario";
 
 export type PartnerPaymentStatus =
   | "em_analise"
@@ -118,5 +120,110 @@ export interface PartnerPaymentPortalPayload {
     processing: string;
     paid: string;
   };
+  landowner: LandownerPortalPayload | null;
   generated_at: string;
+}
+
+export interface LandownerSaleDetail {
+  contract_number: string | null;
+  unit_code: string;
+  block_code: string;
+  lot_number: string;
+  area: number;
+  sale_date: string;
+  list_price: number;
+  sale_price: number;
+  discount_pct: number;
+  down_payment: number;
+  financed_amount: number;
+  installments_count: number;
+  monthly_interest_rate: number;
+  indexer: string | null;
+}
+
+export interface LandownerRepassDetail {
+  id: string;
+  description: string;
+  due_date: string;
+  scheduled_payment_date: string | null;
+  settlement_date: string | null;
+  amount: number;
+  status: string;
+}
+
+export interface LandownerWorkStage {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  weight_pct: number;
+  planned_progress_pct: number;
+  actual_progress_pct: number;
+}
+
+export interface LandownerPortalPublication {
+  id: string;
+  version: number;
+  project: {
+    id: string;
+    code: string;
+    name: string;
+  };
+  period: {
+    start: string;
+    end: string;
+    calculated_at: string;
+    position_note?: string;
+  };
+  public_note: string | null;
+  published_at: string;
+  summary?: {
+    total_lots?: number;
+    sold_lots?: number;
+    available_lots?: number;
+    not_sold_lots?: number;
+    total_vgv?: number;
+    sold_vgv?: number;
+    sold_vgv_pct?: number;
+    sales_in_period?: number;
+    vso_pct?: number;
+    vso_basis?: string;
+  };
+  sales_conditions?: {
+    average_sale_price?: number;
+    average_discount_pct?: number;
+    average_installments?: number;
+    average_down_payment_pct?: number;
+    sales?: LandownerSaleDetail[];
+  };
+  delinquency?: {
+    receivable_total: number;
+    open_total: number;
+    overdue_amount: number;
+    overdue_installments: number;
+    overdue_rate_pct: number;
+    basis: string;
+  };
+  repasses?: {
+    configured: boolean;
+    paid_amount?: number;
+    due_not_repassed?: number;
+    total_not_repassed?: number;
+    due_not_repassed_count?: number;
+    basis?: string;
+    entries?: LandownerRepassDetail[];
+  };
+  construction?: {
+    actual_progress_pct: number;
+    planned_progress_pct: number;
+    deviation_pct: number;
+    stage_count: number;
+    source: string;
+    stages: LandownerWorkStage[];
+  };
+}
+
+export interface LandownerPortalPayload {
+  publications: LandownerPortalPublication[];
+  governance_note: string;
 }

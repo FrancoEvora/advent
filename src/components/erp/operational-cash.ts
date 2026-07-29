@@ -18,6 +18,13 @@ export type ComprehensiveForecastPoint = {
   operational: number;
 };
 
+export type ComprehensiveForecastRange = {
+  startDate: string;
+  endDate: string;
+  openingBalance: number;
+  points: ComprehensiveForecastPoint[];
+};
+
 export type ComprehensiveRisk = {
   risky: boolean;
   level: "baixo" | "medio" | "alto" | "critico";
@@ -33,6 +40,12 @@ const addDays = (value: string, days: number) => {
   return date.toISOString().slice(0, 10);
 };
 const belongsToAccount = (entry: FinancialEntry, accountId?: string | null) => !accountId || entry.bank_account_id === accountId;
+const signedEntryAmount = (entry: FinancialEntry) => entry.type === "entrada" ? Number(entry.amount) : -Number(entry.amount);
+const effectivePendingDate = (entry: FinancialEntry, today: string) => {
+  const planningDate = financialPlanningDate(entry);
+  return planningDate < today ? today : planningDate;
+};
+const settledDate = (entry: FinancialEntry) => entry.settlement_date || entry.due_date;
 
 export function operationalCommitments(data: ErpData): OperationalCommitment[] {
   const purchases = (data.purchaseRequests || [])
@@ -50,28 +63,56 @@ export function operationalCommitments(data: ErpData): OperationalCommitment[] {
   return [...purchases, ...payroll, ...events].filter(item => item.amount > 0);
 }
 
-export function buildComprehensiveForecast(data: ErpData, days = 90): ComprehensiveForecastPoint[] {
-  const start = todayIso();
-  let balance = realizedBalance(data);
+export function buildComprehensiveForecastRange(data: ErpData, startDate: string, endDate: string): ComprehensiveForecastRange {
+  if (!startDate || !endDate || endDate < startDate) {
+    return { startDate, endDate, openingBalance: realizedBalance(data), points: [] };
+  }
+
+  const today = todayIso();
   const pending = data.entries.filter(entry => !isSettled(entry) && entry.status !== "cancelado");
+  const settled = data.entries.filter(entry => isSettled(entry) && entry.status !== "cancelado");
   const commitments = operationalCommitments(data);
+  const startsInThePast = startDate < today;
+  const initialAccountBalance = data.bankAccounts
+    .filter(account => account.active)
+    .reduce((sum, account) => sum + Number(account.initial_balance || 0), 0);
+
+  let openingBalance = startsInThePast
+    ? settled
+      .filter(entry => settledDate(entry) < startDate)
+      .reduce((balance, entry) => balance + signedEntryAmount(entry), initialAccountBalance)
+    : pending
+      .filter(entry => effectivePendingDate(entry, today) < startDate)
+      .reduce((balance, entry) => balance + signedEntryAmount(entry), realizedBalance(data));
+
+  if (!startsInThePast) {
+    openingBalance -= commitments
+      .filter(item => (item.date < today ? today : item.date) < startDate)
+      .reduce((sum, item) => sum + item.amount, 0);
+  }
+
+  let balance = openingBalance;
   const points: ComprehensiveForecastPoint[] = [];
-  for (let offset = 0; offset <= days; offset += 1) {
-    const date = addDays(start, offset);
-    const dayEntries = pending.filter(entry => {
-      const planningDate = financialPlanningDate(entry);
-      return (planningDate < start ? start : planningDate) === date;
-    });
+  for (let date = startDate; date <= endDate; date = addDays(date, 1)) {
+    const dayEntries = [
+      ...(startsInThePast ? settled.filter(entry => settledDate(entry) === date) : []),
+      ...pending.filter(entry => effectivePendingDate(entry, today) === date),
+    ];
     const incoming = dayEntries.filter(entry => entry.type === "entrada").reduce((sum, entry) => sum + Number(entry.amount), 0);
     const financialOutgoing = dayEntries.filter(entry => entry.type === "saida").reduce((sum, entry) => sum + Number(entry.amount), 0);
     const operational = commitments
-      .filter(item => (item.date < start ? start : item.date) === date)
+      .filter(item => (item.date < today ? today : item.date) === date)
       .reduce((sum, item) => sum + item.amount, 0);
     const outgoing = financialOutgoing + operational;
     balance += incoming - outgoing;
     points.push({ date, balance, incoming, outgoing, operational });
   }
-  return points;
+  return { startDate, endDate, openingBalance, points };
+}
+
+export function buildComprehensiveForecast(data: ErpData, days = 90): ComprehensiveForecastPoint[] {
+  const start = todayIso();
+  return buildComprehensiveForecastRange(data, start, addDays(start, days)).points;
 }
 
 export function analyzeComprehensivePaymentRisk(data: ErpData, candidate: { amount: number; dueDate: string; accountId?: string | null; excludeEntryId?: string | null }): ComprehensiveRisk {

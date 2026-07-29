@@ -24,6 +24,7 @@ import "./styles/v6-9-decision-intelligence.css";
 import "./styles/v6-10-partner-payments.css";
 import "./styles/v6-10-agenda-actionability.css";
 import "./styles/v6-10-payment-scheduling.css";
+import "./styles/v6-11-finance-landowners.css";
 import {ServiceWorkerRegister} from "@/components/ServiceWorkerRegister";
 import {GlobalModuleNav} from "@/components/GlobalModuleNav";
 import {GlobalLogoutButton} from "@/components/GlobalLogoutButton";

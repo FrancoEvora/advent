@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import type { ErpData, FinancialEntry, ViewId } from "./types";
 import { aggregateCounterparties, overdueRecommendation, realizedBalance } from "./analytics";
-import { buildComprehensiveForecast, operationalCommitments } from "./operational-cash";
+import { buildComprehensiveForecast, buildComprehensiveForecastRange, operationalCommitments } from "./operational-cash";
 import { dateAtNoon, daysUntil, financialPlanningDate, isPaymentScheduled, isSettled, money, shortDate, sumEntries } from "./utils";
 import { ForecastLineChart } from "./forecast-line-chart";
 import { WorkProgressGauge } from "./operations/work-progress-gauge";
@@ -54,22 +54,58 @@ export function DashboardView({ data, go }: { data: ErpData; go: (view: ViewId) 
 }
 
 export function CashView({ data }: { data: ErpData }) {
-  const [period, setPeriod] = useState(30);
-  const forecast = useMemo(() => buildComprehensiveForecast(data, period), [data, period]);
-  const final = forecast.at(-1)?.balance ?? realizedBalance(data);
-  const minimum = forecast.reduce((value, point) => Math.min(value, point.balance), forecast[0]?.balance ?? 0);
+  const today = new Date().toISOString().slice(0, 10);
+  const addDays = (value: string, days: number) => {
+    const date = dateAtNoon(value);
+    date.setDate(date.getDate() + days);
+    return date.toISOString().slice(0, 10);
+  };
+  const [preset, setPreset] = useState<number | null>(30);
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(() => addDays(today, 30));
+  const intervalDays = startDate && endDate && endDate >= startDate
+    ? Math.round((dateAtNoon(endDate).getTime() - dateAtNoon(startDate).getTime()) / 86_400_000) + 1
+    : 0;
+  const rangeError = !startDate || !endDate
+    ? "Informe a data inicial e a data final."
+    : endDate < startDate
+      ? "A data final não pode ser anterior à data inicial."
+      : intervalDays > 1_096
+        ? "Selecione um intervalo de até três anos para manter a análise legível."
+        : "";
+  const range = useMemo(
+    () => rangeError
+      ? { startDate, endDate, openingBalance: realizedBalance(data), points: [] }
+      : buildComprehensiveForecastRange(data, startDate, endDate),
+    [data, endDate, rangeError, startDate],
+  );
+  const forecast = range.points;
+  const openingBalance = range.openingBalance;
+  const final = forecast.at(-1)?.balance ?? openingBalance;
+  const minimum = forecast.reduce((value, point) => Math.min(value, point.balance), openingBalance);
   const minimumBuffer = Number(data.settings.minimum_cash_buffer || 0);
   const firstNegative = forecast.find(point => point.balance < minimumBuffer);
-  const incoming = data.entries.filter(entry => !isSettled(entry) && entry.type === "entrada" && daysUntil(entry.due_date) <= period).reduce((sum, entry) => sum + Number(entry.amount), 0);
-  const financialOutgoing = data.entries.filter(entry => !isSettled(entry) && entry.type === "saida" && daysUntil(financialPlanningDate(entry)) <= period).reduce((sum, entry) => sum + Number(entry.amount), 0);
-  const operational = operationalCommitments(data).filter(item => daysUntil(item.date) <= period).reduce((sum, item) => sum + item.amount, 0);
+  const incoming = forecast.reduce((sum, point) => sum + point.incoming, 0);
+  const operational = forecast.reduce((sum, point) => sum + point.operational, 0);
+  const financialOutgoing = forecast.reduce((sum, point) => sum + point.outgoing - point.operational, 0);
   const totalOutgoing = financialOutgoing + operational;
-  const sample = forecast.filter((_point, index) => index % Math.max(1, Math.round(period / 12)) === 0 || index === forecast.length - 1);
+  const netVariation = incoming - totalOutgoing;
+  const sample = forecast.filter((_point, index) => index % Math.max(1, Math.round(intervalDays / 12)) === 0 || index === forecast.length - 1);
+  const periodLabel = startDate && endDate && !rangeError
+    ? `${shortDate.format(dateAtNoon(startDate))} a ${shortDate.format(dateAtNoon(endDate))}`
+    : "período inválido";
+  const applyPreset = (days: number) => {
+    const currentDate = new Date().toISOString().slice(0, 10);
+    setPreset(days);
+    setStartDate(currentDate);
+    setEndDate(addDays(currentDate, days));
+  };
   return <div className="stack">
-    <section className="cash-hero"><div><small>FLUXO PROJETADO · {period} DIAS</small><strong>{money.format(final)}</strong><p>Saldo previsto com financeiro, compras, serviços e RH.</p></div><div>{[7, 15, 30, 90, 180, 365].map(value => <button className={period === value ? "active" : ""} key={value} onClick={() => setPeriod(value)}>{value} dias</button>)}</div></section>
-    <section className="kpi-grid five"><Kpi label="Entradas previstas" value={money.format(incoming)} tone="positive" detail="Carteira no período" /><Kpi label="Saídas financeiras" value={money.format(financialOutgoing)} tone="negative" detail="Títulos a pagar" /><Kpi label="Compras e RH" value={money.format(operational)} tone="warning" detail="Compromissos operacionais" /><Kpi label="Menor saldo" value={money.format(minimum)} tone={minimum < 0 ? "danger" : "gold"} detail={firstNegative ? `Risco em ${shortDate.format(dateAtNoon(firstNegative.date))}` : "Sem ruptura projetada"} /><Kpi label="Cobertura" value={totalOutgoing ? `${Math.round(incoming / totalOutgoing * 100)}%` : "—"} tone="gold" detail="Entradas / saídas totais" /></section>
-    <section className="panel"><PanelTitle eyebrow="LEITURA POR DATA" title="Barras do saldo projetado" /><div className="cash-line-chart">{sample.map(point => <article key={point.date} className={point.balance < minimumBuffer ? "negative" : "positive"}><span>{shortDate.format(dateAtNoon(point.date)).slice(0, 5)}</span><i><b style={{ width: `${Math.max(3, Math.min(100, 50 + point.balance / Math.max(Math.abs(minimum), Math.abs(final), 1) * 48))}%` }} /></i><strong>{money.format(point.balance)}</strong></article>)}</div></section>
-    <section className="panel"><PanelTitle eyebrow="TENDÊNCIA" title="Gráfico de linhas do saldo projetado" /><ForecastLineChart points={sample} minimumBuffer={minimumBuffer} /></section>
+    <section className="cash-hero"><div><small>FLUXO PROJETADO · {periodLabel}</small><strong>{money.format(final)}</strong><p>Saldo final do intervalo, com financeiro, compras, serviços e RH filtrados pelas datas selecionadas.</p></div><div>{[7, 15, 30, 90, 180, 365].map(value => <button type="button" className={preset === value ? "active" : ""} key={value} onClick={() => applyPreset(value)}>{value} dias</button>)}<label><small>De</small><input aria-label="Data inicial do fluxo de caixa" type="date" value={startDate} onChange={event => { setPreset(null); setStartDate(event.target.value); }} /></label><label><small>Até</small><input aria-label="Data final do fluxo de caixa" type="date" value={endDate} onChange={event => { setPreset(null); setEndDate(event.target.value); }} /></label></div></section>
+    {rangeError && <div className="feedback error">{rangeError}</div>}
+    <section className="kpi-grid six"><Kpi label="Saldo de abertura" value={money.format(openingBalance)} tone="gold" detail={`Posição no início de ${periodLabel}`} /><Kpi label="Entradas" value={money.format(incoming)} tone="positive" detail="Soma das entradas no período" /><Kpi label="Saídas financeiras" value={money.format(financialOutgoing)} tone="negative" detail="Soma dos títulos no período" /><Kpi label="Compras e RH" value={money.format(operational)} tone="warning" detail="Soma operacional no período" /><Kpi label="Variação líquida" value={money.format(netVariation)} tone={netVariation < 0 ? "danger" : "positive"} detail="Entradas menos todas as saídas" /><Kpi label="Saldo final" value={money.format(final)} tone={final < minimumBuffer ? "danger" : "gold"} detail={`Menor saldo: ${money.format(minimum)}`} /></section>
+    <section className="panel"><PanelTitle eyebrow="LEITURA POR DATA" title={`Saldo projetado · ${periodLabel}`} /><div className="cash-line-chart">{sample.map(point => <article key={point.date} className={point.balance < minimumBuffer ? "negative" : "positive"}><span>{shortDate.format(dateAtNoon(point.date)).slice(0, 5)}</span><i><b style={{ width: `${Math.max(3, Math.min(100, 50 + point.balance / Math.max(Math.abs(minimum), Math.abs(final), 1) * 48))}%` }} /></i><strong>{money.format(point.balance)}</strong></article>)}</div></section>
+    <section className="panel"><PanelTitle eyebrow="TENDÊNCIA" title={`Curva do intervalo · ${periodLabel}`} /><ForecastLineChart points={sample} minimumBuffer={minimumBuffer} /></section>
     {firstNegative && <section className="cash-warning"><b>!</b><div><strong>Ruptura de caixa projetada</strong><p>O saldo ficará abaixo do mínimo configurado em {shortDate.format(dateAtNoon(firstNegative.date))}. Reprograme pagamentos, antecipe recebíveis ou submeta a exceção à administração.</p></div></section>}
     <section className="panel"><PanelTitle eyebrow="DISPONIBILIDADE" title="Saldos por conta" /><div className="account-grid">{data.bankAccounts.map(account => <article key={account.id}><small>{account.bank_name || account.account_type}</small><h3>{account.name}</h3><strong>{money.format(realizedBalance(data, account.id))}</strong><span>Saldo calculado</span></article>)}</div></section>
   </div>;

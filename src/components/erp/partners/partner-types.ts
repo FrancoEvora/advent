@@ -206,6 +206,12 @@ export interface LandownerPortalPublication {
   };
   repasses?: {
     configured: boolean;
+    contractual_percentage?: number;
+    receipts_basis_amount?: number;
+    contractual_entitlement?: number;
+    contractual_balance?: number;
+    overpaid_amount?: number;
+    unprogrammed_amount?: number;
     paid_amount?: number;
     due_not_repassed?: number;
     total_not_repassed?: number;

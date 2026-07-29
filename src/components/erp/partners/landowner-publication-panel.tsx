@@ -63,6 +63,12 @@ interface LandownerSnapshot {
   };
   repasses?: {
     configured?: boolean;
+    contractual_percentage?: number;
+    receipts_basis_amount?: number;
+    contractual_entitlement?: number;
+    contractual_balance?: number;
+    overpaid_amount?: number;
+    unprogrammed_amount?: number;
     paid_amount?: number;
     due_not_repassed?: number;
     total_not_repassed?: number;
@@ -99,6 +105,12 @@ interface RepassClassification {
   allocated_amount: number;
   notes: string | null;
   registered_at: string;
+}
+
+interface LandownerContractTerms {
+  contractual_percentage: number;
+  notes: string | null;
+  updated_at: string;
 }
 
 const initialVisibility: Visibility = {
@@ -169,6 +181,7 @@ const historyColumns =
   "id,contact_id,project_id,period_start,period_end,status,visible_sections,snapshot,public_note,version,published_at";
 const repassColumns =
   "financial_entry_id,allocated_amount,notes,registered_at";
+const contractTermsColumns = "contractual_percentage,notes,updated_at";
 
 function isoToday() {
   const parts = new Intl.DateTimeFormat("en-US", {
@@ -213,6 +226,23 @@ function percent(value: unknown) {
     minimumFractionDigits: 1,
     maximumFractionDigits: 2,
   })}%`;
+}
+
+function precisePercent(value: unknown) {
+  return `${numberValue(value).toLocaleString("pt-BR", {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  })}%`;
+}
+
+function percentageDraft(value: unknown) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed.toFixed(4) : "";
+}
+
+function parsePercentageDraft(value: string) {
+  const parsed = Number(value.trim().replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function safeDate(value: string | null | undefined) {
@@ -288,7 +318,13 @@ export function LandownerPublicationPanel({
   const [allocationDrafts, setAllocationDrafts] = useState<
     Record<string, string>
   >({});
+  const [contractTerms, setContractTerms] =
+    useState<LandownerContractTerms | null>(null);
+  const [contractualPercentageDraft, setContractualPercentageDraft] =
+    useState("");
+  const [contractNotes, setContractNotes] = useState("");
   const [loadingContext, setLoadingContext] = useState(false);
+  const [savingContractTerms, setSavingContractTerms] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [archiving, setArchiving] = useState(false);
@@ -328,6 +364,22 @@ export function LandownerPublicationPanel({
   const visibleCount = sectionOptions.filter(
     ({ key }) => visibleSections[key],
   ).length;
+  const draftedPercentage = parsePercentageDraft(
+    contractualPercentageDraft,
+  );
+  const savedPercentage = contractTerms
+    ? numberValue(contractTerms.contractual_percentage)
+    : null;
+  const contractTermsConfigured =
+    savedPercentage !== null && savedPercentage > 0 && savedPercentage <= 100;
+  const contractTermsDirty =
+    (draftedPercentage === null
+      ? savedPercentage !== null
+      : savedPercentage === null ||
+        Math.abs(draftedPercentage - savedPercentage) > 0.00005) ||
+    contractNotes.trim() !== (contractTerms?.notes || "").trim();
+  const contractTermsReady =
+    contractTermsConfigured && !contractTermsDirty;
 
   const repassCandidates = useMemo(
     () =>
@@ -351,6 +403,9 @@ export function LandownerPublicationPanel({
     if (!effectiveContactId || !effectiveProjectId) {
       setHistory([]);
       setClassifiedEntryIds(new Set());
+      setContractTerms(null);
+      setContractualPercentageDraft("");
+      setContractNotes("");
       return;
     }
 
@@ -363,7 +418,8 @@ export function LandownerPublicationPanel({
     setLoadingContext(true);
     setError("");
     try {
-      const [historyResult, classificationResult] = await Promise.all([
+      const [historyResult, classificationResult, contractTermsResult] =
+        await Promise.all([
         client
           .from("partner_landowner_publications")
           .select(historyColumns)
@@ -378,10 +434,18 @@ export function LandownerPublicationPanel({
           .eq("contact_id", effectiveContactId)
           .eq("project_id", effectiveProjectId)
           .order("registered_at", { ascending: false }),
+        client
+          .from("partner_landowner_contract_terms")
+          .select(contractTermsColumns)
+          .eq("organization_id", data.organization.id)
+          .eq("contact_id", effectiveContactId)
+          .eq("project_id", effectiveProjectId)
+          .maybeSingle(),
       ]);
 
       if (historyResult.error) throw historyResult.error;
       if (classificationResult.error) throw classificationResult.error;
+      if (contractTermsResult.error) throw contractTermsResult.error;
       if (requestId !== contextRequest.current) return;
 
       setHistory(
@@ -399,6 +463,14 @@ export function LandownerPublicationPanel({
         });
         return next;
       });
+      const loadedContractTerms = contractTermsResult.data
+        ? (contractTermsResult.data as unknown as LandownerContractTerms)
+        : null;
+      setContractTerms(loadedContractTerms);
+      setContractualPercentageDraft(
+        percentageDraft(loadedContractTerms?.contractual_percentage),
+      );
+      setContractNotes(loadedContractTerms?.notes || "");
     } catch (caught) {
       if (requestId === contextRequest.current) {
         setError(errorMessage(caught));
@@ -438,6 +510,63 @@ export function LandownerPublicationPanel({
       return false;
     }
     return true;
+  }
+
+  async function saveContractTerms() {
+    if (!canPublish) {
+      setError("Seu perfil não pode alterar a regra contratual.");
+      return;
+    }
+    if (!effectiveContactId || !effectiveProjectId) {
+      setError("Selecione um terrenista e um empreendimento.");
+      return;
+    }
+
+    const rawPercentage = parsePercentageDraft(
+      contractualPercentageDraft,
+    );
+    if (
+      rawPercentage === null ||
+      rawPercentage <= 0 ||
+      rawPercentage > 100
+    ) {
+      setError(
+        "Digite um percentual contratual maior que 0,0000% e de até 100,0000%.",
+      );
+      return;
+    }
+
+    const client = getSupabase();
+    if (!client) {
+      setError("Supabase indisponível.");
+      return;
+    }
+
+    const normalizedPercentage =
+      Math.round(rawPercentage * 10_000) / 10_000;
+    setSavingContractTerms(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await client.rpc("set_landowner_contract_terms", {
+        organization_id: data.organization.id,
+        contact_id: effectiveContactId,
+        project_id: effectiveProjectId,
+        contractual_percentage: normalizedPercentage,
+        notes: contractNotes.trim() || null,
+      });
+      if (result.error) throw result.error;
+      setPreviewKey("");
+      setContractualPercentageDraft(normalizedPercentage.toFixed(4));
+      setNotice(
+        "Percentual contratual salvo para este terrenista e empreendimento. Gere uma nova prévia antes de publicar.",
+      );
+      await loadGovernance();
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setSavingContractTerms(false);
+    }
   }
 
   async function generatePreview() {
@@ -489,6 +618,18 @@ export function LandownerPublicationPanel({
       return;
     }
     if (!validateSelection()) return;
+    if (!contractTermsConfigured) {
+      setError(
+        "Cadastre e salve o percentual contratual deste terrenista e empreendimento antes de publicar.",
+      );
+      return;
+    }
+    if (contractTermsDirty) {
+      setError(
+        "Existem alterações não salvas na regra contratual. Salve-as e gere uma nova prévia.",
+      );
+      return;
+    }
     if (!previewIsCurrent) {
       setError("Gere uma prévia atualizada antes de publicar.");
       return;
@@ -790,6 +931,130 @@ export function LandownerPublicationPanel({
         </div>
       </div>
 
+      <section
+        className="partner-landowner-contract-card"
+        aria-labelledby="landowner-contract-terms-title"
+      >
+        <header>
+          <div>
+            <small>REGRA ECONÔMICA INDIVIDUAL</small>
+            <h3 id="landowner-contract-terms-title">
+              Percentual contratual do terrenista
+            </h3>
+            <p>
+              Digite o percentual específico de {contactName(selectedContact)}{" "}
+              em {selectedProject?.name || "cada empreendimento"}. Nenhum valor
+              é presumido ou reaproveitado de outro caso.
+            </p>
+          </div>
+          <span
+            className={`partner-status ${
+              contractTermsReady
+                ? "partner-status-active"
+                : "partner-status-suspenso"
+            }`}
+          >
+            {loadingContext
+              ? "Carregando regra"
+              : contractTermsReady
+                ? "Regra salva"
+                : contractTermsConfigured
+                  ? "Alterações não salvas"
+                  : "Percentual pendente"}
+          </span>
+        </header>
+
+        <div className="partner-landowner-contract-fields">
+          <label>
+            <span>Percentual contratual</span>
+            <div className="partner-landowner-percentage-input">
+              <input
+                type="number"
+                min="0.0001"
+                max="100"
+                step="0.0001"
+                inputMode="decimal"
+                required
+                value={contractualPercentageDraft}
+                disabled={!canPublish || loadingContext || savingContractTerms}
+                aria-describedby="landowner-contract-percentage-help"
+                aria-invalid={
+                  contractualPercentageDraft !== "" &&
+                  (draftedPercentage === null ||
+                    draftedPercentage <= 0 ||
+                    draftedPercentage > 100)
+                }
+                onChange={(event) =>
+                  setContractualPercentageDraft(event.target.value)
+                }
+                placeholder="Ex.: 12,5000"
+              />
+              <span aria-hidden="true">%</span>
+            </div>
+            <small id="landowner-contract-percentage-help">
+              Aceita quatro casas decimais, acima de 0,0000% e até 100,0000%.
+            </small>
+          </label>
+
+          <label>
+            <span>Observação contratual opcional</span>
+            <textarea
+              rows={3}
+              maxLength={800}
+              value={contractNotes}
+              disabled={!canPublish || loadingContext || savingContractTerms}
+              onChange={(event) => setContractNotes(event.target.value)}
+              placeholder="Ex.: percentual previsto no instrumento de parceria."
+            />
+            <small>{contractNotes.length}/800 caracteres</small>
+          </label>
+
+          <button
+            className="partner-button partner-button-primary"
+            type="button"
+            disabled={
+              !canPublish ||
+              loadingContext ||
+              savingContractTerms ||
+              !contractTermsDirty ||
+              draftedPercentage === null ||
+              draftedPercentage <= 0 ||
+              draftedPercentage > 100
+            }
+            onClick={() => void saveContractTerms()}
+          >
+            {savingContractTerms
+              ? "Salvando regra..."
+              : "Salvar percentual deste caso"}
+          </button>
+        </div>
+
+        <div className="partner-landowner-contract-basis" role="note">
+          <b>Base do cálculo</b>
+          <p>
+            Recebimentos liquidados dos contratos assinados deste
+            empreendimento até a data de posição. O direito contratual é a base
+            recebida multiplicada pelo percentual salvo.
+          </p>
+          {contractTerms?.updated_at && (
+            <small>
+              Regra atualizada em {safeDateTime(contractTerms.updated_at)}.
+            </small>
+          )}
+        </div>
+
+        {!contractTermsReady && !loadingContext && (
+          <div className="partner-publication-warning" role="alert">
+            <b>Publicação bloqueada</b>
+            <p>
+              {contractTermsConfigured
+                ? "Salve as alterações da regra contratual e gere uma nova prévia."
+                : "Digite e salve o percentual contratual desta combinação antes de publicar no portal."}
+            </p>
+          </div>
+        )}
+      </section>
+
       {preview && (
         <section
           className={`partner-landowner-preview ${
@@ -879,7 +1144,7 @@ export function LandownerPublicationPanel({
               </strong>
               <span>
                 {preview.repasses?.configured === false
-                  ? "Classifique os títulos antes de publicar"
+                  ? "Salve o percentual contratual antes de publicar"
                   : "Repasses classificados e com baixa confirmada"}
               </span>
             </article>
@@ -908,6 +1173,72 @@ export function LandownerPublicationPanel({
               </span>
             </article>
           </div>
+
+          <section
+            className="partner-landowner-contract-preview"
+            aria-labelledby="landowner-contract-preview-title"
+          >
+            <header>
+              <div>
+                <small>APURAÇÃO CONTRATUAL</small>
+                <h4 id="landowner-contract-preview-title">
+                  Memória do repasse no snapshot
+                </h4>
+              </div>
+              <strong>
+                {precisePercent(preview.repasses?.contractual_percentage)}
+              </strong>
+            </header>
+            <dl>
+              <div>
+                <dt>Base recebida</dt>
+                <dd>
+                  {money.format(
+                    numberValue(preview.repasses?.receipts_basis_amount),
+                  )}
+                </dd>
+                <small>Recebimentos liquidados até a posição</small>
+              </div>
+              <div>
+                <dt>Direito contratual</dt>
+                <dd>
+                  {money.format(
+                    numberValue(preview.repasses?.contractual_entitlement),
+                  )}
+                </dd>
+                <small>Base recebida × percentual contratual</small>
+              </div>
+              <div>
+                <dt>Saldo contratual a repassar</dt>
+                <dd>
+                  {money.format(
+                    numberValue(preview.repasses?.contractual_balance),
+                  )}
+                </dd>
+                <small>Direito contratual menos repasses pagos</small>
+              </div>
+              <div>
+                <dt>Saldo ainda sem programação</dt>
+                <dd>
+                  {money.format(
+                    numberValue(preview.repasses?.unprogrammed_amount),
+                  )}
+                </dd>
+                <small>Saldo não coberto por contas abertas classificadas</small>
+              </div>
+            </dl>
+            {numberValue(preview.repasses?.overpaid_amount) > 0 && (
+              <div className="partner-landowner-overpaid-note" role="note">
+                <b>Repasse acima do direito apurado no período</b>
+                <span>
+                  {money.format(
+                    numberValue(preview.repasses?.overpaid_amount),
+                  )}{" "}
+                  deverá ser conciliado no fechamento financeiro.
+                </span>
+              </div>
+            )}
+          </section>
 
           <dl className="partner-landowner-condition-summary">
             <div>

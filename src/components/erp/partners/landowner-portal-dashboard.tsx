@@ -38,6 +38,13 @@ function percent(value: number | null | undefined) {
   return `${number.format(Number(value || 0))}%`;
 }
 
+function precisePercent(value: number | null | undefined) {
+  return `${Number(value || 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: 4,
+    maximumFractionDigits: 4,
+  })}%`;
+}
+
 function repassStatus(value: string) {
   const labels: Record<string, string> = {
     pago: "Pago com baixa confirmada",
@@ -332,6 +339,18 @@ function RepassSection({
   publication: LandownerPortalPublication;
 }) {
   const repasses = publication.repasses!;
+  const contractualPercentage = Number(
+    repasses.contractual_percentage || 0,
+  );
+  const hasContractualRule =
+    contractualPercentage > 0 && contractualPercentage <= 100;
+  const overpaidAmount = Number(repasses.overpaid_amount || 0);
+  const hasExecutionSummary = [
+    repasses.paid_amount,
+    repasses.due_not_repassed,
+    repasses.total_not_repassed,
+  ].some(value => value !== undefined);
+  const hasExecutionDetails = Boolean(repasses.entries?.length);
   return (
     <article className="landowner-public-card landowner-repass-card">
       <header>
@@ -340,34 +359,92 @@ function RepassSection({
           <h3>Repasses do terrenista</h3>
         </div>
       </header>
-      {!repasses.configured ? (
+      {!hasContractualRule && !repasses.configured && (
         <div className="landowner-repass-unconfigured">
-          <b>Base de repasses ainda não configurada</b>
+          <b>Percentual contratual não informado nesta versão</b>
           <p>
-            Nenhum título financeiro foi classificado pela Évora como repasse
-            deste empreendimento. O portal não presume valores automaticamente.
+            Este fechamento não contém uma regra percentual publicada para o
+            empreendimento. O portal não presume percentuais ou valores
+            contratuais automaticamente.
           </p>
         </div>
-      ) : (
-        <>
+      )}
+      {hasContractualRule && (
+        <section
+          className="landowner-contract-accounting"
+          aria-labelledby={`landowner-contract-accounting-${publication.id}`}
+        >
+          <header>
+            <div>
+              <small>REGRA CONTRATUAL PUBLICADA</small>
+              <h4 id={`landowner-contract-accounting-${publication.id}`}>
+                Apuração sobre recebimentos liquidados
+              </h4>
+            </div>
+            <strong>{precisePercent(contractualPercentage)}</strong>
+          </header>
           <div className="landowner-mini-kpis">
             <span>
-              <small>Valores repassados</small>
-              <strong>{amount(repasses.paid_amount)}</strong>
+              <small>Base recebida</small>
+              <strong>{amount(repasses.receipts_basis_amount)}</strong>
             </span>
             <span>
-              <small>Devidos e não repassados</small>
-              <strong>{amount(repasses.due_not_repassed)}</strong>
+              <small>Direito contratual</small>
+              <strong>{amount(repasses.contractual_entitlement)}</strong>
             </span>
             <span>
-              <small>Total ainda não repassado</small>
-              <strong>{amount(repasses.total_not_repassed)}</strong>
+              <small>Saldo contratual a repassar</small>
+              <strong>{amount(repasses.contractual_balance)}</strong>
+            </span>
+            <span>
+              <small>Saldo ainda sem programação</small>
+              <strong>{amount(repasses.unprogrammed_amount)}</strong>
             </span>
           </div>
-          {repasses.basis && <p>{repasses.basis}.</p>}
-          {!!repasses.entries?.length && (
+          {overpaidAmount > 0 && (
+            <div className="landowner-contract-overpaid" role="note">
+              <b>Repasse acima do direito apurado</b>
+              <span>
+                {amount(overpaidAmount)} será conciliado no fechamento
+                financeiro.
+              </span>
+            </div>
+          )}
+        </section>
+      )}
+
+      {(hasExecutionSummary || hasExecutionDetails) && (
+        <>
+          <div className="landowner-repass-execution-heading">
+            <b>Execução dos repasses</b>
+            <span>Pagamentos e contas classificadas neste fechamento</span>
+          </div>
+          {hasExecutionSummary && (
+            <div className="landowner-mini-kpis">
+              {repasses.paid_amount !== undefined && (
+                <span>
+                  <small>Valores repassados</small>
+                  <strong>{amount(repasses.paid_amount)}</strong>
+                </span>
+              )}
+              {repasses.due_not_repassed !== undefined && (
+                <span>
+                  <small>Devidos e não repassados</small>
+                  <strong>{amount(repasses.due_not_repassed)}</strong>
+                </span>
+              )}
+              {repasses.total_not_repassed !== undefined && (
+                <span>
+                  <small>Total ainda não repassado</small>
+                  <strong>{amount(repasses.total_not_repassed)}</strong>
+                </span>
+              )}
+            </div>
+          )}
+          {hasExecutionSummary && repasses.basis && <p>{repasses.basis}.</p>}
+          {hasExecutionDetails && (
             <div className="landowner-repass-list">
-              {repasses.entries.map(entry => (
+              {repasses.entries!.map(entry => (
                 <div key={entry.id}>
                   <span>
                     <strong>{entry.description}</strong>

@@ -10,8 +10,9 @@ import {
 import { getSupabase } from "@/lib/supabase";
 import type { Contact, ErpData, FinancialEntry } from "../types";
 import { dateAtNoon, money, shortDate } from "../utils";
+import { LandownerPublicationPanel } from "./landowner-publication-panel";
 
-type PartnerTab = "payments" | "negotiations" | "access";
+type PartnerTab = "payments" | "landowners" | "negotiations" | "access";
 type PublicStatus =
   | "em_analise"
   | "previsto"
@@ -23,7 +24,9 @@ type PartnerKind =
   | "fornecedor"
   | "credor_financeiro"
   | "terrenista"
-  | "parceiro";
+  | "parceiro"
+  | "colaborador"
+  | "beneficiario";
 type NegotiationStatus =
   | "aberta"
   | "em_analise"
@@ -160,6 +163,8 @@ const partnerKindLabels: Record<PartnerKind, string> = {
   credor_financeiro: "Credor financeiro",
   terrenista: "Terrenista",
   parceiro: "Parceiro",
+  colaborador: "Colaborador",
+  beneficiario: "Outro beneficiário",
 };
 
 const terminalNegotiationStatuses = new Set<NegotiationStatus>([
@@ -290,6 +295,7 @@ export function PartnerManagementView({
   const canManageNegotiations = can("partners.negotiations.manage");
   const canApproveNegotiations = can("partners.negotiations.approve");
   const canPublishPayments = can("partners.payments.publish");
+  const canPublishLandowners = can("partners.landowners.publish");
   const canProcessPayments = can("partners.process");
   const canManageAccess = can("partners.access.manage");
 
@@ -341,7 +347,7 @@ export function PartnerManagementView({
             (messageResult.data ||
               []) as unknown as PartnerNegotiationMessage[],
           );
-        } else {
+        } else if (target === "access") {
           const result = await client
             .from("partner_portal_links")
             .select(linkColumns)
@@ -418,7 +424,13 @@ export function PartnerManagementView({
         (contact) =>
           contact.active &&
           (payableContactIds.has(contact.id) ||
-            ["fornecedor", "ambos"].includes(contact.contact_type)),
+            [
+              "fornecedor",
+              "ambos",
+              "terrenista",
+              "colaborador",
+              "beneficiario",
+            ].includes(contact.contact_type)),
       )
       .sort((left, right) =>
         partnerName(left).localeCompare(partnerName(right), "pt-BR"),
@@ -920,13 +932,24 @@ export function PartnerManagementView({
             <small>Comunicação dos próximos pagamentos</small>
           </span>
         </button>
+        <button
+          type="button"
+          className={tab === "landowners" ? "partner-tab-active" : ""}
+          onClick={() => selectTab("landowners")}
+        >
+          <b>02</b>
+          <span>
+            Portal do terrenista
+            <small>Fechamentos, indicadores e publicação</small>
+          </span>
+        </button>
         {canViewNegotiations && (
           <button
             type="button"
             className={tab === "negotiations" ? "partner-tab-active" : ""}
             onClick={() => selectTab("negotiations")}
           >
-            <b>02</b>
+            <b>03</b>
             <span>
               Negociações
               <small>Propostas, contrapropostas e decisões</small>
@@ -938,7 +961,7 @@ export function PartnerManagementView({
           className={tab === "access" ? "partner-tab-active" : ""}
           onClick={() => selectTab("access")}
         >
-          <b>{canViewNegotiations ? "03" : "02"}</b>
+          <b>{canViewNegotiations ? "04" : "03"}</b>
           <span>
             Acessos
             <small>Links protegidos por parceiro</small>
@@ -963,6 +986,13 @@ export function PartnerManagementView({
             ×
           </button>
         </section>
+      )}
+
+      {tab === "landowners" && (
+        <LandownerPublicationPanel
+          data={data}
+          canPublish={canPublishLandowners}
+        />
       )}
 
       {tab === "payments" && (
@@ -1569,20 +1599,27 @@ export function PartnerManagementView({
                     required
                   >
                     <option value="">Selecione</option>
-                    {partnerContacts.map((contact) => (
-                      <option key={contact.id} value={contact.id}>
-                        {partnerName(contact)}
-                      </option>
-                    ))}
+                    {partnerContacts
+                      .filter(
+                        (contact) =>
+                          linkKind !== "terrenista" ||
+                          contact.contact_type === "terrenista",
+                      )
+                      .map((contact) => (
+                        <option key={contact.id} value={contact.id}>
+                          {partnerName(contact)}
+                        </option>
+                      ))}
                   </select>
                 </label>
                 <label>
                   <span>Categoria</span>
                   <select
                     value={linkKind}
-                    onChange={(event) =>
-                      setLinkKind(event.target.value as PartnerKind)
-                    }
+                    onChange={(event) => {
+                      setLinkKind(event.target.value as PartnerKind);
+                      setLinkContactId("");
+                    }}
                   >
                     {Object.entries(partnerKindLabels).map(([value, label]) => (
                       <option key={value} value={value}>

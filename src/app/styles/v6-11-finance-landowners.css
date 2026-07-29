@@ -100,6 +100,69 @@
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
+/* Acesso protegido: documento e ação permanecem legíveis ao lado da sidebar. */
+
+.partner-management .partner-access-fields {
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: start;
+  gap: 12px 14px;
+}
+
+.partner-management .partner-access-fields > label,
+.partner-management .partner-access-fields input,
+.partner-management .partner-access-fields select {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.partner-management .partner-access-partner {
+  grid-column: span 4;
+}
+
+.partner-management .partner-access-kind {
+  grid-column: span 3;
+}
+
+.partner-management .partner-access-document {
+  grid-column: span 5;
+}
+
+.partner-management .partner-access-label {
+  grid-column: span 7;
+}
+
+.partner-management .partner-access-expiry {
+  grid-column: span 2;
+}
+
+.partner-management .partner-access-fields > .partner-button {
+  grid-column: span 3;
+  width: 100%;
+  min-width: 0;
+  align-self: end;
+  justify-content: center;
+  white-space: normal;
+}
+
+.partner-management .partner-access-document > small {
+  display: block;
+  min-height: 2.7em;
+  margin-top: 6px;
+  color: var(--partner-muted);
+  font-size: 0.67rem;
+  font-weight: 550;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.partner-management
+  .partner-access-document
+  > small.partner-field-warning {
+  color: #8d5b00;
+  font-weight: 750;
+}
+
 /* Painel administrativo do terrenista. */
 
 .partner-landowner-panel,
@@ -109,6 +172,14 @@
 .landowner-public-empty,
 .landowner-public-empty * {
   box-sizing: border-box;
+}
+
+.partner-management .partner-landowner-panel {
+  container-name: landowner-panel;
+  container-type: inline-size;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 .partner-landowner-panel,
@@ -124,12 +195,14 @@
 .partner-landowner-repasses > *,
 .partner-landowner-history,
 .partner-landowner-history > * {
+  width: auto;
   min-width: 0;
   max-width: 100%;
 }
 
 .partner-management .partner-landowner-heading {
   display: flex;
+  flex-wrap: wrap;
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
@@ -186,7 +259,28 @@
 .partner-management
   .partner-landowner-panel
   .partner-access-fields {
-  grid-template-columns: repeat(4, minmax(150px, 1fr));
+  grid-template-columns:
+    minmax(0, 1fr)
+    minmax(0, 1.35fr)
+    minmax(0, 0.72fr)
+    minmax(0, 0.9fr);
+  gap: 12px 14px;
+}
+
+.partner-management
+  .partner-landowner-panel
+  .partner-access-fields
+  > label,
+.partner-management
+  .partner-landowner-panel
+  .partner-access-fields
+  input,
+.partner-management
+  .partner-landowner-panel
+  .partner-access-fields
+  select {
+  width: 100%;
+  max-width: 100%;
 }
 
 .partner-management
@@ -194,8 +288,10 @@
   .partner-access-fields
   > .partner-button {
   grid-column: 1 / -1;
-  width: fit-content;
+  width: min(100%, 190px);
+  max-width: 100%;
   justify-self: end;
+  white-space: normal;
 }
 
 .partner-management .partner-landowner-preview {
@@ -302,6 +398,7 @@
 .partner-management .partner-landowner-contract-card > header,
 .partner-management .partner-landowner-contract-preview > header {
   display: flex;
+  flex-wrap: wrap;
   min-width: 0;
   align-items: flex-start;
   justify-content: space-between;
@@ -343,9 +440,9 @@
 
 .partner-management .partner-landowner-contract-fields {
   display: grid;
-  grid-template-columns: minmax(210px, 0.55fr) minmax(280px, 1fr) auto;
+  grid-template-columns: minmax(0, 0.62fr) minmax(0, 1.38fr);
   align-items: end;
-  gap: 13px;
+  gap: 13px 16px;
 }
 
 .partner-management .partner-landowner-contract-fields > label {
@@ -376,7 +473,7 @@
 }
 
 .partner-management .partner-landowner-contract-fields textarea {
-  min-height: 84px;
+  min-height: 96px;
   padding: 11px 12px;
   resize: vertical;
 }
@@ -397,6 +494,14 @@
   border: 0;
   border-radius: 0;
   font-variant-numeric: tabular-nums;
+}
+
+.partner-management .partner-landowner-contract-fields > .partner-button {
+  grid-column: 1 / -1;
+  width: min(100%, 260px);
+  max-width: 100%;
+  justify-self: end;
+  white-space: normal;
 }
 
 .partner-management .partner-landowner-percentage-input > span {
@@ -1388,9 +1493,74 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * O painel vive ao lado da sidebar. Por isso, a largura útil do módulo pode
+ * ser menor que o viewport, mesmo em um monitor desktop. Estes breakpoints
+ * respondem ao espaço real do painel e evitam overflow horizontal.
+ */
+@container landowner-panel (max-width: 980px) {
+  .partner-management
+    .partner-landowner-panel
+    .partner-access-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .partner-management .partner-landowner-governance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-management .partner-landowner-history .partner-access-list > article {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container landowner-panel (max-width: 680px) {
+  .partner-management .partner-landowner-heading,
+  .partner-management .partner-landowner-contract-card > header,
+  .partner-management .partner-landowner-contract-preview > header,
+  .partner-management .partner-landowner-preview > header,
+  .partner-management .partner-landowner-repasses > header,
+  .partner-management .partner-landowner-history > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .partner-management
+    .partner-landowner-panel
+    .partner-access-fields,
+  .partner-management .partner-landowner-contract-fields,
+  .partner-management .partner-landowner-section-options,
+  .partner-management .partner-landowner-history .partner-access-list > article {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-management
+    .partner-landowner-panel
+    .partner-access-fields
+    > .partner-button,
+  .partner-management .partner-landowner-contract-fields > .partner-button {
+    grid-column: auto;
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .partner-management .partner-landowner-history .partner-status {
+    justify-self: start;
+  }
+}
+
 @media (max-width: 1120px) {
   .partner-management .partner-tabs {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .partner-management .partner-access-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .partner-management .partner-access-fields > label,
+  .partner-management .partner-access-fields > .partner-button {
+    grid-column: auto;
   }
 
   .partner-management
@@ -1446,6 +1616,14 @@
 @media (max-width: 720px) {
   .partner-management .partner-tabs {
     grid-template-columns: 1fr;
+  }
+
+  .partner-management .partner-access-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-management .partner-access-fields > .partner-button {
+    width: 100%;
   }
 
   .partner-management .partner-landowner-heading,
@@ -1539,11 +1717,11 @@
 
 /* Versão efetivamente publicada; sobrescreve os pseudo-elementos legados. */
 .sidebar-version span::after {
-  content: "Versão 6.14 Enterprise";
+  content: "Versão 6.15 Enterprise";
 }
 
 .auth-v5 form > small:first-child::after {
-  content: "ACESSO SEGURO · VERSÃO 6.14";
+  content: "ACESSO SEGURO · VERSÃO 6.15";
 }
 
 @media print {

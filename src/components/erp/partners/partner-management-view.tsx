@@ -197,6 +197,27 @@ function futureDate(days: number) {
   return date.toISOString().slice(0, 10);
 }
 
+function operationError(error: unknown, fallback: string) {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.trim()
+  ) {
+    return error.message;
+  }
+  return fallback;
+}
+
+function documentDigits(value: string | null | undefined) {
+  return (value || "").replace(/\D/g, "");
+}
+
+function validPartnerDocument(value: string | null | undefined) {
+  return [11, 14].includes(documentDigits(value).length);
+}
+
 function partnerName(contact: Contact | undefined) {
   return contact?.trade_name || contact?.name || "Parceiro não identificado";
 }
@@ -286,6 +307,7 @@ export function PartnerManagementView({
   const [decisionNotes, setDecisionNotes] = useState("");
   const [linkContactId, setLinkContactId] = useState("");
   const [linkKind, setLinkKind] = useState<PartnerKind>("fornecedor");
+  const [linkDocument, setLinkDocument] = useState("");
   const [linkLabel, setLinkLabel] = useState("");
   const [linkExpiresAt, setLinkExpiresAt] = useState(futureDate(60));
   const [generatedLink, setGeneratedLink] = useState("");
@@ -436,6 +458,11 @@ export function PartnerManagementView({
         partnerName(left).localeCompare(partnerName(right), "pt-BR"),
       );
   }, [data.contacts, payables]);
+  const selectedLinkContact = contactsById.get(linkContactId);
+  const linkDocumentReady = validPartnerDocument(linkDocument);
+  const selectedContactHasDocument = validPartnerDocument(
+    selectedLinkContact?.document,
+  );
 
   const filteredPayables = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("pt-BR");
@@ -700,12 +727,36 @@ export function PartnerManagementView({
       setError("Selecione o parceiro.");
       return;
     }
+    if (!linkDocumentReady) {
+      setError(
+        "Informe um CPF com 11 dígitos ou um CNPJ com 14 dígitos para proteger o acesso.",
+      );
+      return;
+    }
     setBusy(true);
     setError("");
     setGeneratedLink("");
     try {
       const client = getSupabase();
       if (!client) throw new Error("Supabase indisponível.");
+      const normalizedDocument = documentDigits(linkDocument);
+      if (
+        normalizedDocument !== documentDigits(selectedLinkContact?.document)
+      ) {
+        const contactUpdate = await client
+          .from("contacts")
+          .update({ document: normalizedDocument })
+          .eq("organization_id", organizationId)
+          .eq("id", linkContactId)
+          .select("id")
+          .maybeSingle();
+        if (contactUpdate.error)
+          throw new Error(contactUpdate.error.message);
+        if (!contactUpdate.data)
+          throw new Error(
+            "Não foi possível salvar o CPF/CNPJ no cadastro do parceiro.",
+          );
+      }
       const expiresAt = new Date(`${linkExpiresAt}T23:59:59`).toISOString();
       const result = await client.rpc("create_partner_portal_link", {
         p_organization_id: organizationId,
@@ -714,7 +765,7 @@ export function PartnerManagementView({
         p_label: linkLabel || null,
         p_expires_at: expiresAt,
       });
-      if (result.error) throw result.error;
+      if (result.error) throw new Error(result.error.message);
       const payload = result.data as {
         token?: string;
         expires_at?: string;
@@ -724,14 +775,12 @@ export function PartnerManagementView({
       const url = `${location.origin}/parceiro#acesso=${payload.token}`;
       setGeneratedLink(url);
       setNotice(
-        "Acesso criado. Copie o endereço agora: o token não será exibido novamente.",
+        "CPF/CNPJ validado e acesso criado. Copie o endereço agora: o token não será exibido novamente.",
       );
       await loadTab("access");
     } catch (cause) {
       setError(
-        cause instanceof Error
-          ? cause.message
-          : "Não foi possível criar o acesso.",
+        operationError(cause, "Não foi possível criar o acesso."),
       );
     } finally {
       setBusy(false);
@@ -1591,11 +1640,18 @@ export function PartnerManagementView({
                 </div>
               </header>
               <div className="partner-access-fields">
-                <label>
+                <label className="partner-access-partner">
                   <span>Parceiro</span>
                   <select
                     value={linkContactId}
-                    onChange={(event) => setLinkContactId(event.target.value)}
+                    onChange={(event) => {
+                      const contactId = event.target.value;
+                      setLinkContactId(contactId);
+                      setLinkDocument(
+                        contactsById.get(contactId)?.document || "",
+                      );
+                      setError("");
+                    }}
                     required
                   >
                     <option value="">Selecione</option>
@@ -1612,13 +1668,15 @@ export function PartnerManagementView({
                       ))}
                   </select>
                 </label>
-                <label>
+                <label className="partner-access-kind">
                   <span>Categoria</span>
                   <select
                     value={linkKind}
                     onChange={(event) => {
                       setLinkKind(event.target.value as PartnerKind);
                       setLinkContactId("");
+                      setLinkDocument("");
+                      setError("");
                     }}
                   >
                     {Object.entries(partnerKindLabels).map(([value, label]) => (
@@ -1628,7 +1686,34 @@ export function PartnerManagementView({
                     ))}
                   </select>
                 </label>
-                <label>
+                <label className="partner-access-document">
+                  <span>CPF / CNPJ para validação</span>
+                  <input
+                    inputMode="numeric"
+                    autoComplete="off"
+                    maxLength={18}
+                    value={linkDocument}
+                    onChange={(event) => setLinkDocument(event.target.value)}
+                    placeholder="11 dígitos para CPF ou 14 para CNPJ"
+                    aria-describedby="partner-access-document-help"
+                    required
+                  />
+                  <small
+                    id="partner-access-document-help"
+                    className={
+                      linkContactId && !selectedContactHasDocument
+                        ? "partner-field-warning"
+                        : undefined
+                    }
+                  >
+                    {!linkContactId
+                      ? "Selecione o parceiro para verificar o cadastro."
+                      : !selectedContactHasDocument
+                        ? "Documento ausente. Preencha aqui; ele será salvo no cadastro ao gerar o acesso."
+                        : "Usado somente para confirmar os quatro últimos dígitos no portal."}
+                  </small>
+                </label>
+                <label className="partner-access-label">
                   <span>Identificação do acesso</span>
                   <input
                     value={linkLabel}
@@ -1636,7 +1721,7 @@ export function PartnerManagementView({
                     placeholder="Ex.: Financeiro do fornecedor"
                   />
                 </label>
-                <label>
+                <label className="partner-access-expiry">
                   <span>Validade</span>
                   <input
                     type="date"
@@ -1649,7 +1734,7 @@ export function PartnerManagementView({
                 </label>
                 <button
                   className="partner-button partner-button-primary"
-                  disabled={busy}
+                  disabled={busy || !linkContactId || !linkDocumentReady}
                 >
                   {busy ? "Gerando..." : "Gerar acesso"}
                 </button>

@@ -1,0 +1,1280 @@
+/* Évora Gestão 6.11 — filtros financeiros e portal do terrenista */
+
+/* Financeiro: seleção legível e totais que permanecem dentro dos cards. */
+
+.finance-select-all {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.finance-selection-checkbox {
+  width: 18px;
+  height: 18px;
+  min-height: 18px;
+  flex: 0 0 18px;
+  margin: 0;
+  accent-color: var(--green-800);
+  cursor: pointer;
+}
+
+.finance-selection-checkbox:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
+.finance-table .finance-main,
+.finance-table .finance-main > span,
+.finance-table .finance-row > div,
+.finance-table .table-header > span {
+  min-width: 0;
+}
+
+.kpi-grid.four {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 205px), 1fr)
+  );
+}
+
+.kpi-grid.four .kpi {
+  min-width: 0;
+  container-type: inline-size;
+  overflow: hidden;
+}
+
+.kpi-grid.four .kpi > strong.kpi-value-currency {
+  max-width: 100%;
+  font-size: clamp(1rem, 7cqi, 1.55rem);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Fluxo de caixa: períodos rápidos e datas personalizadas no mesmo bloco. */
+
+.cash-hero > div:last-child {
+  width: min(100%, 680px);
+  max-width: 680px;
+  grid-template-columns: repeat(4, minmax(112px, 1fr));
+  align-items: end;
+}
+
+.cash-hero > div:last-child > label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.cash-hero > div:last-child > label small {
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.68rem;
+  line-height: 1;
+}
+
+.cash-hero > div:last-child input[type="date"] {
+  width: 100%;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 9px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 9px;
+  outline: none;
+  color: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  color-scheme: dark;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.cash-hero > div:last-child input[type="date"]:focus-visible {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(199, 155, 69, 0.2);
+}
+
+/* Quatro módulos de governança de parceiros. */
+
+.partner-management .partner-tabs {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+/* Painel administrativo do terrenista. */
+
+.partner-landowner-panel,
+.partner-landowner-panel *,
+.landowner-public-root,
+.landowner-public-root *,
+.landowner-public-empty,
+.landowner-public-empty * {
+  box-sizing: border-box;
+}
+
+.partner-landowner-panel,
+.partner-landowner-heading,
+.partner-landowner-heading > *,
+.partner-landowner-preview,
+.partner-landowner-preview > *,
+.partner-landowner-governance-grid,
+.partner-landowner-governance-grid > *,
+.partner-landowner-repasses,
+.partner-landowner-repasses > *,
+.partner-landowner-history,
+.partner-landowner-history > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.partner-management .partner-landowner-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: clamp(20px, 3vw, 30px);
+  border: 1px solid var(--partner-line);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 92% 0, rgba(96, 156, 39, 0.11), transparent 17rem),
+    rgba(255, 255, 255, 0.86);
+}
+
+.partner-management .partner-landowner-heading > div {
+  min-width: 0;
+}
+
+.partner-management .partner-landowner-heading small,
+.partner-management .partner-landowner-preview > header small,
+.partner-management .partner-landowner-repasses > header small,
+.partner-management .partner-landowner-history > header small,
+.partner-management .partner-landowner-publish > header small {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--partner-green);
+  font-size: 0.68rem;
+  font-weight: 850;
+  letter-spacing: 0.12em;
+}
+
+.partner-management .partner-landowner-heading h3,
+.partner-management .partner-landowner-preview h3,
+.partner-management .partner-landowner-repasses h3,
+.partner-management .partner-landowner-history h3,
+.partner-management .partner-landowner-publish h3 {
+  margin: 0;
+  color: var(--partner-ink);
+  font-size: clamp(1.15rem, 2.1vw, 1.62rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-landowner-heading p,
+.partner-management .partner-landowner-preview header p,
+.partner-management .partner-landowner-repasses header p,
+.partner-management .partner-landowner-history header p,
+.partner-management .partner-landowner-publish header p {
+  max-width: 760px;
+  margin: 7px 0 0;
+  color: var(--partner-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.partner-management
+  .partner-landowner-panel
+  .partner-access-fields {
+  grid-template-columns: repeat(4, minmax(150px, 1fr));
+}
+
+.partner-management
+  .partner-landowner-panel
+  .partner-access-fields
+  > .partner-button {
+  grid-column: 1 / -1;
+  width: fit-content;
+  justify-self: end;
+}
+
+.partner-management .partner-landowner-preview {
+  display: grid;
+  gap: 18px;
+  padding: clamp(18px, 3vw, 28px);
+  overflow: hidden;
+  border: 1px solid rgba(15, 97, 114, 0.2);
+  border-radius: 22px;
+  background:
+    linear-gradient(135deg, rgba(15, 97, 114, 0.055), transparent 44%),
+    rgba(255, 255, 255, 0.9);
+}
+
+.partner-management .partner-landowner-preview-stale {
+  border-color: rgba(174, 53, 56, 0.26);
+  background:
+    linear-gradient(135deg, rgba(174, 53, 56, 0.06), transparent 44%),
+    rgba(255, 255, 255, 0.9);
+}
+
+.partner-management .partner-landowner-preview > header,
+.partner-management .partner-landowner-repasses > header,
+.partner-management .partner-landowner-history > header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.partner-management .partner-landowner-preview > header > div,
+.partner-management .partner-landowner-repasses > header > div,
+.partner-management .partner-landowner-history > header > div {
+  min-width: 0;
+}
+
+.partner-management .partner-landowner-preview .partner-kpis {
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 180px), 1fr)
+  );
+}
+
+.partner-management .partner-landowner-preview .partner-kpis article {
+  min-height: 138px;
+  container-type: inline-size;
+}
+
+.partner-management .partner-landowner-preview .partner-kpis strong {
+  max-width: 100%;
+  font-size: clamp(1.15rem, 8cqi, 1.72rem);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.partner-management .partner-landowner-condition-summary {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 175px), 1fr)
+  );
+  gap: 10px;
+  margin: 0;
+}
+
+.partner-management .partner-landowner-condition-summary > div {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 15px;
+  border: 1px solid var(--partner-line);
+  border-radius: 14px;
+  background: #f7f9f8;
+}
+
+.partner-management .partner-landowner-condition-summary dt {
+  color: var(--partner-muted);
+  font-size: 0.71rem;
+}
+
+.partner-management .partner-landowner-condition-summary dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--partner-ink);
+  font-size: clamp(0.95rem, 2vw, 1.16rem);
+  font-weight: 850;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.partner-management .partner-landowner-governance-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.75fr);
+  gap: 16px;
+}
+
+.partner-management .partner-landowner-visibility,
+.partner-management .partner-landowner-publish,
+.partner-management .partner-landowner-repasses,
+.partner-management .partner-landowner-history {
+  min-width: 0;
+  margin: 0;
+  padding: clamp(18px, 2.7vw, 26px);
+  border: 1px solid var(--partner-line);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.partner-management .partner-landowner-visibility {
+  display: grid;
+  align-content: start;
+  gap: 13px;
+}
+
+.partner-management .partner-landowner-visibility legend {
+  max-width: 100%;
+  padding: 0 7px;
+  color: var(--partner-ink);
+  font-size: 1rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-landowner-visibility > p {
+  margin: 0;
+  color: var(--partner-muted);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-landowner-section-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.partner-management
+  .partner-landowner-section-options
+  .partner-check {
+  align-items: flex-start;
+}
+
+.partner-management
+  .partner-landowner-section-options
+  .partner-check
+  span {
+  display: grid;
+  gap: 3px;
+}
+
+.partner-management
+  .partner-landowner-section-options
+  .partner-check
+  strong,
+.partner-management
+  .partner-landowner-section-options
+  .partner-check
+  small {
+  overflow-wrap: anywhere;
+}
+
+.partner-management
+  .partner-landowner-section-options
+  .partner-check
+  small {
+  color: var(--partner-muted);
+  font-size: 0.68rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.partner-management .partner-landowner-selection-count {
+  justify-self: end;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: var(--partner-teal) !important;
+  font-size: 0.68rem !important;
+  font-weight: 800;
+  background: rgba(15, 97, 114, 0.08);
+}
+
+.partner-management .partner-landowner-publish {
+  display: grid;
+  align-content: start;
+  gap: 15px;
+}
+
+.partner-management .partner-landowner-publish > label {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.partner-management .partner-landowner-publish > label > span,
+.partner-management .partner-landowner-publish > label > small {
+  color: var(--partner-muted);
+  font-size: 0.72rem;
+}
+
+.partner-management
+  .partner-landowner-publish
+  > label
+  > small {
+  justify-self: end;
+}
+
+.partner-management .partner-landowner-publish > .partner-button {
+  width: 100%;
+}
+
+.partner-management .partner-landowner-repasses,
+.partner-management .partner-landowner-history {
+  display: grid;
+  gap: 16px;
+}
+
+.partner-management .partner-landowner-repasses > header > span {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  color: var(--partner-teal);
+  font-size: 0.7rem;
+  font-weight: 800;
+  background: rgba(15, 97, 114, 0.08);
+}
+
+.partner-management .partner-landowner-repass-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.partner-management .partner-landowner-repass-table table {
+  width: 100%;
+  min-width: 1080px;
+  border-collapse: collapse;
+}
+
+.partner-management .partner-landowner-repass-table caption {
+  padding: 0 0 12px;
+  color: var(--partner-muted);
+  font-size: 0.72rem;
+  text-align: left;
+}
+
+.partner-management .partner-landowner-repass-table th,
+.partner-management .partner-landowner-repass-table td {
+  min-width: 0;
+  padding: 12px 10px;
+  border-bottom: 1px solid var(--partner-line);
+  color: var(--partner-ink);
+  font-size: 0.76rem;
+  text-align: left;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-landowner-repass-table th {
+  color: var(--partner-muted);
+  font-size: 0.65rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.partner-management
+  .partner-landowner-repass-table
+  td:last-child,
+.partner-management
+  .partner-landowner-repass-table
+  th:last-child {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.partner-management .partner-landowner-repass-table td small {
+  display: block;
+  margin-top: 4px;
+  color: var(--partner-muted);
+  font-size: 0.66rem;
+}
+
+.partner-management
+  .partner-landowner-repass-table
+  .partner-check {
+  width: fit-content;
+  min-width: 132px;
+  padding: 8px 10px;
+}
+
+.partner-management .partner-landowner-allocation {
+  display: flex;
+  min-width: 210px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.partner-management .partner-landowner-allocation input {
+  width: 116px;
+  min-width: 0;
+  min-height: 38px;
+  padding: 8px 9px;
+  border: 1px solid var(--partner-line);
+  border-radius: 9px;
+  color: var(--partner-ink);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  background: #fff;
+}
+
+.partner-management .partner-landowner-allocation .partner-button {
+  min-height: 38px;
+  padding: 0 11px;
+}
+
+.partner-management .partner-landowner-history .partner-access-list > article {
+  grid-template-columns:
+    minmax(190px, 1.1fr)
+    minmax(150px, 0.75fr)
+    minmax(210px, 1fr)
+    auto;
+}
+
+/* Portal público: fechamento publicado, responsivo e sem exposição implícita. */
+
+.landowner-public-empty,
+.landowner-public-root {
+  --landowner-navy: var(--partner-navy, #123f59);
+  --landowner-deep: var(--partner-navy-deep, #092b3f);
+  --landowner-green: var(--partner-green, #78b72a);
+  --landowner-gold: var(--partner-gold, #c69745);
+  --landowner-ink: var(--partner-ink, #112a3a);
+  --landowner-muted: var(--partner-muted, #62747e);
+  --landowner-line: var(--partner-line, #d9e2e4);
+}
+
+.landowner-public-empty {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 22px;
+  padding: clamp(20px, 3vw, 30px);
+  border: 1px solid var(--landowner-line);
+  border-radius: 22px;
+  color: var(--landowner-ink);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.landowner-public-empty > span {
+  display: grid;
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  place-items: center;
+  border-radius: 15px;
+  color: var(--landowner-navy);
+  font-size: 1.5rem;
+  background: rgba(120, 183, 42, 0.13);
+}
+
+.landowner-public-empty h2,
+.landowner-public-empty p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.landowner-public-empty h2 {
+  font-size: clamp(1.12rem, 2.2vw, 1.5rem);
+}
+
+.landowner-public-empty p {
+  margin-top: 6px;
+  color: var(--landowner-muted);
+  line-height: 1.5;
+}
+
+.landowner-public-root {
+  display: grid;
+  min-width: 0;
+  max-width: 100%;
+  gap: 17px;
+  margin-bottom: 24px;
+  color: var(--landowner-ink);
+}
+
+.landowner-public-heading {
+  display: flex;
+  min-width: 0;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: clamp(23px, 4vw, 38px);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 26px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 88% 0, rgba(120, 183, 42, 0.24), transparent 20rem),
+    linear-gradient(125deg, var(--landowner-deep), var(--landowner-navy));
+  box-shadow: 0 20px 50px rgba(9, 43, 63, 0.12);
+}
+
+.landowner-public-heading > div,
+.landowner-public-heading > label {
+  min-width: 0;
+}
+
+.landowner-public-heading > div {
+  max-width: 720px;
+}
+
+.landowner-public-heading small,
+.landowner-public-card > header small {
+  color: var(--landowner-green);
+  font-size: 0.68rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.landowner-public-heading h2 {
+  margin: 8px 0 0;
+  color: #fff;
+  font-size: clamp(1.55rem, 3.5vw, 2.6rem);
+  line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+
+.landowner-public-heading p {
+  max-width: 670px;
+  margin: 10px 0 0;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.landowner-public-heading > label {
+  display: grid;
+  width: min(100%, 290px);
+  flex: 0 0 min(100%, 290px);
+  gap: 7px;
+}
+
+.landowner-public-heading > label > span {
+  color: rgba(255, 255, 255, 0.67);
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.landowner-public-heading select {
+  width: 100%;
+  min-width: 0;
+  min-height: 43px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 11px;
+  outline: none;
+  color: #fff;
+  font: inherit;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.landowner-public-heading select option {
+  color: var(--landowner-ink);
+  background: #fff;
+}
+
+.landowner-public-context {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 11px;
+}
+
+.landowner-public-context > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 17px 19px;
+  border: 1px solid var(--landowner-line);
+  border-radius: 17px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.landowner-public-context small {
+  color: var(--landowner-green);
+  font-size: 0.65rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.landowner-public-context strong,
+.landowner-public-context span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.landowner-public-context strong {
+  font-size: 1rem;
+}
+
+.landowner-public-context span {
+  color: var(--landowner-muted);
+  font-size: 0.76rem;
+}
+
+.landowner-public-note {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 15px 18px;
+  border-left: 4px solid var(--landowner-green);
+  border-radius: 13px;
+  color: #345526;
+  background: #f0f8e9;
+}
+
+.landowner-public-note b,
+.landowner-public-note p {
+  overflow-wrap: anywhere;
+}
+
+.landowner-public-note p {
+  margin: 0;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
+
+.landowner-public-kpis {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 210px), 1fr)
+  );
+  min-width: 0;
+  gap: 11px;
+}
+
+.landowner-public-kpis > article {
+  display: grid;
+  min-width: 0;
+  min-height: 142px;
+  align-content: space-between;
+  gap: 7px;
+  padding: 19px;
+  overflow: hidden;
+  border: 1px solid var(--landowner-line);
+  border-top: 3px solid var(--landowner-green);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.93);
+  container-type: inline-size;
+}
+
+.landowner-public-kpis > article:nth-child(2) {
+  border-top-color: var(--landowner-navy);
+}
+
+.landowner-public-kpis > article:nth-child(3) {
+  border-top-color: var(--landowner-gold);
+}
+
+.landowner-public-kpis > article:nth-child(4) {
+  border-top-color: #0f7780;
+}
+
+.landowner-public-kpis small,
+.landowner-public-kpis span {
+  min-width: 0;
+  color: var(--landowner-muted);
+  overflow-wrap: anywhere;
+}
+
+.landowner-public-kpis small {
+  font-size: 0.72rem;
+  font-weight: 750;
+}
+
+.landowner-public-kpis > article > strong {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--landowner-ink);
+  font-size: clamp(1.05rem, 8cqi, 1.7rem);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.landowner-public-kpis span {
+  font-size: 0.73rem;
+  line-height: 1.35;
+}
+
+.landowner-public-basis {
+  margin: -6px 0 0;
+  padding: 10px 13px;
+  border-radius: 10px;
+  color: var(--landowner-muted);
+  font-size: 0.72rem;
+  line-height: 1.45;
+  background: rgba(18, 63, 89, 0.045);
+  overflow-wrap: anywhere;
+}
+
+.landowner-public-sections {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+  gap: 12px;
+}
+
+.landowner-public-card {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 16px;
+  padding: clamp(19px, 3vw, 27px);
+  overflow: hidden;
+  border: 1px solid var(--landowner-line);
+  border-radius: 21px;
+  background: rgba(255, 255, 255, 0.93);
+  box-shadow: 0 12px 34px rgba(9, 43, 63, 0.045);
+}
+
+.landowner-work-card,
+.landowner-sales-card {
+  grid-column: 1 / -1;
+}
+
+.landowner-public-card > header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 17px;
+}
+
+.landowner-public-card > header > div {
+  min-width: 0;
+}
+
+.landowner-public-card > header h3 {
+  margin: 5px 0 0;
+  color: var(--landowner-ink);
+  font-size: clamp(1.05rem, 2.3vw, 1.45rem);
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+}
+
+.landowner-public-card > header > strong {
+  min-width: 0;
+  max-width: 45%;
+  color: var(--landowner-navy);
+  font-size: clamp(1.3rem, 4vw, 2rem);
+  line-height: 1;
+  text-align: right;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.landowner-public-card > p {
+  margin: 0;
+  color: var(--landowner-muted);
+  font-size: 0.76rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.landowner-work-bars {
+  display: grid;
+  min-width: 0;
+  gap: 14px;
+}
+
+.landowner-work-bars label {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+}
+
+.landowner-work-bars label > span {
+  display: flex;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+.landowner-work-bars label > span > * {
+  overflow-wrap: anywhere;
+}
+
+.landowner-work-bars label > i {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eeee;
+}
+
+.landowner-work-bars label > i > b {
+  display: block;
+  min-width: 2px;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--landowner-green), #4a8e34);
+}
+
+.landowner-work-bars label:nth-child(2) > i > b {
+  background: linear-gradient(90deg, var(--landowner-gold), #e3b763);
+}
+
+.landowner-work-stages {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 210px), 1fr)
+  );
+  gap: 9px;
+}
+
+.landowner-work-stages > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 13px;
+  border: 1px solid var(--landowner-line);
+  border-radius: 12px;
+  background: #f7f9f8;
+}
+
+.landowner-work-stages > div > span {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.landowner-work-stages small {
+  color: var(--landowner-muted);
+  font-size: 0.65rem;
+}
+
+.landowner-work-stages strong {
+  overflow-wrap: anywhere;
+}
+
+.landowner-work-stages > div > b {
+  flex: 0 0 auto;
+  color: var(--landowner-navy);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.landowner-mini-kpis {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 145px), 1fr)
+  );
+  min-width: 0;
+  gap: 9px;
+}
+
+.landowner-mini-kpis > span {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+  padding: 13px;
+  border: 1px solid var(--landowner-line);
+  border-radius: 13px;
+  background: #f7f9f8;
+  container-type: inline-size;
+}
+
+.landowner-mini-kpis small {
+  color: var(--landowner-muted);
+  font-size: 0.68rem;
+  overflow-wrap: anywhere;
+}
+
+.landowner-mini-kpis strong {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--landowner-ink);
+  font-size: clamp(0.86rem, 9cqi, 1.08rem);
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.landowner-repass-unconfigured {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  padding: 15px;
+  border-left: 4px solid var(--landowner-gold);
+  border-radius: 12px;
+  color: #755715;
+  background: #fff8e7;
+}
+
+.landowner-repass-unconfigured b,
+.landowner-repass-unconfigured p {
+  overflow-wrap: anywhere;
+}
+
+.landowner-repass-unconfigured p {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+.landowner-repass-list {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+
+.landowner-repass-list > div {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 15px;
+  padding: 12px 0;
+  border-top: 1px solid var(--landowner-line);
+}
+
+.landowner-repass-list > div > span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.landowner-repass-list > div > span:last-child {
+  flex: 0 0 auto;
+  text-align: right;
+}
+
+.landowner-repass-list strong,
+.landowner-repass-list small {
+  overflow-wrap: anywhere;
+}
+
+.landowner-repass-list small {
+  color: var(--landowner-muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.landowner-sales-table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.landowner-sales-table > div {
+  display: grid;
+  grid-template-columns:
+    minmax(170px, 1fr)
+    minmax(150px, 0.82fr)
+    minmax(165px, 0.9fr)
+    minmax(170px, 0.9fr);
+  min-width: 760px;
+  gap: 14px;
+  padding: 13px 10px;
+  border-top: 1px solid var(--landowner-line);
+}
+
+.landowner-sales-table > div > span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.landowner-sales-table strong,
+.landowner-sales-table small,
+.landowner-sales-table span {
+  overflow-wrap: anywhere;
+}
+
+.landowner-sales-table small {
+  color: var(--landowner-muted);
+  font-size: 0.68rem;
+  line-height: 1.35;
+}
+
+.landowner-sales-table .landowner-sales-head {
+  border-top: 0;
+  color: var(--landowner-muted);
+  font-size: 0.65rem;
+  font-weight: 850;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  background: #f5f8f7;
+}
+
+.landowner-public-governance {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 13px 16px;
+  border: 1px solid rgba(120, 183, 42, 0.22);
+  border-radius: 13px;
+  color: #41652e;
+  background: #f0f8ea;
+}
+
+.landowner-public-governance > span {
+  display: grid;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--landowner-green);
+}
+
+.landowner-public-governance p {
+  margin: 1px 0 0;
+  font-size: 0.74rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 1120px) {
+  .partner-management .partner-tabs {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .partner-management
+    .partner-landowner-panel
+    .partner-access-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .partner-management .partner-landowner-governance-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-management .partner-landowner-history .partner-access-list > article {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
+  .cash-hero > div:last-child {
+    grid-template-columns: repeat(3, minmax(105px, 1fr));
+  }
+
+  .landowner-public-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .landowner-public-heading > label {
+    width: 100%;
+    flex-basis: auto;
+  }
+
+  .landowner-public-sections {
+    grid-template-columns: 1fr;
+  }
+
+  .landowner-work-card,
+  .landowner-sales-card {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 720px) {
+  .partner-management .partner-tabs {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-management .partner-landowner-heading,
+  .partner-management .partner-landowner-preview > header,
+  .partner-management .partner-landowner-repasses > header,
+  .partner-management .partner-landowner-history > header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .partner-management
+    .partner-landowner-panel
+    .partner-access-fields,
+  .partner-management .partner-landowner-section-options {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-management
+    .partner-landowner-panel
+    .partner-access-fields
+    > .partner-button {
+    width: 100%;
+  }
+
+  .partner-management .partner-landowner-history .partner-access-list > article {
+    grid-template-columns: 1fr;
+  }
+
+  .partner-management .partner-landowner-history .partner-status {
+    justify-self: start;
+  }
+
+  .landowner-public-context {
+    grid-template-columns: 1fr;
+  }
+
+  .landowner-repass-list > div {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .landowner-repass-list > div > span:last-child {
+    text-align: left;
+  }
+}
+
+@media (max-width: 560px) {
+  .cash-hero {
+    padding: 23px 18px;
+  }
+
+  .cash-hero > div:last-child {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .cash-hero > div:last-child input[type="date"] {
+    font-size: 0.72rem;
+  }
+
+  .landowner-public-heading,
+  .landowner-public-card,
+  .landowner-public-empty {
+    border-radius: 18px;
+  }
+
+  .landowner-public-card > header {
+    flex-direction: column;
+  }
+
+  .landowner-public-card > header > strong {
+    max-width: 100%;
+    text-align: left;
+  }
+
+  .landowner-mini-kpis {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  .partner-management .partner-landowner-section-options,
+  .partner-management .partner-landowner-publish,
+  .partner-management .partner-landowner-repass-table,
+  .partner-management .partner-landowner-history > header > button,
+  .partner-management
+    .partner-landowner-panel
+    .partner-access-fields
+    > .partner-button {
+    display: none !important;
+  }
+
+  .landowner-public-heading,
+  .landowner-public-card,
+  .landowner-public-kpis > article,
+  .landowner-public-context > div {
+    break-inside: avoid;
+    box-shadow: none;
+  }
+}

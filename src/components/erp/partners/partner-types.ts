@@ -161,6 +161,63 @@ export interface LandownerWorkStage {
   actual_progress_pct: number;
 }
 
+export interface LandownerPeriodMonth {
+  month: string;
+  period_start: string;
+  period_end: string;
+  received_amount: number;
+  receivables_due_amount?: number;
+  overdue_amount?: number;
+  overdue_installments?: number;
+  overdue_rate_pct?: number;
+  repass_due_amount?: number | null;
+  repassed_amount?: number;
+}
+
+export interface LandownerPeriodStatement {
+  configured?: boolean;
+  contractual_percentage?: number | null;
+  visibility?: {
+    delinquency: boolean;
+    repasses: boolean;
+  };
+  totals: {
+    received_amount: number;
+    receivables_due_amount?: number;
+    overdue_amount?: number;
+    overdue_installments?: number;
+    overdue_rate_pct?: number;
+    repass_due_amount?: number | null;
+    repassed_amount?: number;
+  };
+  months: LandownerPeriodMonth[];
+  basis: string;
+  reconstruction_note: string;
+}
+
+export type LandownerSalesMapStatus =
+  | "disponivel"
+  | "reservado"
+  | "vendido"
+  | "bloqueado"
+  | "indisponivel";
+
+export interface LandownerSalesMapUnit {
+  unit_code: string;
+  block_code: string;
+  lot_number: string;
+  area: number;
+  status: LandownerSalesMapStatus;
+}
+
+export interface LandownerSalesMap {
+  position_date: string;
+  total_units: number;
+  counts: Record<LandownerSalesMapStatus, number>;
+  units: LandownerSalesMapUnit[];
+  basis: string;
+}
+
 export interface LandownerPortalPublication {
   id: string;
   version: number;
@@ -189,6 +246,7 @@ export interface LandownerPortalPublication {
     vso_pct?: number;
     vso_basis?: string;
   };
+  sales_map?: LandownerSalesMap;
   sales_conditions?: {
     average_sale_price?: number;
     average_discount_pct?: number;
@@ -219,6 +277,7 @@ export interface LandownerPortalPublication {
     basis?: string;
     entries?: LandownerRepassDetail[];
   };
+  period_statement?: LandownerPeriodStatement;
   construction?: {
     actual_progress_pct: number;
     planned_progress_pct: number;

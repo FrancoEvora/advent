@@ -13,6 +13,7 @@ import { dateAtNoon, money, shortDate, statusLabels } from "../utils";
 
 type VisibleSection =
   | "lots"
+  | "sales_map"
   | "vgv"
   | "vso"
   | "conditions_summary"
@@ -20,7 +21,8 @@ type VisibleSection =
   | "delinquency"
   | "repasses_summary"
   | "repass_details"
-  | "construction";
+  | "construction"
+  | "period_statement";
 
 type Visibility = Record<VisibleSection, boolean>;
 
@@ -45,6 +47,19 @@ interface LandownerSnapshot {
     sales_in_period?: number;
     vso_pct?: number;
     vso_basis?: string;
+  };
+  sales_map?: {
+    position_date?: string;
+    total_units?: number;
+    counts?: {
+      disponivel?: number;
+      reservado?: number;
+      vendido?: number;
+      bloqueado?: number;
+      indisponivel?: number;
+    };
+    units?: unknown[];
+    basis?: string;
   };
   sales_conditions?: {
     average_sale_price?: number;
@@ -75,6 +90,31 @@ interface LandownerSnapshot {
     due_not_repassed_count?: number;
     basis?: string;
     entries?: unknown[];
+  };
+  period_statement?: {
+    configured?: boolean;
+    contractual_percentage?: number | null;
+    totals?: {
+      received_amount?: number;
+      receivables_due_amount?: number;
+      overdue_amount?: number;
+      overdue_installments?: number;
+      overdue_rate_pct?: number;
+      repass_due_amount?: number | null;
+      repassed_amount?: number;
+    };
+    months?: Array<{
+      month?: string;
+      period_start?: string;
+      period_end?: string;
+      received_amount?: number;
+      overdue_amount?: number;
+      overdue_rate_pct?: number;
+      repass_due_amount?: number | null;
+      repassed_amount?: number;
+    }>;
+    basis?: string;
+    reconstruction_note?: string;
   };
   construction?: {
     actual_progress_pct?: number;
@@ -115,6 +155,7 @@ interface LandownerContractTerms {
 
 const initialVisibility: Visibility = {
   lots: true,
+  sales_map: true,
   vgv: true,
   vso: true,
   conditions_summary: true,
@@ -123,6 +164,7 @@ const initialVisibility: Visibility = {
   repasses_summary: true,
   repass_details: false,
   construction: true,
+  period_statement: true,
 };
 
 const sectionOptions: Array<{
@@ -134,6 +176,12 @@ const sectionOptions: Array<{
     key: "lots",
     label: "Lotes totais e vendidos",
     detail: "Quantidades consolidadas e estoque disponível.",
+  },
+  {
+    key: "sales_map",
+    label: "Mapa comercial de lotes",
+    detail:
+      "Situação publicada de cada lote por quadra, sem dados de compradores.",
   },
   {
     key: "vgv",
@@ -169,6 +217,12 @@ const sectionOptions: Array<{
     key: "repass_details",
     label: "Detalhes dos repasses",
     detail: "Lançamentos, datas, valores e situação de processamento.",
+  },
+  {
+    key: "period_statement",
+    label: "Demonstrativo financeiro do período",
+    detail:
+      "Recebimentos, inadimplência e direito de repasse, com visão mês a mês.",
   },
   {
     key: "construction",
@@ -844,8 +898,9 @@ export function LandownerPublicationPanel({
             <small>RECORTE DA INFORMAÇÃO</small>
             <h3>Preparar fechamento</h3>
             <p>
-              O período orienta vendas e VSO. Inadimplência, repasses e obra
-              representam a posição atual congelada no momento da publicação.
+              O período orienta vendas, VSO e o demonstrativo financeiro
+              mensal. A obra e os saldos finais representam a posição
+              congelada no momento da publicação.
             </p>
           </div>
         </header>
@@ -1033,8 +1088,9 @@ export function LandownerPublicationPanel({
           <b>Base do cálculo</b>
           <p>
             Recebimentos liquidados dos contratos assinados deste
-            empreendimento até a data de posição. O direito contratual é a base
-            recebida multiplicada pelo percentual salvo.
+            empreendimento. O direito contratual acumulado considera a base até
+            a posição; o demonstrativo separa o movimento de cada mês do
+            período selecionado.
           </p>
           {contractTerms?.updated_at && (
             <small>
@@ -1174,6 +1230,78 @@ export function LandownerPublicationPanel({
             </article>
           </div>
 
+          {preview.sales_map && (
+            <section
+              className="partner-landowner-map-preview"
+              aria-labelledby="landowner-map-preview-title"
+            >
+              <header>
+                <div>
+                  <small>MAPA COMERCIAL NO SNAPSHOT</small>
+                  <h4 id="landowner-map-preview-title">
+                    Situação dos lotes por quadra
+                  </h4>
+                  <p>
+                    Posição congelada em{" "}
+                    {safeDate(preview.sales_map.position_date)}.
+                  </p>
+                </div>
+                <strong>
+                  {numberValue(
+                    preview.sales_map.total_units,
+                  ).toLocaleString("pt-BR")}{" "}
+                  lotes
+                </strong>
+              </header>
+              <dl>
+                <div data-status="disponivel">
+                  <dt>Disponíveis</dt>
+                  <dd>
+                    {numberValue(
+                      preview.sales_map.counts?.disponivel,
+                    ).toLocaleString("pt-BR")}
+                  </dd>
+                </div>
+                <div data-status="reservado">
+                  <dt>Reservados</dt>
+                  <dd>
+                    {numberValue(
+                      preview.sales_map.counts?.reservado,
+                    ).toLocaleString("pt-BR")}
+                  </dd>
+                </div>
+                <div data-status="vendido">
+                  <dt>Vendidos</dt>
+                  <dd>
+                    {numberValue(
+                      preview.sales_map.counts?.vendido,
+                    ).toLocaleString("pt-BR")}
+                  </dd>
+                </div>
+                <div data-status="bloqueado">
+                  <dt>Bloqueados</dt>
+                  <dd>
+                    {numberValue(
+                      preview.sales_map.counts?.bloqueado,
+                    ).toLocaleString("pt-BR")}
+                  </dd>
+                </div>
+                <div data-status="indisponivel">
+                  <dt>Indisponíveis</dt>
+                  <dd>
+                    {numberValue(
+                      preview.sales_map.counts?.indisponivel,
+                    ).toLocaleString("pt-BR")}
+                  </dd>
+                </div>
+              </dl>
+              <p>
+                {preview.sales_map.basis ||
+                  "Somente quadra, lote, área e situação comercial serão publicados."}
+              </p>
+            </section>
+          )}
+
           <section
             className="partner-landowner-contract-preview"
             aria-labelledby="landowner-contract-preview-title"
@@ -1239,6 +1367,112 @@ export function LandownerPublicationPanel({
               </div>
             )}
           </section>
+
+          {preview.period_statement && (
+            <section
+              className="partner-landowner-period-preview"
+              aria-labelledby="landowner-period-preview-title"
+            >
+              <header>
+                <div>
+                  <small>DEMONSTRATIVO DO PERÍODO</small>
+                  <h4 id="landowner-period-preview-title">
+                    Recebimentos, inadimplência e repasse
+                  </h4>
+                  <p>
+                    Fluxos somados no período e inadimplência na posição final.
+                  </p>
+                </div>
+                <strong>
+                  {preview.period_statement.months?.length || 0} competência(s)
+                </strong>
+              </header>
+              <dl>
+                <div>
+                  <dt>Recebido no período</dt>
+                  <dd>
+                    {money.format(
+                      numberValue(
+                        preview.period_statement.totals?.received_amount,
+                      ),
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Inadimplência no encerramento</dt>
+                  <dd>
+                    {money.format(
+                      numberValue(
+                        preview.period_statement.totals?.overdue_amount,
+                      ),
+                    )}
+                  </dd>
+                  <small>
+                    {percent(
+                      preview.period_statement.totals?.overdue_rate_pct,
+                    )}{" "}
+                    da base vencida
+                  </small>
+                </div>
+                <div>
+                  <dt>Repasse devido no período</dt>
+                  <dd>
+                    {preview.period_statement.configured === false
+                      ? "Percentual pendente"
+                      : money.format(
+                          numberValue(
+                            preview.period_statement.totals
+                              ?.repass_due_amount,
+                          ),
+                        )}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Repasses realizados no período</dt>
+                  <dd>
+                    {money.format(
+                      numberValue(
+                        preview.period_statement.totals?.repassed_amount,
+                      ),
+                    )}
+                  </dd>
+                </div>
+              </dl>
+              {!!preview.period_statement.months?.length && (
+                <div className="partner-landowner-period-table">
+                  <div>
+                    <b>Competência</b>
+                    <b>Recebido</b>
+                    <b>Inadimplência</b>
+                    <b>Repasse devido</b>
+                  </div>
+                  {preview.period_statement.months.map((row) => (
+                    <div
+                      key={`${row.period_start || ""}-${row.period_end || ""}-${row.month || ""}`}
+                    >
+                      <span>{row.month || "—"}</span>
+                      <span>
+                        {money.format(numberValue(row.received_amount))}
+                      </span>
+                      <span>
+                        {money.format(numberValue(row.overdue_amount))}
+                      </span>
+                      <span>
+                        {row.repass_due_amount == null
+                          ? "—"
+                          : money.format(
+                              numberValue(row.repass_due_amount),
+                            )}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {preview.period_statement.reconstruction_note && (
+                <p>{preview.period_statement.reconstruction_note}</p>
+              )}
+            </section>
+          )}
 
           <dl className="partner-landowner-condition-summary">
             <div>
@@ -1340,6 +1574,8 @@ export function LandownerPublicationPanel({
             type="button"
             disabled={
               !canPublish ||
+              loadingContext ||
+              !contractTermsReady ||
               !previewIsCurrent ||
               !visibleCount ||
               publishing

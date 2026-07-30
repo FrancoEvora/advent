@@ -579,6 +579,255 @@
   font-variant-numeric: tabular-nums;
 }
 
+.partner-management .partner-landowner-period-preview {
+  display: grid;
+  min-width: 0;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid rgba(15, 97, 114, 0.2);
+  border-radius: 16px;
+  background: rgba(240, 247, 247, 0.8);
+}
+
+.partner-management .partner-landowner-period-preview > header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.partner-management .partner-landowner-period-preview > header > div {
+  min-width: 0;
+}
+
+.partner-management .partner-landowner-period-preview header small {
+  color: var(--partner-green);
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.partner-management .partner-landowner-period-preview h4,
+.partner-management .partner-landowner-period-preview header p {
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-landowner-period-preview h4 {
+  margin: 5px 0 0;
+  color: var(--partner-ink);
+  font-size: 1rem;
+}
+
+.partner-management .partner-landowner-period-preview header p,
+.partner-management .partner-landowner-period-preview > p {
+  margin: 5px 0 0;
+  color: var(--partner-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.partner-management .partner-landowner-period-preview > header > strong {
+  flex: 0 0 auto;
+  color: var(--partner-teal);
+  font-size: 0.75rem;
+}
+
+.partner-management .partner-landowner-period-preview dl {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 165px), 1fr)
+  );
+  gap: 9px;
+  margin: 0;
+}
+
+.partner-management .partner-landowner-period-preview dl > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--partner-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.partner-management .partner-landowner-period-preview dt,
+.partner-management .partner-landowner-period-preview dl small {
+  color: var(--partner-muted);
+  font-size: 0.66rem;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-landowner-period-preview dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--partner-ink);
+  font-size: clamp(0.86rem, 2vw, 1.02rem);
+  font-weight: 850;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.partner-management .partner-landowner-map-preview {
+  display: grid;
+  min-width: 0;
+  gap: 13px;
+  padding: 17px;
+  border: 1px solid rgba(120, 183, 42, 0.25);
+  border-radius: 16px;
+  background: rgba(246, 250, 239, 0.88);
+}
+
+.partner-management .partner-landowner-map-preview > header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.partner-management .partner-landowner-map-preview > header > div {
+  min-width: 0;
+}
+
+.partner-management .partner-landowner-map-preview header small {
+  color: var(--partner-green);
+  font-size: 0.64rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.partner-management .partner-landowner-map-preview h4 {
+  margin: 5px 0 0;
+  color: var(--partner-ink);
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-landowner-map-preview header p,
+.partner-management .partner-landowner-map-preview > p {
+  margin: 5px 0 0;
+  color: var(--partner-muted);
+  font-size: 0.7rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.partner-management .partner-landowner-map-preview > header > strong {
+  flex: 0 0 auto;
+  color: var(--partner-teal);
+  font-size: 0.75rem;
+}
+
+.partner-management .partner-landowner-map-preview dl {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 120px), 1fr)
+  );
+  gap: 9px;
+  margin: 0;
+}
+
+.partner-management .partner-landowner-map-preview dl > div {
+  --map-status: #829099;
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--partner-line);
+  border-top: 3px solid var(--map-status);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.partner-management
+  .partner-landowner-map-preview
+  [data-status="disponivel"] {
+  --map-status: #78b72a;
+}
+
+.partner-management
+  .partner-landowner-map-preview
+  [data-status="reservado"] {
+  --map-status: #df9d1a;
+}
+
+.partner-management
+  .partner-landowner-map-preview
+  [data-status="vendido"] {
+  --map-status: #123f59;
+}
+
+.partner-management
+  .partner-landowner-map-preview
+  [data-status="bloqueado"] {
+  --map-status: #7d4ca5;
+}
+
+.partner-management
+  .partner-landowner-map-preview
+  [data-status="indisponivel"] {
+  --map-status: #808b91;
+}
+
+.partner-management .partner-landowner-map-preview dt {
+  color: var(--partner-muted);
+  font-size: 0.66rem;
+}
+
+.partner-management .partner-landowner-map-preview dd {
+  margin: 0;
+  color: var(--partner-ink);
+  font-size: 1.05rem;
+  font-weight: 900;
+  font-variant-numeric: tabular-nums;
+}
+
+.partner-management .partner-landowner-period-table {
+  width: 100%;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid var(--partner-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.partner-management .partner-landowner-period-table > div {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.7fr) repeat(3, minmax(145px, 1fr));
+  min-width: 620px;
+  gap: 12px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--partner-line);
+  font-size: 0.7rem;
+}
+
+.partner-management .partner-landowner-period-table > div:first-child {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  border-top: 0;
+  color: var(--partner-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #f4f8f7;
+}
+
+.partner-management .partner-landowner-period-table span:not(:first-child),
+.partner-management .partner-landowner-period-table b:not(:first-child) {
+  text-align: right;
+}
+
+.partner-management .partner-landowner-period-table span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
 .partner-management .partner-landowner-overpaid-note,
 .landowner-contract-overpaid {
   display: grid;
@@ -1174,6 +1423,723 @@
   overflow-wrap: anywhere;
 }
 
+.landowner-sales-map-card {
+  gap: 19px;
+  border-top: 4px solid var(--landowner-green);
+}
+
+.landowner-sales-map-card [data-status="disponivel"] {
+  --map-status: #78b72a;
+}
+
+.landowner-sales-map-card [data-status="reservado"] {
+  --map-status: #df9d1a;
+}
+
+.landowner-sales-map-card [data-status="vendido"] {
+  --map-status: #123f59;
+}
+
+.landowner-sales-map-card [data-status="bloqueado"] {
+  --map-status: #7d4ca5;
+}
+
+.landowner-sales-map-card [data-status="indisponivel"] {
+  --map-status: #808b91;
+}
+
+.landowner-sales-map-card > header p {
+  margin: 6px 0 0;
+  color: var(--landowner-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.landowner-sales-map-position {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid rgba(120, 183, 42, 0.25);
+  border-radius: 12px;
+  color: #4f672e;
+  background: #f5faee;
+}
+
+.landowner-sales-map-position > span {
+  display: grid;
+  width: 22px;
+  height: 22px;
+  flex: 0 0 22px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 900;
+  background: var(--landowner-green);
+}
+
+.landowner-sales-map-position p {
+  margin: 1px 0 0;
+  font-size: 0.72rem;
+  line-height: 1.45;
+}
+
+.landowner-sales-map-statuses {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  min-width: 0;
+  gap: 8px;
+}
+
+.landowner-sales-map-statuses button {
+  --map-status: var(--landowner-navy);
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+  padding: 12px;
+  border: 1px solid var(--landowner-line);
+  border-top: 3px solid var(--map-status);
+  border-radius: 13px;
+  color: var(--landowner-ink);
+  text-align: left;
+  background: #fff;
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.landowner-sales-map-statuses button:hover,
+.landowner-sales-map-statuses button:focus-visible {
+  transform: translateY(-1px);
+  border-color: var(--map-status);
+  box-shadow: 0 7px 18px rgba(9, 43, 63, 0.09);
+}
+
+.landowner-sales-map-statuses button:focus-visible,
+.landowner-sales-map-grid section > div > button:focus-visible {
+  outline: 3px solid
+    color-mix(in srgb, var(--map-status) 35%, transparent);
+  outline-offset: 2px;
+}
+
+.landowner-sales-map-statuses button.active {
+  border-color: var(--map-status);
+  background: color-mix(in srgb, var(--map-status) 9%, white);
+  box-shadow: 0 0 0 2px
+    color-mix(in srgb, var(--map-status) 20%, transparent);
+}
+
+.landowner-sales-map-statuses strong {
+  min-width: 0;
+  color: var(--map-status);
+  font-size: clamp(1.05rem, 2.2vw, 1.4rem);
+  line-height: 1;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.landowner-sales-map-statuses span {
+  color: var(--landowner-muted);
+  font-size: 0.67rem;
+  overflow-wrap: anywhere;
+}
+
+.landowner-sales-map-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(170px, 0.7fr) auto;
+  min-width: 0;
+  align-items: end;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--landowner-line);
+  border-radius: 14px;
+  background: #f5f8f7;
+}
+
+.landowner-sales-map-toolbar > label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.landowner-sales-map-toolbar label > span {
+  color: var(--landowner-muted);
+  font-size: 0.64rem;
+  font-weight: 800;
+}
+
+.landowner-sales-map-toolbar input,
+.landowner-sales-map-toolbar select,
+.landowner-sales-map-toolbar > button {
+  width: 100%;
+  min-width: 0;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--landowner-line);
+  border-radius: 10px;
+  color: var(--landowner-ink);
+  font: inherit;
+  font-size: 0.76rem;
+  background: #fff;
+}
+
+.landowner-sales-map-toolbar > button {
+  width: auto;
+  color: var(--landowner-navy);
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.landowner-sales-map-toolbar > button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.landowner-sales-map-result {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--landowner-muted);
+  font-size: 0.7rem;
+}
+
+.landowner-sales-map-result > div {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+.landowner-sales-map-result > div > span {
+  --map-status: #829099;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.landowner-sales-map-result i {
+  width: 9px;
+  height: 9px;
+  border: 2px solid var(--map-status);
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--map-status) 15%, white);
+}
+
+.landowner-sales-map-grid {
+  display: grid;
+  min-width: 0;
+  gap: 13px;
+}
+
+.landowner-sales-map-grid > section {
+  min-width: 0;
+  padding: 15px;
+  border: 1px solid var(--landowner-line);
+  border-radius: 16px;
+  background: #fbfcfc;
+}
+
+.landowner-sales-map-grid section > header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 11px;
+}
+
+.landowner-sales-map-grid section > header small {
+  color: var(--landowner-green);
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+}
+
+.landowner-sales-map-grid section > header h4 {
+  margin: 2px 0 0;
+  color: var(--landowner-navy);
+  font-size: 1.05rem;
+}
+
+.landowner-sales-map-grid section > header span {
+  color: var(--landowner-muted);
+  font-size: 0.66rem;
+}
+
+.landowner-sales-map-grid section > div {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(105px, 1fr));
+  min-width: 0;
+  gap: 8px;
+}
+
+.landowner-sales-map-grid section > div > button {
+  --map-status: #829099;
+  display: grid;
+  min-width: 0;
+  min-height: 94px;
+  align-content: center;
+  gap: 3px;
+  padding: 9px;
+  border: 2px solid
+    color-mix(in srgb, var(--map-status) 65%, white);
+  border-radius: 12px;
+  color: var(--landowner-ink);
+  background: color-mix(in srgb, var(--map-status) 9%, white);
+  cursor: pointer;
+  transition:
+    transform 0.16s ease,
+    box-shadow 0.16s ease;
+}
+
+.landowner-sales-map-grid section > div > button:hover,
+.landowner-sales-map-grid section > div > button.selected {
+  transform: translateY(-2px);
+  box-shadow: 0 9px 20px rgba(9, 43, 63, 0.12);
+}
+
+.landowner-sales-map-grid section > div > button.selected {
+  border-color: var(--map-status);
+  box-shadow:
+    0 0 0 2px
+      color-mix(in srgb, var(--map-status) 24%, transparent),
+    0 9px 20px rgba(9, 43, 63, 0.12);
+}
+
+.landowner-sales-map-grid button b {
+  min-width: 0;
+  color: var(--map-status);
+  font-size: 1rem;
+  line-height: 1;
+  overflow-wrap: anywhere;
+}
+
+.landowner-sales-map-grid button small,
+.landowner-sales-map-grid button span {
+  min-width: 0;
+  color: var(--landowner-muted);
+  font-size: 0.61rem;
+  overflow-wrap: anywhere;
+}
+
+.landowner-sales-map-grid button span {
+  color: var(--map-status);
+  font-weight: 850;
+}
+
+.landowner-sales-map-detail {
+  --map-status: #829099;
+  display: grid;
+  grid-template-columns: minmax(150px, 0.5fr) minmax(0, 1.5fr) auto;
+  min-width: 0;
+  align-items: center;
+  gap: 16px;
+  padding: 16px;
+  border: 1px solid var(--landowner-line);
+  border-left: 5px solid var(--map-status);
+  border-radius: 14px;
+  background: #fff;
+  box-shadow: 0 9px 24px rgba(9, 43, 63, 0.07);
+}
+
+.landowner-sales-map-detail > div {
+  min-width: 0;
+}
+
+.landowner-sales-map-detail > div small {
+  color: var(--map-status);
+  font-size: 0.61rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.landowner-sales-map-detail h4 {
+  margin: 4px 0 0;
+  color: var(--landowner-ink);
+  font-size: 1.15rem;
+  overflow-wrap: anywhere;
+}
+
+.landowner-sales-map-detail dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-width: 0;
+  gap: 8px;
+  margin: 0;
+}
+
+.landowner-sales-map-detail dl > div {
+  min-width: 0;
+  padding: 9px;
+  border-radius: 9px;
+  background: #f4f7f7;
+}
+
+.landowner-sales-map-detail dt {
+  color: var(--landowner-muted);
+  font-size: 0.58rem;
+}
+
+.landowner-sales-map-detail dd {
+  min-width: 0;
+  margin: 3px 0 0;
+  color: var(--landowner-ink);
+  font-size: 0.72rem;
+  font-weight: 850;
+  overflow-wrap: anywhere;
+}
+
+.landowner-sales-map-detail > button,
+.landowner-sales-map-empty button {
+  padding: 9px 11px;
+  border: 1px solid var(--landowner-line);
+  border-radius: 9px;
+  color: var(--landowner-navy);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 850;
+  background: #fff;
+  cursor: pointer;
+}
+
+.landowner-sales-map-empty {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+  padding: 20px;
+  border: 1px dashed var(--landowner-line);
+  border-radius: 14px;
+  color: var(--landowner-muted);
+  background: #fafcfc;
+}
+
+.landowner-sales-map-empty strong {
+  color: var(--landowner-ink);
+}
+
+.landowner-sales-map-empty p,
+.landowner-sales-map-basis {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+}
+
+.landowner-sales-map-basis {
+  padding-top: 12px;
+  border-top: 1px solid var(--landowner-line);
+  color: var(--landowner-muted);
+}
+
+.landowner-period-card {
+  gap: 19px;
+  border-top: 4px solid var(--landowner-navy);
+}
+
+.landowner-period-card > header p {
+  margin: 6px 0 0;
+  color: var(--landowner-muted);
+  font-size: 0.74rem;
+  line-height: 1.45;
+}
+
+.landowner-period-toolbar {
+  display: grid;
+  grid-template-columns: minmax(150px, 0.6fr) minmax(150px, 0.6fr) minmax(0, 1.8fr);
+  min-width: 0;
+  align-items: end;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--landowner-line);
+  border-radius: 14px;
+  background: #f5f8f7;
+}
+
+.landowner-period-toolbar > label {
+  display: grid;
+  min-width: 0;
+  gap: 6px;
+}
+
+.landowner-period-toolbar > label > span {
+  color: var(--landowner-muted);
+  font-size: 0.66rem;
+  font-weight: 750;
+}
+
+.landowner-period-toolbar input {
+  width: 100%;
+  min-width: 0;
+  min-height: 41px;
+  padding: 8px 10px;
+  border: 1px solid var(--landowner-line);
+  border-radius: 10px;
+  color: var(--landowner-ink);
+  font: inherit;
+  background: #fff;
+}
+
+.landowner-period-shortcuts {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.landowner-period-shortcuts button {
+  min-height: 37px;
+  padding: 7px 10px;
+  border: 1px solid rgba(18, 63, 89, 0.16);
+  border-radius: 9px;
+  color: var(--landowner-navy);
+  font: inherit;
+  font-size: 0.69rem;
+  font-weight: 750;
+  background: #fff;
+  cursor: pointer;
+}
+
+.landowner-period-shortcuts button:hover,
+.landowner-period-shortcuts button:focus-visible {
+  border-color: var(--landowner-navy);
+  outline: none;
+  background: rgba(18, 63, 89, 0.06);
+}
+
+.landowner-period-kpis {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fit,
+    minmax(min(100%, 180px), 1fr)
+  );
+  min-width: 0;
+  gap: 9px;
+}
+
+.landowner-period-kpis > span {
+  display: grid;
+  min-width: 0;
+  min-height: 114px;
+  align-content: space-between;
+  gap: 8px;
+  padding: 14px;
+  overflow: hidden;
+  border: 1px solid var(--landowner-line);
+  border-radius: 13px;
+  background: #fff;
+  container-type: inline-size;
+}
+
+.landowner-period-kpis > span:nth-child(1) {
+  border-top: 3px solid #0f7780;
+}
+
+.landowner-period-kpis > span:nth-child(2) {
+  border-top: 3px solid #b84a4a;
+}
+
+.landowner-period-kpis > span:nth-child(3) {
+  border-top: 3px solid var(--landowner-gold);
+}
+
+.landowner-period-kpis > span:nth-child(4) {
+  border-top: 3px solid var(--landowner-green);
+}
+
+.landowner-period-kpis small,
+.landowner-period-kpis i {
+  color: var(--landowner-muted);
+  font-size: 0.67rem;
+  font-style: normal;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.landowner-period-kpis strong {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--landowner-ink);
+  font-size: clamp(0.94rem, 9cqi, 1.28rem);
+  line-height: 1.08;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.landowner-period-chart {
+  display: grid;
+  min-width: 0;
+  max-height: 440px;
+  gap: 5px;
+  padding: 13px;
+  overflow: auto;
+  border: 1px solid var(--landowner-line);
+  border-radius: 14px;
+  background: #f8faf9;
+}
+
+.landowner-period-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-bottom: 5px;
+  color: var(--landowner-muted);
+  font-size: 0.63rem;
+}
+
+.landowner-period-legend span::before {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 5px;
+  border-radius: 50%;
+  background: currentColor;
+  content: "";
+}
+
+.landowner-period-legend .received {
+  color: #0f7780;
+}
+
+.landowner-period-legend .overdue {
+  color: #b84a4a;
+}
+
+.landowner-period-legend .repass {
+  color: var(--landowner-gold);
+}
+
+.landowner-period-chart > article {
+  display: grid;
+  grid-template-columns: minmax(86px, 0.22fr) minmax(360px, 1fr);
+  min-width: 490px;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--landowner-line);
+}
+
+.landowner-period-chart time {
+  color: var(--landowner-ink);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: capitalize;
+}
+
+.landowner-period-chart > article > div {
+  display: grid;
+  gap: 5px;
+}
+
+.landowner-period-chart > article > div > span {
+  display: grid;
+  grid-template-columns: minmax(100px, 1fr) minmax(95px, auto);
+  min-width: 0;
+  align-items: center;
+  gap: 9px;
+}
+
+.landowner-period-chart span > i {
+  display: block;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eeee;
+}
+
+.landowner-period-chart span > i > b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+}
+
+.landowner-period-chart span > i > b.received {
+  background: #0f7780;
+}
+
+.landowner-period-chart span > i > b.overdue {
+  background: #b84a4a;
+}
+
+.landowner-period-chart span > i > b.repass {
+  background: var(--landowner-gold);
+}
+
+.landowner-period-chart span > strong {
+  color: var(--landowner-ink);
+  font-size: 0.66rem;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.landowner-period-table {
+  width: 100%;
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--landowner-line);
+  border-radius: 14px;
+  scrollbar-gutter: stable;
+}
+
+.landowner-period-table table {
+  width: 100%;
+  min-width: 790px;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+.landowner-period-table th,
+.landowner-period-table td {
+  padding: 11px 12px;
+  border-top: 1px solid var(--landowner-line);
+  color: var(--landowner-ink);
+  font-size: 0.69rem;
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.landowner-period-table thead th {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  border-top: 0;
+  color: var(--landowner-muted);
+  font-size: 0.61rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #f4f8f7;
+}
+
+.landowner-period-table th:first-child {
+  text-align: left;
+  text-transform: capitalize;
+}
+
+.landowner-period-basis {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+  padding: 12px 14px;
+  border-left: 4px solid var(--landowner-navy);
+  border-radius: 11px;
+  color: var(--landowner-muted);
+  background: rgba(18, 63, 89, 0.05);
+}
+
+.landowner-period-basis p,
+.landowner-period-basis small {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
 .landowner-work-bars {
   display: grid;
   min-width: 0;
@@ -1518,6 +2484,8 @@
   .partner-management .partner-landowner-heading,
   .partner-management .partner-landowner-contract-card > header,
   .partner-management .partner-landowner-contract-preview > header,
+  .partner-management .partner-landowner-map-preview > header,
+  .partner-management .partner-landowner-period-preview > header,
   .partner-management .partner-landowner-preview > header,
   .partner-management .partner-landowner-repasses > header,
   .partner-management .partner-landowner-history > header {
@@ -1607,6 +2575,37 @@
     grid-template-columns: 1fr;
   }
 
+  .landowner-period-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .landowner-sales-map-statuses {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .landowner-sales-map-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .landowner-sales-map-toolbar > button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .landowner-sales-map-detail {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .landowner-sales-map-detail dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .landowner-period-shortcuts {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+  }
+
   .landowner-work-card,
   .landowner-sales-card {
     grid-column: auto;
@@ -1629,6 +2628,8 @@
   .partner-management .partner-landowner-heading,
   .partner-management .partner-landowner-contract-card > header,
   .partner-management .partner-landowner-contract-preview > header,
+  .partner-management .partner-landowner-map-preview > header,
+  .partner-management .partner-landowner-period-preview > header,
   .partner-management .partner-landowner-preview > header,
   .partner-management .partner-landowner-repasses > header,
   .partner-management .partner-landowner-history > header {
@@ -1680,6 +2681,23 @@
   .landowner-contract-accounting > header {
     flex-direction: column;
   }
+
+  .landowner-period-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .landowner-sales-map-result {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .landowner-sales-map-result > div {
+    justify-content: flex-start;
+  }
+
+  .landowner-period-shortcuts {
+    grid-column: auto;
+  }
 }
 
 @media (max-width: 560px) {
@@ -1713,15 +2731,39 @@
   .landowner-mini-kpis {
     grid-template-columns: 1fr;
   }
+
+  .landowner-period-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .landowner-sales-map-statuses,
+  .landowner-sales-map-toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .landowner-sales-map-toolbar > label,
+  .landowner-sales-map-toolbar > button {
+    grid-column: 1 / -1;
+  }
+
+  .landowner-sales-map-grid section > div,
+  .landowner-sales-map-detail dl {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .landowner-period-shortcuts button:last-child {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Versão efetivamente publicada; sobrescreve os pseudo-elementos legados. */
 .sidebar-version span::after {
-  content: "Versão 6.15 Enterprise";
+  content: "Versão 6.16 Enterprise";
 }
 
 .auth-v5 form > small:first-child::after {
-  content: "ACESSO SEGURO · VERSÃO 6.15";
+  content: "ACESSO SEGURO · VERSÃO 6.16";
 }
 
 @media print {

@@ -2,9 +2,11 @@
 
 import { useMemo, useState } from "react";
 import type {
+  LandownerPeriodMonth,
   LandownerPortalPublication,
   LandownerPortalPayload,
 } from "./partner-types";
+import { LandownerSalesMapView } from "./landowner-sales-map";
 
 const currency = new Intl.NumberFormat("pt-BR", {
   style: "currency",
@@ -18,6 +20,10 @@ const dateTime = new Intl.DateTimeFormat("pt-BR", {
   dateStyle: "short",
   timeStyle: "short",
 });
+const monthName = new Intl.DateTimeFormat("pt-BR", {
+  month: "short",
+  year: "numeric",
+});
 
 function day(value: string | null | undefined) {
   if (!value) return "—";
@@ -28,6 +34,13 @@ function day(value: string | null | undefined) {
 function timestamp(value: string) {
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? "—" : dateTime.format(parsed);
+}
+
+function competence(value: string) {
+  const parsed = new Date(`${value}-01T12:00:00`);
+  return Number.isNaN(parsed.getTime())
+    ? value
+    : monthName.format(parsed).replace(".", "");
 }
 
 function amount(value: number | null | undefined) {
@@ -144,6 +157,18 @@ export function LandownerPortalDashboard({
       )}
 
       <LandownerSummary publication={publication} />
+      {publication.sales_map && (
+        <LandownerSalesMapView
+          key={`sales-map-${publication.id}`}
+          map={publication.sales_map}
+        />
+      )}
+      {publication.period_statement && (
+        <PeriodStatementSection
+          key={publication.id}
+          publication={publication}
+        />
+      )}
 
       <div className="landowner-public-sections">
         {publication.construction && (
@@ -168,6 +193,300 @@ export function LandownerPortalDashboard({
         </p>
       </footer>
     </section>
+  );
+}
+
+function PeriodStatementSection({
+  publication,
+}: {
+  publication: LandownerPortalPublication;
+}) {
+  const statement = publication.period_statement!;
+  const delinquencyVisible =
+    statement.visibility?.delinquency !== false;
+  const repassesVisible = statement.visibility?.repasses !== false;
+  const rows = useMemo(
+    () =>
+      [...(statement.months || [])].sort((left, right) =>
+        left.month.localeCompare(right.month),
+      ),
+    [statement.months],
+  );
+  const firstMonth = rows[0]?.month || "";
+  const lastMonth = rows[rows.length - 1]?.month || "";
+  const [fromMonth, setFromMonth] = useState(firstMonth);
+  const [toMonth, setToMonth] = useState(lastMonth);
+
+  const selectedRows = useMemo(
+    () =>
+      rows.filter(
+        row =>
+          (!fromMonth || row.month >= fromMonth) &&
+          (!toMonth || row.month <= toMonth),
+      ),
+    [fromMonth, rows, toMonth],
+  );
+
+  const flowTotals = useMemo(
+    () =>
+      selectedRows.reduce(
+        (totals, row) => ({
+          received: totals.received + Number(row.received_amount || 0),
+          repassDue:
+            totals.repassDue + Number(row.repass_due_amount || 0),
+          repassed: totals.repassed + Number(row.repassed_amount || 0),
+        }),
+        { received: 0, repassDue: 0, repassed: 0 },
+      ),
+    [selectedRows],
+  );
+  const closing =
+    selectedRows[selectedRows.length - 1] ||
+    rows[rows.length - 1] ||
+    null;
+  const chartMaximum = Math.max(
+    1,
+    ...selectedRows.flatMap(row => {
+      const values = [Number(row.received_amount || 0)];
+      if (delinquencyVisible) {
+        values.push(Number(row.overdue_amount || 0));
+      }
+      if (repassesVisible) {
+        values.push(Number(row.repass_due_amount || 0));
+      }
+      return values;
+    }),
+  );
+
+  function barWidth(value: number | null | undefined) {
+    const numeric = Number(value || 0);
+    return numeric > 0
+      ? `${Math.max(2, (numeric / chartMaximum) * 100)}%`
+      : "0%";
+  }
+
+  function chooseLastMonths(count: number | null) {
+    if (!rows.length) return;
+    const startIndex =
+      count === null ? 0 : Math.max(0, rows.length - count);
+    setFromMonth(rows[startIndex].month);
+    setToMonth(rows[rows.length - 1].month);
+  }
+
+  if (!rows.length) return null;
+
+  return (
+    <article className="landowner-public-card landowner-period-card">
+      <header>
+        <div>
+          <small>DEMONSTRATIVO FINANCEIRO PUBLICADO</small>
+          <h3>Recebimentos, inadimplência e repasses</h3>
+          <p>
+            Consulte qualquer mês ou intervalo dentro deste fechamento.
+          </p>
+        </div>
+        <strong>
+          {repassesVisible
+            ? statement.configured
+              ? precisePercent(statement.contractual_percentage)
+              : "Regra não informada"
+            : "Fechamento publicado"}
+        </strong>
+      </header>
+
+      <div className="landowner-period-toolbar">
+        <label>
+          <span>Mês inicial</span>
+          <input
+            type="month"
+            min={firstMonth}
+            max={toMonth || lastMonth}
+            value={fromMonth}
+            onChange={event => {
+              const next = event.target.value;
+              setFromMonth(next);
+              if (toMonth && next > toMonth) setToMonth(next);
+            }}
+          />
+        </label>
+        <label>
+          <span>Mês final</span>
+          <input
+            type="month"
+            min={fromMonth || firstMonth}
+            max={lastMonth}
+            value={toMonth}
+            onChange={event => {
+              const next = event.target.value;
+              setToMonth(next);
+              if (fromMonth && next < fromMonth) setFromMonth(next);
+            }}
+          />
+        </label>
+        <div className="landowner-period-shortcuts" aria-label="Períodos rápidos">
+          <button type="button" onClick={() => chooseLastMonths(1)}>
+            Último mês
+          </button>
+          <button type="button" onClick={() => chooseLastMonths(3)}>
+            3 meses
+          </button>
+          <button type="button" onClick={() => chooseLastMonths(6)}>
+            6 meses
+          </button>
+          <button type="button" onClick={() => chooseLastMonths(12)}>
+            12 meses
+          </button>
+          <button type="button" onClick={() => chooseLastMonths(null)}>
+            Todo o fechamento
+          </button>
+        </div>
+      </div>
+
+      <div className="landowner-period-kpis">
+        <span>
+          <small>Recebido no período</small>
+          <strong>{amount(flowTotals.received)}</strong>
+          <i>Baixas entre os meses selecionados</i>
+        </span>
+        {delinquencyVisible && (
+          <span>
+            <small>Inadimplência no encerramento</small>
+            <strong>{amount(closing?.overdue_amount)}</strong>
+            <i>
+              {percent(closing?.overdue_rate_pct)} ·{" "}
+              {closing?.overdue_installments || 0} parcela(s)
+            </i>
+          </span>
+        )}
+        {repassesVisible && (
+          <>
+            <span>
+              <small>Repasse devido no período</small>
+              <strong>
+                {statement.configured ? amount(flowTotals.repassDue) : "—"}
+              </strong>
+              <i>Recebido × percentual contratual</i>
+            </span>
+            <span>
+              <small>Repasses realizados no período</small>
+              <strong>{amount(flowTotals.repassed)}</strong>
+              <i>Pagamentos com baixa confirmada</i>
+            </span>
+          </>
+        )}
+      </div>
+
+      <div className="landowner-period-chart">
+        <div className="landowner-period-legend" aria-hidden="true">
+          <span className="received">Recebido</span>
+          {delinquencyVisible && (
+            <span className="overdue">Inadimplência</span>
+          )}
+          {repassesVisible && (
+            <span className="repass">Repasse devido</span>
+          )}
+        </div>
+        {selectedRows.map(row => (
+          <article key={row.month}>
+            <time dateTime={row.month}>{competence(row.month)}</time>
+            <div>
+              <span>
+                <i>
+                  <b
+                    className="received"
+                    style={{ width: barWidth(row.received_amount) }}
+                  />
+                </i>
+                <strong>{amount(row.received_amount)}</strong>
+              </span>
+              {delinquencyVisible && (
+                <span>
+                  <i>
+                    <b
+                      className="overdue"
+                      style={{ width: barWidth(row.overdue_amount) }}
+                    />
+                  </i>
+                  <strong>{amount(row.overdue_amount)}</strong>
+                </span>
+              )}
+              {repassesVisible && (
+                <span>
+                  <i>
+                    <b
+                      className="repass"
+                      style={{ width: barWidth(row.repass_due_amount) }}
+                    />
+                  </i>
+                  <strong>
+                    {row.repass_due_amount == null
+                      ? "—"
+                      : amount(row.repass_due_amount)}
+                  </strong>
+                </span>
+              )}
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div
+        className="landowner-period-table"
+        role="region"
+        aria-label="Demonstrativo mensal detalhado"
+        tabIndex={0}
+      >
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Competência</th>
+              <th scope="col">Recebido</th>
+              {delinquencyVisible && (
+                <>
+                  <th scope="col">Inadimplência</th>
+                  <th scope="col">Índice</th>
+                </>
+              )}
+              {repassesVisible && (
+                <>
+                  <th scope="col">Repasse devido</th>
+                  <th scope="col">Repassado</th>
+                </>
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {selectedRows.map((row: LandownerPeriodMonth) => (
+              <tr key={row.month}>
+                <th scope="row">{competence(row.month)}</th>
+                <td>{amount(row.received_amount)}</td>
+                {delinquencyVisible && (
+                  <>
+                    <td>{amount(row.overdue_amount)}</td>
+                    <td>{percent(row.overdue_rate_pct)}</td>
+                  </>
+                )}
+                {repassesVisible && (
+                  <>
+                    <td>
+                      {row.repass_due_amount == null
+                        ? "—"
+                        : amount(row.repass_due_amount)}
+                    </td>
+                    <td>{amount(row.repassed_amount)}</td>
+                  </>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="landowner-period-basis">
+        <p>{statement.basis}</p>
+        <small>{statement.reconstruction_note}</small>
+      </div>
+    </article>
   );
 }
 

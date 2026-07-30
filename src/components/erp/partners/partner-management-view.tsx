@@ -222,6 +222,10 @@ function partnerName(contact: Contact | undefined) {
   return contact?.trade_name || contact?.name || "Parceiro não identificado";
 }
 
+function isLandownerContact(contact: Contact | undefined) {
+  return contact?.contact_type === "terrenista";
+}
+
 function scheduledPaymentDate(entry: FinancialEntry | undefined) {
   return entry?.scheduled_payment_date || null;
 }
@@ -459,6 +463,8 @@ export function PartnerManagementView({
       );
   }, [data.contacts, payables]);
   const selectedLinkContact = contactsById.get(linkContactId);
+  const selectedLinkContactIsLandowner =
+    isLandownerContact(selectedLinkContact);
   const linkDocumentReady = validPartnerDocument(linkDocument);
   const selectedContactHasDocument = validPartnerDocument(
     selectedLinkContact?.document,
@@ -758,10 +764,14 @@ export function PartnerManagementView({
           );
       }
       const expiresAt = new Date(`${linkExpiresAt}T23:59:59`).toISOString();
+      const effectiveLinkKind: PartnerKind =
+        isLandownerContact(selectedLinkContact)
+          ? "terrenista"
+          : linkKind;
       const result = await client.rpc("create_partner_portal_link", {
         p_organization_id: organizationId,
         p_contact_id: linkContactId,
-        p_partner_kind: linkKind,
+        p_partner_kind: effectiveLinkKind,
         p_label: linkLabel || null,
         p_expires_at: expiresAt,
       });
@@ -1646,10 +1656,12 @@ export function PartnerManagementView({
                     value={linkContactId}
                     onChange={(event) => {
                       const contactId = event.target.value;
+                      const contact = contactsById.get(contactId);
                       setLinkContactId(contactId);
-                      setLinkDocument(
-                        contactsById.get(contactId)?.document || "",
-                      );
+                      setLinkDocument(contact?.document || "");
+                      if (isLandownerContact(contact)) {
+                        setLinkKind("terrenista");
+                      }
                       setError("");
                     }}
                     required
@@ -1672,6 +1684,7 @@ export function PartnerManagementView({
                   <span>Categoria</span>
                   <select
                     value={linkKind}
+                    disabled={selectedLinkContactIsLandowner}
                     onChange={(event) => {
                       setLinkKind(event.target.value as PartnerKind);
                       setLinkContactId("");
@@ -1685,6 +1698,12 @@ export function PartnerManagementView({
                       </option>
                     ))}
                   </select>
+                  {selectedLinkContactIsLandowner && (
+                    <small>
+                      Categoria definida automaticamente pelo cadastro do
+                      terrenista.
+                    </small>
+                  )}
                 </label>
                 <label className="partner-access-document">
                   <span>CPF / CNPJ para validação</span>

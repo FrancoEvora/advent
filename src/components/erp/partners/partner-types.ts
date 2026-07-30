@@ -126,6 +126,7 @@ export interface PartnerPaymentPortalPayload {
 
 export interface LandownerSaleDetail {
   contract_number: string | null;
+  customer_name: string | null;
   unit_code: string;
   block_code: string;
   lot_number: string;
@@ -139,6 +140,48 @@ export interface LandownerSaleDetail {
   installments_count: number;
   monthly_interest_rate: number;
   indexer: string | null;
+}
+
+export interface LandownerContractStatementInstallment {
+  installment_number: number;
+  installment_type: string;
+  due_date: string;
+  original_amount: number;
+  received_amount: number;
+  open_amount: number;
+  settlement_date: string | null;
+  status: "pago" | "vencido" | "em_aberto" | "cancelado";
+}
+
+export interface LandownerContractStatement {
+  contract: {
+    contract_number: string;
+    customer_name: string;
+    signed_at: string;
+    unit_code: string;
+    block_code: string;
+    lot_number: string;
+    area: number;
+    list_price: number;
+    sale_price: number;
+    down_payment: number;
+    financed_amount: number;
+    installments_count: number;
+    monthly_interest_rate: number;
+    indexer: string | null;
+  };
+  summary: {
+    contracted_amount: number;
+    received_amount: number;
+    open_amount: number;
+    overdue_amount: number;
+    installment_count: number;
+    paid_installments: number;
+    open_installments: number;
+    overdue_installments: number;
+  };
+  installments: LandownerContractStatementInstallment[];
+  basis: string;
 }
 
 export interface LandownerRepassDetail {

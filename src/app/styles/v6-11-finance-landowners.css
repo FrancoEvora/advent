@@ -2391,11 +2391,12 @@
 .landowner-sales-table > div {
   display: grid;
   grid-template-columns:
-    minmax(170px, 1fr)
-    minmax(150px, 0.82fr)
-    minmax(165px, 0.9fr)
-    minmax(170px, 0.9fr);
-  min-width: 760px;
+    minmax(175px, 0.95fr)
+    minmax(230px, 1.25fr)
+    minmax(170px, 0.85fr)
+    minmax(180px, 0.92fr)
+    minmax(175px, 0.9fr);
+  min-width: 990px;
   gap: 14px;
   padding: 13px 10px;
   border-top: 1px solid var(--landowner-line);
@@ -2427,6 +2428,405 @@
   letter-spacing: 0.07em;
   text-transform: uppercase;
   background: #f5f8f7;
+}
+
+.landowner-sales-customer button {
+  width: fit-content;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  color: var(--landowner-navy);
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 820;
+  line-height: 1.35;
+  text-align: left;
+  text-decoration: underline;
+  text-decoration-color: rgba(18, 63, 89, 0.24);
+  text-underline-offset: 3px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.landowner-sales-customer button:hover {
+  color: #275f1d;
+  text-decoration-color: currentColor;
+}
+
+.landowner-sales-customer button:focus-visible {
+  border-radius: 4px;
+  outline: 3px solid rgba(120, 183, 42, 0.32);
+  outline-offset: 3px;
+}
+
+.landowner-sales-total {
+  border-top: 2px solid rgba(18, 63, 89, 0.19) !important;
+  color: var(--landowner-ink);
+  background: #eef4f2;
+}
+
+.landowner-sales-total strong {
+  font-variant-numeric: tabular-nums;
+}
+
+.landowner-statement-backdrop {
+  position: fixed;
+  z-index: 1500;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: clamp(12px, 3vw, 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: rgba(4, 24, 35, 0.72);
+  backdrop-filter: blur(7px);
+}
+
+.landowner-statement-dialog {
+  display: grid;
+  width: min(1080px, 100%);
+  max-height: calc(100dvh - clamp(24px, 6vw, 64px));
+  min-width: 0;
+  gap: 18px;
+  padding: clamp(19px, 3.5vw, 32px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  border-radius: 24px;
+  color: var(--landowner-ink);
+  background: #f8faf9;
+  box-shadow: 0 28px 90px rgba(3, 22, 33, 0.34);
+}
+
+.landowner-statement-dialog:focus {
+  outline: none;
+}
+
+.landowner-statement-dialog > header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding-bottom: 17px;
+  border-bottom: 1px solid var(--landowner-line);
+}
+
+.landowner-statement-dialog > header > div {
+  min-width: 0;
+}
+
+.landowner-statement-dialog > header small {
+  color: var(--landowner-green);
+  font-size: 0.67rem;
+  font-weight: 900;
+  letter-spacing: 0.12em;
+}
+
+.landowner-statement-dialog > header h3 {
+  margin: 6px 0 0;
+  color: var(--landowner-ink);
+  font-size: clamp(1.25rem, 3vw, 1.85rem);
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.landowner-statement-dialog > header p {
+  max-width: 760px;
+  margin: 8px 0 0;
+  color: var(--landowner-muted);
+  font-size: 0.76rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.landowner-statement-dialog > header > button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border: 1px solid var(--landowner-line);
+  border-radius: 50%;
+  color: var(--landowner-ink);
+  font-size: 1.55rem;
+  line-height: 1;
+  background: #fff;
+  cursor: pointer;
+}
+
+.landowner-statement-dialog > header > button:hover {
+  border-color: var(--landowner-navy);
+  color: #fff;
+  background: var(--landowner-navy);
+}
+
+.landowner-statement-dialog > header > button:focus-visible,
+.landowner-statement-error button:focus-visible {
+  outline: 3px solid rgba(120, 183, 42, 0.42);
+  outline-offset: 3px;
+}
+
+.landowner-statement-state,
+.landowner-statement-error {
+  display: grid;
+  min-height: 190px;
+  place-items: center;
+  align-content: center;
+  gap: 9px;
+  padding: 28px;
+  border: 1px solid var(--landowner-line);
+  border-radius: 17px;
+  text-align: center;
+  background: #fff;
+}
+
+.landowner-statement-state span {
+  color: var(--landowner-green);
+  font-size: 2rem;
+}
+
+.landowner-statement-state p,
+.landowner-statement-error p {
+  max-width: 560px;
+  margin: 0;
+  color: var(--landowner-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.landowner-statement-error {
+  border-color: rgba(174, 55, 55, 0.24);
+  background: #fff7f5;
+}
+
+.landowner-statement-error strong {
+  color: #9b3030;
+}
+
+.landowner-statement-error button {
+  margin-top: 5px;
+  padding: 9px 14px;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 820;
+  background: var(--landowner-navy);
+  cursor: pointer;
+}
+
+.landowner-statement-context {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 9px;
+}
+
+.landowner-statement-context > span {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+  padding: 12px 14px;
+  border: 1px solid var(--landowner-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.landowner-statement-context small,
+.landowner-statement-kpis small {
+  color: var(--landowner-muted);
+  font-size: 0.65rem;
+  font-weight: 790;
+  letter-spacing: 0.035em;
+  text-transform: uppercase;
+}
+
+.landowner-statement-context strong {
+  min-width: 0;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.landowner-statement-kpis {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.landowner-statement-kpis > span {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: 7px;
+  padding: 15px;
+  border-top: 3px solid var(--landowner-green);
+  border-radius: 13px;
+  background: #eaf3e6;
+}
+
+.landowner-statement-kpis > span:nth-child(3) {
+  border-top-color: var(--landowner-gold);
+  background: #fbf5e9;
+}
+
+.landowner-statement-kpis > span.overdue {
+  border-top-color: #b54242;
+  background: #fff0ed;
+}
+
+.landowner-statement-kpis strong {
+  min-width: 0;
+  color: var(--landowner-ink);
+  font-size: clamp(1rem, 2.1vw, 1.35rem);
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+
+.landowner-statement-kpis i {
+  color: var(--landowner-muted);
+  font-size: 0.65rem;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.landowner-statement-table {
+  width: 100%;
+  max-width: 100%;
+  overflow: auto;
+  border: 1px solid var(--landowner-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.landowner-statement-table:focus-visible {
+  outline: 3px solid rgba(120, 183, 42, 0.32);
+  outline-offset: 3px;
+}
+
+.landowner-statement-table table {
+  width: 100%;
+  min-width: 820px;
+  border-collapse: collapse;
+}
+
+.landowner-statement-table th,
+.landowner-statement-table td {
+  padding: 12px 13px;
+  border-bottom: 1px solid var(--landowner-line);
+  font-size: 0.72rem;
+  line-height: 1.35;
+  text-align: left;
+  vertical-align: top;
+}
+
+.landowner-statement-table thead th {
+  color: var(--landowner-muted);
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #f2f6f4;
+}
+
+.landowner-statement-table tbody th {
+  display: grid;
+  gap: 2px;
+  font-weight: 800;
+}
+
+.landowner-statement-table tbody th small,
+.landowner-statement-table td small {
+  display: block;
+  margin-top: 4px;
+  color: var(--landowner-muted);
+  font-size: 0.61rem;
+  font-weight: 500;
+}
+
+.landowner-statement-table th:nth-child(n + 3),
+.landowner-statement-table td:nth-child(n + 3) {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.landowner-statement-table th:last-child,
+.landowner-statement-table td:last-child {
+  text-align: left;
+}
+
+.landowner-statement-table tfoot th,
+.landowner-statement-table tfoot td {
+  border-bottom: 0;
+  color: var(--landowner-ink);
+  font-weight: 850;
+  background: #eef4f2;
+}
+
+.landowner-statement-status {
+  display: inline-flex;
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #315c24;
+  font-size: 0.61rem;
+  font-weight: 850;
+  background: #e5f3df;
+}
+
+.landowner-statement-status[data-status="vencido"] {
+  color: #962f2f;
+  background: #ffe5e0;
+}
+
+.landowner-statement-status[data-status="em_aberto"] {
+  color: #805d19;
+  background: #f8edcf;
+}
+
+.landowner-statement-status[data-status="cancelado"] {
+  color: #5f6a70;
+  background: #e9edef;
+}
+
+.landowner-statement-basis {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 10px;
+  color: var(--landowner-muted);
+  font-size: 0.69rem;
+  line-height: 1.45;
+  background: rgba(18, 63, 89, 0.05);
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 760px) {
+  .landowner-statement-backdrop {
+    place-items: start center;
+    padding: 0;
+  }
+
+  .landowner-statement-dialog {
+    width: 100%;
+    max-height: 100dvh;
+    min-height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  .landowner-statement-context,
+  .landowner-statement-kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .landowner-statement-context,
+  .landowner-statement-kpis {
+    grid-template-columns: 1fr;
+  }
 }
 
 .landowner-public-governance {
@@ -2759,11 +3159,11 @@
 
 /* Versão efetivamente publicada; sobrescreve os pseudo-elementos legados. */
 .sidebar-version span::after {
-  content: "Versão 6.17 Enterprise";
+  content: "Versão 6.18 Enterprise";
 }
 
 .auth-v5 form > small:first-child::after {
-  content: "ACESSO SEGURO · VERSÃO 6.17";
+  content: "ACESSO SEGURO · VERSÃO 6.18";
 }
 
 @media print {

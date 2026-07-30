@@ -201,7 +201,8 @@ const sectionOptions: Array<{
   {
     key: "sales_details",
     label: "Detalhes das vendas",
-    detail: "Unidades, datas e condições de cada contrato, sem compradores.",
+    detail:
+      "Unidades, contratantes, condições e extrato individual de cada contrato.",
   },
   {
     key: "delinquency",

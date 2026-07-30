@@ -10,6 +10,7 @@ import {
 } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type {
+  LandownerContractStatement,
   PartnerKind,
   PartnerNegotiation,
   PartnerNegotiationStatus,
@@ -371,6 +372,34 @@ export function PartnerPaymentPortal() {
     }
   }
 
+  async function loadLandownerContractStatement(
+    publicationId: string,
+    contractNumber: string,
+    unitCode: string,
+  ): Promise<LandownerContractStatement> {
+    if (!verifiedDocumentLast4) {
+      throw new Error("Confirme novamente o acesso antes de abrir o extrato.");
+    }
+    const client = getSupabase();
+    if (!client) {
+      throw new Error("O portal está temporariamente indisponível.");
+    }
+    const result = await client.rpc("get_landowner_contract_statement", {
+      p_token: normalizedToken,
+      p_document_last4: verifiedDocumentLast4,
+      p_publication_id: publicationId,
+      p_contract_number: contractNumber,
+      p_unit_code: unitCode,
+    });
+    if (result.error || !result.data) {
+      throw new Error(
+        result.error?.message ||
+          "Não foi possível abrir o extrato deste contrato.",
+      );
+    }
+    return result.data as unknown as LandownerContractStatement;
+  }
+
   async function authenticate(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFeedback("");
@@ -695,7 +724,10 @@ export function PartnerPaymentPortal() {
         )}
 
         {portal.partner.kind === "terrenista" && portal.landowner && (
-          <LandownerPortalDashboard portal={portal.landowner} />
+          <LandownerPortalDashboard
+            portal={portal.landowner}
+            loadContractStatement={loadLandownerContractStatement}
+          />
         )}
 
         <section className="partner-summary-grid" aria-label="Resumo">

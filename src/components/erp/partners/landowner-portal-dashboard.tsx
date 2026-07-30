@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
+  LandownerContractStatement,
   LandownerPeriodMonth,
   LandownerPortalPublication,
   LandownerPortalPayload,
+  LandownerSaleDetail,
 } from "./partner-types";
 import { LandownerSalesMapView } from "./landowner-sales-map";
 
@@ -69,10 +71,26 @@ function repassStatus(value: string) {
   return labels[value] || value.replaceAll("_", " ");
 }
 
+function statementStatus(value: string) {
+  const labels: Record<string, string> = {
+    pago: "Pago",
+    vencido: "Vencido",
+    em_aberto: "Em aberto",
+    cancelado: "Cancelado",
+  };
+  return labels[value] || value.replaceAll("_", " ");
+}
+
 export function LandownerPortalDashboard({
   portal,
+  loadContractStatement,
 }: {
   portal: LandownerPortalPayload;
+  loadContractStatement?: (
+    publicationId: string,
+    contractNumber: string,
+    unitCode: string,
+  ) => Promise<LandownerContractStatement>;
 }) {
   const publications = portal.publications;
   const [publicationId, setPublicationId] = useState(
@@ -110,7 +128,7 @@ export function LandownerPortalDashboard({
           <h2>Visão consolidada do empreendimento</h2>
           <p>
             Fechamento versionado, com dados publicados expressamente pela
-            Évora e sem informações pessoais dos compradores.
+            Évora, sem documentos, contatos ou dados bancários dos compradores.
           </p>
         </div>
         {publications.length > 1 && (
@@ -181,7 +199,11 @@ export function LandownerPortalDashboard({
           <RepassSection publication={publication} />
         )}
         {publication.sales_conditions && (
-          <SalesConditionsSection publication={publication} />
+          <SalesConditionsSection
+            key={publication.id}
+            publication={publication}
+            loadContractStatement={loadContractStatement}
+          />
         )}
       </div>
 
@@ -792,78 +814,451 @@ function RepassSection({
 
 function SalesConditionsSection({
   publication,
+  loadContractStatement,
 }: {
   publication: LandownerPortalPublication;
+  loadContractStatement?: (
+    publicationId: string,
+    contractNumber: string,
+    unitCode: string,
+  ) => Promise<LandownerContractStatement>;
 }) {
   const conditions = publication.sales_conditions!;
+  const sales = useMemo(() => conditions.sales || [], [conditions.sales]);
+  const totals = useMemo(
+    () =>
+      sales.reduce(
+        (result, sale) => ({
+          area: result.area + Number(sale.area || 0),
+          listPrice: result.listPrice + Number(sale.list_price || 0),
+          salePrice: result.salePrice + Number(sale.sale_price || 0),
+          downPayment: result.downPayment + Number(sale.down_payment || 0),
+          financedAmount:
+            result.financedAmount + Number(sale.financed_amount || 0),
+          installments:
+            result.installments + Number(sale.installments_count || 0),
+        }),
+        {
+          area: 0,
+          listPrice: 0,
+          salePrice: 0,
+          downPayment: 0,
+          financedAmount: 0,
+          installments: 0,
+        },
+      ),
+    [sales],
+  );
+  const [selectedSale, setSelectedSale] =
+    useState<LandownerSaleDetail | null>(null);
+  const [statement, setStatement] =
+    useState<LandownerContractStatement | null>(null);
+  const [statementLoading, setStatementLoading] = useState(false);
+  const [statementError, setStatementError] = useState("");
+  const dialogRef = useRef<HTMLElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  const requestSequenceRef = useRef(0);
+
+  useEffect(() => {
+    if (!selectedSale) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const focusFrame = requestAnimationFrame(() =>
+      closeButtonRef.current?.focus(),
+    );
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        requestSequenceRef.current += 1;
+        setSelectedSale(null);
+        setStatement(null);
+        setStatementError("");
+        setStatementLoading(false);
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const focusable = Array.from(
+        dialogRef.current?.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+        ) || [],
+      ).filter(element => !element.hasAttribute("hidden"));
+      if (!focusable.length) {
+        event.preventDefault();
+        dialogRef.current?.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      cancelAnimationFrame(focusFrame);
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      returnFocusRef.current?.focus();
+    };
+  }, [selectedSale]);
+
+  async function openStatement(sale: LandownerSaleDetail) {
+    if (!sale.contract_number || !loadContractStatement) return;
+    if (!selectedSale) {
+      returnFocusRef.current =
+        document.activeElement instanceof HTMLElement
+          ? document.activeElement
+          : null;
+    }
+    setSelectedSale(sale);
+    setStatement(null);
+    setStatementError("");
+    setStatementLoading(true);
+    const requestSequence = ++requestSequenceRef.current;
+    try {
+      const nextStatement = await loadContractStatement(
+        publication.id,
+        sale.contract_number,
+        sale.unit_code,
+      );
+      if (requestSequence === requestSequenceRef.current) {
+        setStatement(nextStatement);
+      }
+    } catch (cause) {
+      if (requestSequence === requestSequenceRef.current) {
+        setStatementError(
+          cause instanceof Error
+            ? cause.message
+            : "Não foi possível abrir o extrato deste contrato.",
+        );
+      }
+    } finally {
+      if (requestSequence === requestSequenceRef.current) {
+        setStatementLoading(false);
+      }
+    }
+  }
+
+  function closeStatement() {
+    requestSequenceRef.current += 1;
+    setSelectedSale(null);
+    setStatement(null);
+    setStatementError("");
+    setStatementLoading(false);
+  }
+
   return (
-    <article className="landowner-public-card landowner-sales-card">
-      <header>
-        <div>
-          <small>CONDIÇÕES COMERCIAIS</small>
-          <h3>Perfil das vendas assinadas</h3>
-        </div>
-      </header>
-      {conditions.average_sale_price !== undefined && (
-        <div className="landowner-mini-kpis">
-          <span>
-            <small>Ticket médio</small>
-            <strong>{amount(conditions.average_sale_price)}</strong>
-          </span>
-          <span>
-            <small>Entrada média</small>
-            <strong>{percent(conditions.average_down_payment_pct)}</strong>
-          </span>
-          <span>
-            <small>Prazo médio</small>
-            <strong>
-              {number.format(Number(conditions.average_installments || 0))}{" "}
-              parcelas
-            </strong>
-          </span>
-          <span>
-            <small>Desconto médio</small>
-            <strong>{percent(conditions.average_discount_pct)}</strong>
-          </span>
-        </div>
-      )}
-      {!!conditions.sales?.length && (
-        <div className="landowner-sales-table">
-          <div className="landowner-sales-head">
-            <span>Lote / contrato</span>
-            <span>Venda</span>
-            <span>Entrada / saldo</span>
-            <span>Condição</span>
+    <>
+      <article className="landowner-public-card landowner-sales-card">
+        <header>
+          <div>
+            <small>CONDIÇÕES COMERCIAIS</small>
+            <h3>Perfil das vendas assinadas</h3>
           </div>
-          {conditions.sales.map(sale => (
-            <div key={`${sale.contract_number}-${sale.unit_code}`}>
+        </header>
+        {conditions.average_sale_price !== undefined && (
+          <div className="landowner-mini-kpis">
+            <span>
+              <small>Ticket médio</small>
+              <strong>{amount(conditions.average_sale_price)}</strong>
+            </span>
+            <span>
+              <small>Entrada média</small>
+              <strong>{percent(conditions.average_down_payment_pct)}</strong>
+            </span>
+            <span>
+              <small>Prazo médio</small>
+              <strong>
+                {number.format(Number(conditions.average_installments || 0))}{" "}
+                parcelas
+              </strong>
+            </span>
+            <span>
+              <small>Desconto médio</small>
+              <strong>{percent(conditions.average_discount_pct)}</strong>
+            </span>
+          </div>
+        )}
+        {!!sales.length && (
+          <div
+            className="landowner-sales-table"
+            role="region"
+            aria-label="Vendas assinadas e respectivos totalizadores"
+            tabIndex={0}
+          >
+            <div className="landowner-sales-head">
+              <span>Lote / contrato</span>
+              <span>Contratante / extrato</span>
+              <span>Tabela / venda</span>
+              <span>Entrada / saldo</span>
+              <span>Condição</span>
+            </div>
+            {sales.map(sale => (
+              <div key={`${sale.contract_number}-${sale.unit_code}`}>
+                <span>
+                  <strong>{sale.unit_code}</strong>
+                  <small>{sale.contract_number || "Contrato sem número"}</small>
+                </span>
+                <span className="landowner-sales-customer">
+                  <strong>{sale.customer_name || "Não informado"}</strong>
+                  {sale.contract_number && loadContractStatement ? (
+                    <button type="button" onClick={() => openStatement(sale)}>
+                      Abrir extrato individual <span aria-hidden="true">→</span>
+                    </button>
+                  ) : (
+                    <small>Extrato indisponível</small>
+                  )}
+                </span>
+                <span>
+                  <strong>{amount(sale.list_price)}</strong>
+                  <small>
+                    Venda {amount(sale.sale_price)} · {day(sale.sale_date)}
+                  </small>
+                </span>
+                <span>
+                  <strong>{amount(sale.down_payment)}</strong>
+                  <small>Saldo {amount(sale.financed_amount)}</small>
+                </span>
+                <span>
+                  <strong>{sale.installments_count} parcela(s)</strong>
+                  <small>
+                    {sale.indexer || "Sem indexador"}
+                    {sale.monthly_interest_rate
+                      ? ` · ${percent(
+                          Number(sale.monthly_interest_rate) * 100,
+                        )} a.m.`
+                      : ""}
+                  </small>
+                </span>
+              </div>
+            ))}
+            <div className="landowner-sales-total">
               <span>
-                <strong>{sale.unit_code}</strong>
-                <small>{sale.contract_number || "Contrato sem número"}</small>
-              </span>
-              <span>
-                <strong>{amount(sale.sale_price)}</strong>
-                <small>{day(sale.sale_date)}</small>
-              </span>
-              <span>
-                <strong>{amount(sale.down_payment)}</strong>
-                <small>Saldo {amount(sale.financed_amount)}</small>
-              </span>
-              <span>
-                <strong>{sale.installments_count} parcela(s)</strong>
+                <strong>Total geral</strong>
                 <small>
-                  {sale.indexer || "Sem indexador"}
-                  {sale.monthly_interest_rate
-                    ? ` · ${percent(
-                        Number(sale.monthly_interest_rate) * 100,
-                      )} a.m.`
-                    : ""}
+                  {sales.length} contrato(s) · {number.format(totals.area)} m²
                 </small>
               </span>
+              <span>
+                <strong>{sales.length} contratante(s)</strong>
+                <small>Contratos listados acima</small>
+              </span>
+              <span>
+                <strong>{amount(totals.listPrice)}</strong>
+                <small>Vendas {amount(totals.salePrice)}</small>
+              </span>
+              <span>
+                <strong>{amount(totals.downPayment)}</strong>
+                <small>Saldo {amount(totals.financedAmount)}</small>
+              </span>
+              <span>
+                <strong>
+                  {number.format(
+                    sales.length ? totals.installments / sales.length : 0,
+                  )}{" "}
+                  parcelas
+                </strong>
+                <small>Prazo médio dos contratos</small>
+              </span>
             </div>
-          ))}
+          </div>
+        )}
+      </article>
+
+      {selectedSale && (
+        <div className="landowner-statement-backdrop">
+          <section
+            ref={dialogRef}
+            className="landowner-statement-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="landowner-statement-title"
+            tabIndex={-1}
+          >
+            <header>
+              <div>
+                <small>EXTRATO INDIVIDUAL PROTEGIDO</small>
+                <h3 id="landowner-statement-title">
+                  {selectedSale.unit_code} ·{" "}
+                  {selectedSale.contract_number || "Contrato"}
+                </h3>
+                <p>
+                  Posição congelada na publicação {publication.version}, sem
+                  documentos, contatos ou dados bancários do comprador.
+                </p>
+              </div>
+              <button
+                ref={closeButtonRef}
+                type="button"
+                onClick={closeStatement}
+                aria-label="Fechar extrato individual"
+              >
+                ×
+              </button>
+            </header>
+
+            {statementLoading && (
+              <div
+                className="landowner-statement-state"
+                role="status"
+                aria-live="polite"
+              >
+                <span aria-hidden="true">↻</span>
+                <p>Carregando o extrato protegido deste contrato…</p>
+              </div>
+            )}
+
+            {!statementLoading && statementError && (
+              <div className="landowner-statement-error" role="alert">
+                <strong>Extrato temporariamente indisponível</strong>
+                <p>{statementError}</p>
+                <button
+                  type="button"
+                  onClick={() => openStatement(selectedSale)}
+                >
+                  Tentar novamente
+                </button>
+              </div>
+            )}
+
+            {!statementLoading && statement && (
+              <>
+                <div className="landowner-statement-context">
+                  <span>
+                    <small>Contratante</small>
+                    <strong>{statement.contract.customer_name}</strong>
+                  </span>
+                  <span>
+                    <small>Assinatura</small>
+                    <strong>{day(statement.contract.signed_at)}</strong>
+                  </span>
+                  <span>
+                    <small>Lote</small>
+                    <strong>{statement.contract.unit_code}</strong>
+                  </span>
+                  <span>
+                    <small>Área</small>
+                    <strong>{number.format(statement.contract.area)} m²</strong>
+                  </span>
+                  <span>
+                    <small>Valor de tabela</small>
+                    <strong>{amount(statement.contract.list_price)}</strong>
+                  </span>
+                  <span>
+                    <small>Valor contratado</small>
+                    <strong>{amount(statement.contract.sale_price)}</strong>
+                  </span>
+                </div>
+
+                <div className="landowner-statement-kpis">
+                  <span>
+                    <small>Total contratado</small>
+                    <strong>
+                      {amount(statement.summary.contracted_amount)}
+                    </strong>
+                  </span>
+                  <span>
+                    <small>Total recebido</small>
+                    <strong>{amount(statement.summary.received_amount)}</strong>
+                    <i>
+                      {statement.summary.paid_installments} parcela(s)
+                      liquidada(s)
+                    </i>
+                  </span>
+                  <span>
+                    <small>Saldo em aberto</small>
+                    <strong>{amount(statement.summary.open_amount)}</strong>
+                    <i>
+                      {statement.summary.open_installments} parcela(s) em aberto
+                    </i>
+                  </span>
+                  <span className="overdue">
+                    <small>Saldo vencido</small>
+                    <strong>{amount(statement.summary.overdue_amount)}</strong>
+                    <i>
+                      {statement.summary.overdue_installments} parcela(s)
+                      vencida(s)
+                    </i>
+                  </span>
+                </div>
+
+                <div
+                  className="landowner-statement-table"
+                  role="region"
+                  aria-label="Parcelas do extrato individual"
+                  tabIndex={0}
+                >
+                  <table>
+                    <thead>
+                      <tr>
+                        <th scope="col">Parcela</th>
+                        <th scope="col">Vencimento</th>
+                        <th scope="col">Valor</th>
+                        <th scope="col">Recebido</th>
+                        <th scope="col">Em aberto</th>
+                        <th scope="col">Situação</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {statement.installments.map(installment => (
+                        <tr
+                          key={`${installment.installment_number}-${installment.installment_type}-${installment.due_date}`}
+                        >
+                          <th scope="row">
+                            <strong>{installment.installment_number}</strong>
+                            <small>{installment.installment_type}</small>
+                          </th>
+                          <td>{day(installment.due_date)}</td>
+                          <td>{amount(installment.original_amount)}</td>
+                          <td>{amount(installment.received_amount)}</td>
+                          <td>{amount(installment.open_amount)}</td>
+                          <td>
+                            <span
+                              className="landowner-statement-status"
+                              data-status={installment.status}
+                            >
+                              {statementStatus(installment.status)}
+                            </span>
+                            {installment.settlement_date && (
+                              <small>
+                                Baixa em {day(installment.settlement_date)}
+                              </small>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr>
+                        <th scope="row" colSpan={2}>
+                          Totais do contrato
+                        </th>
+                        <td>{amount(statement.summary.contracted_amount)}</td>
+                        <td>{amount(statement.summary.received_amount)}</td>
+                        <td>{amount(statement.summary.open_amount)}</td>
+                        <td>
+                          {statement.summary.installment_count} parcela(s)
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+                <p className="landowner-statement-basis">
+                  <b>Critério:</b> {statement.basis}
+                </p>
+              </>
+            )}
+          </section>
         </div>
       )}
-    </article>
+    </>
   );
 }

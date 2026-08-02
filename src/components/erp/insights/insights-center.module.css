@@ -425,6 +425,250 @@
   overflow-wrap: anywhere;
 }
 
+.criticalityPanel {
+  --criticality-accent: #577683;
+  --criticality-soft: #eef4f5;
+  display: grid;
+  gap: 10px;
+  margin: 0 20px 18px;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--criticality-accent) 25%, #dbe5e5);
+  border-radius: 17px;
+  background: linear-gradient(145deg, #fff, var(--criticality-soft));
+}
+
+.criticalityPanel[data-level="critical"] { --criticality-accent: #a52e35; --criticality-soft: #fff1f1; }
+.criticalityPanel[data-level="high"] { --criticality-accent: #aa5e19; --criticality-soft: #fff5e9; }
+.criticalityPanel[data-level="moderate"] { --criticality-accent: #97751a; --criticality-soft: #fff9e8; }
+.criticalityPanel[data-level="low"] { --criticality-accent: #426e7b; --criticality-soft: #edf6f7; }
+.criticalityPanel[data-level="closed"] { --criticality-accent: #527b35; --criticality-soft: #eff7ea; }
+
+.criticalityPanel > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.criticalityPanel > header > div { display: grid; gap: 3px; }
+.criticalityPanel > header small,
+.criticalitySnapshotSummary small,
+.criticalityBands small,
+.priorityQueue small,
+.criticalityFallbackGrid small,
+.postponementImpact > small {
+  color: #71858e;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .12em;
+}
+
+.criticalityPanel > header strong { color: var(--criticality-accent); font-size: 22px; }
+.criticalityPanel > header > span {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: var(--criticality-accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.criticalitySnapshotSummary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.criticalitySnapshotSummary > div,
+.criticalityFallbackGrid > div {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 13px;
+  border: 1px solid #dfe7e7;
+  border-radius: 13px;
+  background: rgba(255, 255, 255, .88);
+}
+
+.criticalitySnapshotSummary strong,
+.criticalityFallbackGrid strong {
+  color: var(--ink);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.criticalityBands {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.criticalityBands article {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid #dfe7e7;
+  border-top: 3px solid #78909a;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.criticalityBands article[data-band="critical"] { border-top-color: #a52e35; }
+.criticalityBands article[data-band="high"] { border-top-color: #aa5e19; }
+.criticalityBands article[data-band="medium"] { border-top-color: #aa851c; }
+.criticalityBands article[data-band="low"] { border-top-color: #426e7b; }
+.criticalityBands strong { color: var(--ink); font-size: 24px; line-height: 1; }
+.criticalityBands span { color: #71858e; font-size: 10px; overflow-wrap: anywhere; }
+
+.priorityQueue {
+  overflow: hidden;
+  border: 1px solid #dce6e6;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .86);
+}
+
+.priorityQueue > header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 13px 14px;
+  border-bottom: 1px solid #e1e9e9;
+  background: #f5f8f8;
+}
+
+.priorityQueue > header > div { display: grid; gap: 4px; }
+.priorityQueue > header strong { color: var(--ink); font-size: 13px; }
+.priorityQueue > header > span { color: #74868d; font-size: 10px; }
+.priorityQueueList { display: grid; }
+
+.queueItem {
+  --queue-band: #5b7884;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border-bottom: 1px solid #e3eaea;
+  border-left: 4px solid var(--queue-band);
+}
+
+.queueItem:last-child { border-bottom: 0; }
+.queueItem[data-band="critical"] { --queue-band: #a52e35; }
+.queueItem[data-band="high"] { --queue-band: #aa5e19; }
+.queueItem[data-band="medium"] { --queue-band: #aa851c; }
+.queueItem[data-band="low"] { --queue-band: #426e7b; }
+
+.queueItem > header {
+  display: grid;
+  grid-template-columns: 31px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 10px;
+}
+
+.queueItem > header > b {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 29px;
+  border-radius: 9px;
+  background: var(--queue-band);
+  color: #fff;
+  font-size: 11px;
+}
+
+.queueItem > header > div:nth-child(2) { min-width: 0; display: grid; gap: 3px; }
+.queueItem > header > div:nth-child(2) strong { color: var(--ink); font-size: 14px; overflow-wrap: anywhere; }
+.queueItem > header > div:nth-child(2) span { color: #71858e; font-size: 10px; overflow-wrap: anywhere; }
+.queueScore { display: grid; justify-items: end; gap: 3px; }
+.queueScore small { color: var(--queue-band); }
+.queueScore strong { color: var(--queue-band); font-size: 17px; }
+
+.queueFacts {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+  margin: 0;
+}
+
+.queueFacts > div { min-width: 0; padding: 9px 10px; border-radius: 10px; background: #f3f7f6; }
+.queueFacts dt { color: #7a8b92; font-size: 8px; }
+.queueFacts dd { margin: 4px 0 0; color: #405d68; font-size: 10px; font-weight: 720; line-height: 1.35; overflow-wrap: anywhere; }
+.queueFacts dd small { display: block; margin-top: 2px; color: #788990; font-weight: 500; }
+
+.queueAnalysis {
+  display: grid;
+  grid-template-columns: 1.15fr 1.15fr .5fr;
+  gap: 7px;
+}
+
+.queueAnalysis > section,
+.queueFactors > section {
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #e1e8e8;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.queueAnalysis p,
+.queueAnalysis ul,
+.queueFactors p,
+.queueFactors ul,
+.postponementImpact p,
+.postponementImpact ul {
+  margin: 6px 0 0;
+  color: #536c76;
+  font-size: 10px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.queueAnalysis > section > strong {
+  display: block;
+  margin-top: 6px;
+  color: #3f5c67;
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+.queueAnalysis ul,
+.queueFactors ul,
+.postponementImpact ul { display: grid; gap: 4px; padding-left: 15px; }
+
+.queueFactors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.queueFactors section[data-direction="increase"] { border-left: 3px solid #b04a50; }
+.queueFactors section[data-direction="reduce"] { border-left: 3px solid #668f46; }
+.queueFactors li { padding-left: 2px; }
+.queueFactors li strong { display: block; color: #405d68; font-size: 10px; }
+.queueFactors li span { display: block; margin-top: 2px; color: #71848c; font-size: 9px; }
+
+.criticalityFallbackGrid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.criticalityFallback .postponementImpact {
+  padding: 12px;
+  border: 1px solid #dfe7e7;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .88);
+}
+
+.criticalityMethod {
+  margin: 0;
+  padding: 0 2px;
+  color: #71848c;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
 .decisionEvidence {
   display: grid;
   grid-template-columns: 1.05fr 1.15fr 1fr;
@@ -755,6 +999,7 @@
   .refreshButton { grid-column: 1 / -1; display: flex; justify-content: center; width: max-content; min-width: 180px; }
   .filters { grid-template-columns: repeat(3, minmax(145px, 1fr)); }
   .metricGrid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .queueFacts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 980px) {
@@ -764,6 +1009,8 @@
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .biGrid,
   .routineGrid { grid-template-columns: 1fr; }
+  .criticalityBands { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .queueAnalysis { grid-template-columns: 1fr; }
   .decisionEvidence { grid-template-columns: 1fr; }
   .planFlow { grid-template-columns: 1fr; }
   .sectionHeading { align-items: flex-start; flex-direction: column; }
@@ -788,6 +1035,16 @@
   .decisionCard > header time { white-space: normal; }
   .decisionTitle { grid-template-columns: 1fr; }
   .decisionCallout { margin-inline: 14px; }
+  .criticalityPanel { margin-inline: 14px; padding: 14px; }
+  .criticalityPanel > header { align-items: flex-start; flex-direction: column; }
+  .criticalitySnapshotSummary,
+  .criticalityBands,
+  .criticalityFallbackGrid,
+  .queueFacts,
+  .queueFactors { grid-template-columns: 1fr; }
+  .priorityQueue > header { align-items: flex-start; flex-direction: column; }
+  .queueItem > header { grid-template-columns: 31px minmax(0, 1fr); }
+  .queueScore { grid-column: 2; justify-items: start; }
   .confidence { text-align: left; }
   .recommendedPlan > header { align-items: flex-start; flex-direction: column; }
   .recommendedPlan > header > span { text-align: left; }

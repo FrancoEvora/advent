@@ -384,6 +384,11 @@ function parseDateKey(value: string | null | undefined) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function formatCalendarDate(value: string | null | undefined) {
+  const date = parseDateKey(value);
+  return date ? planDateFormat.format(date) : "Não informado";
+}
+
 function isBusinessCalendarDate(date: Date) {
   const weekday = date.getUTCDay();
   return weekday !== 0 && weekday !== 6;
@@ -414,6 +419,214 @@ function countBusinessDays(start: Date, end: Date) {
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
   return total;
+}
+
+type PaymentCriticalityFactor = {
+  label: string;
+  detail: string | null;
+  weight: number | null;
+  maximumWeight: number | null;
+  direction: "increase" | "reduce" | "neutral";
+};
+
+type PaymentCriticalityQueueItem = {
+  key: string;
+  title: string;
+  counterparty: string | null;
+  dueAt: string | null;
+  daysOverdue: number | null;
+  amount: number | null;
+  score: number | null;
+  band: string;
+  classification: string | null;
+  factors: PaymentCriticalityFactor[];
+  treatmentRank: number | null;
+  paymentOrder: number | null;
+  actionLabel: string | null;
+  action: string | null;
+  paymentGate: string | null;
+  paymentGateReason: string | null;
+  postponementImpact: string[];
+  confidencePct: number | null;
+};
+
+type PaymentCriticalitySnapshot = {
+  policyVersion: string | null;
+  asOf: string | null;
+  totalAmount: number | null;
+  totalTitles: number | null;
+  confidencePct: number | null;
+  counts: Record<string, number | null>;
+  amounts: Record<string, number | null>;
+  queue: PaymentCriticalityQueueItem[];
+};
+
+const PAYMENT_CRITICALITY_BANDS = ["critical", "high", "medium", "low"] as const;
+const PAYMENT_FACTOR_LABELS: Record<string, string> = {
+  legal_fiscal_labor: "Obrigação legal, fiscal ou trabalhista",
+  operational_continuity: "Continuidade da obra ou operação",
+  overdue_age: "Tempo transcorrido desde o vencimento",
+  cash_impact: "Impacto no caixa",
+  financial_exposure: "Participação na exposição vencida",
+  critical_supplier: "Fornecedor, insumo ou serviço crítico",
+};
+
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : null;
+}
+
+function finiteNumber(value: unknown) {
+  const number = Number(value);
+  return value !== null && value !== "" && Number.isFinite(number) ? number : null;
+}
+
+function firstString(record: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === "string" && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+function criticalityBandLabel(value: string | null | undefined) {
+  const band = normalize(value);
+  if (band === "critical") return "Crítica";
+  if (band === "high") return "Alta";
+  if (band === "medium" || band === "moderate") return "Média";
+  if (band === "low") return "Baixa";
+  return value || "Não classificada";
+}
+
+function paymentGateLabel(value: string | null | undefined) {
+  const gate = normalize(value);
+  if (gate === "eligible") return "Elegível, sujeito à aprovação";
+  if (gate === "cash_approval_required") return "Exige deliberação de caixa";
+  if (gate === "validation_required") return "Cadastro incompleto: validar antes de programar";
+  if (gate === "blocked") return "Bloqueado: regularizar antes de pagar";
+  if (gate === "pay") return "Priorizar programação";
+  if (gate === "negotiate") return "Negociar antes de programar";
+  if (gate === "unblock") return "Bloqueado: regularizar antes de pagar";
+  if (gate === "schedule") return "Ordenar na programação";
+  return value ? value.replaceAll("_", " ") : "Não informado";
+}
+
+function paymentClassificationLabel(value: unknown) {
+  const labels: Record<string, string> = {
+    labor: "Trabalhista",
+    fiscal: "Fiscal",
+    legal_regulatory: "Legal ou regulatória",
+    operational_continuity: "Continuidade operacional",
+    critical_supplier: "Fornecedor crítico",
+    general_payable: "Obrigação financeira geral",
+  };
+  const values = Array.isArray(value) ? value : value === null || value === undefined ? [] : [value];
+  const normalized = values.flatMap(item => typeof item === "string" && item.trim() ? [item.trim()] : []);
+  return normalized.length ? normalized.map(item => labels[normalize(item)] || item.replaceAll("_", " ")).join(" · ") : null;
+}
+
+function bandMetric(source: Record<string, unknown> | null, bands: Record<string, unknown> | null, band: string, metric: "count" | "amount") {
+  const direct = finiteNumber(source?.[band]);
+  if (direct !== null) return direct;
+  const bandRecord = recordValue(bands?.[band]);
+  return finiteNumber(bandRecord?.[metric]);
+}
+
+function normalizePaymentFactors(value: unknown): PaymentCriticalityFactor[] {
+  const source = Array.isArray(value)
+    ? value.map((factor, index) => [`factor-${index}`, factor] as const)
+    : Object.entries(recordValue(value) || {});
+  return source.flatMap(([key, candidate]): PaymentCriticalityFactor[] => {
+    const factor = recordValue(candidate);
+    if (!factor) return [];
+    const weight = finiteNumber(factor.score ?? factor.weight ?? factor.points);
+    const maximumWeight = finiteNumber(factor.max_score ?? factor.maximum_score ?? factor.maxWeight);
+    const explicitDirection = normalize(firstString(factor, ["direction", "effect"]));
+    const triggered = typeof factor.triggered === "boolean" ? factor.triggered : null;
+    return [{
+      label: firstString(factor, ["label", "name", "factor"]) || PAYMENT_FACTOR_LABELS[normalize(key)] || dataFieldLabel(key),
+      detail: firstString(factor, ["detail", "description", "reason"]),
+      weight,
+      maximumWeight,
+      direction: explicitDirection === "reduce" || (weight !== null && weight < 0) || triggered === false || weight === 0
+        ? "reduce"
+        : explicitDirection === "neutral"
+          ? "neutral"
+          : "increase",
+    }];
+  });
+}
+
+function normalizePostponementImpact(value: unknown) {
+  const source = recordValue(value);
+  if (!source) return displayItems(value);
+  const description = firstString(source, ["description", "impact", "summary"]);
+  const items: string[] = description ? [description] : [];
+  if (source.missed_schedule === true || source.missedSchedule === true) items.push("A programação efetiva registrada também foi descumprida.");
+  const level = firstString(source, ["level", "band"]);
+  if (level) items.push(`Nível registrado: ${criticalityBandLabel(level)}.`);
+  return items;
+}
+
+function paymentCriticalitySnapshot(evidence: unknown): PaymentCriticalitySnapshot | null {
+  const evidenceRecord = recordValue(evidence);
+  const source = recordValue(evidenceRecord?.payment_criticality);
+  if (!source) return null;
+
+  const queueSource = Array.isArray(source.queue) ? source.queue : Array.isArray(source.items) ? source.items : [];
+  const queue = queueSource.flatMap((candidate, index): PaymentCriticalityQueueItem[] => {
+    const item = recordValue(candidate);
+    if (!item) return [];
+    const factors = normalizePaymentFactors(item.factors ?? item.signals);
+    const postponementSource = item.postponement_impact ?? item.postponementImpact;
+    const actionSource = recordValue(item.action);
+    const paymentGateSource = recordValue(item.payment_gate ?? item.paymentGate);
+    return [{
+      key: firstString(item, ["entry_id", "entryId", "title_id", "id"]) || `queue-${index}`,
+      title: firstString(item, ["title", "description", "label"]) || "Título sem descrição",
+      counterparty: firstString(item, ["counterparty", "beneficiary", "supplier"]),
+      dueAt: firstString(item, ["due_at", "dueDate", "due_date"]),
+      daysOverdue: finiteNumber(item.days_overdue ?? item.daysOverdue),
+      amount: finiteNumber(item.amount ?? item.open_amount),
+      score: finiteNumber(item.score),
+      band: normalize(firstString(item, ["band", "level", "criticality"]) || ""),
+      classification: paymentClassificationLabel(item.classification) || firstString(item, ["nature"]),
+      factors,
+      treatmentRank: finiteNumber(item.treatment_rank ?? item.treatmentRank),
+      paymentOrder: finiteNumber(item.recommended_payment_order ?? item.paymentOrder),
+      actionLabel: actionSource ? firstString(actionSource, ["label", "code"]) : null,
+      action: actionSource
+        ? firstString(actionSource, ["recommendation", "description", "label"])
+        : firstString(item, ["action", "recommended_action", "treatment"]),
+      paymentGate: paymentGateSource
+        ? firstString(paymentGateSource, ["status", "code"])
+        : firstString(item, ["payment_gate", "cashDecision", "cash_decision"]),
+      paymentGateReason: paymentGateSource ? firstString(paymentGateSource, ["reason", "description"]) : null,
+      postponementImpact: normalizePostponementImpact(postponementSource),
+      confidencePct: finiteNumber(item.confidence_pct ?? item.confidence),
+    }];
+  });
+
+  const portfolio = recordValue(source.portfolio);
+  const countsSource = recordValue(source.counts ?? portfolio?.counts);
+  const amountsSource = recordValue(source.amounts ?? portfolio?.amounts);
+  const bandsSource = recordValue(source.bands ?? portfolio?.bands);
+  const counts: Record<string, number | null> = {};
+  const amounts: Record<string, number | null> = {};
+  PAYMENT_CRITICALITY_BANDS.forEach(band => {
+    counts[band] = bandMetric(countsSource, bandsSource, band, "count");
+    amounts[band] = bandMetric(amountsSource, bandsSource, band, "amount");
+  });
+
+  return {
+    policyVersion: firstString(source, ["policy_version", "policyVersion"]),
+    asOf: firstString(source, ["as_of", "asOf"]),
+    totalAmount: finiteNumber(portfolio?.total_exposure ?? portfolio?.total_amount ?? source.total_amount ?? source.totalAmount),
+    totalTitles: finiteNumber(portfolio?.total_titles ?? source.total_titles ?? source.totalTitles),
+    confidencePct: finiteNumber(portfolio?.confidence_pct ?? source.confidence_pct ?? source.confidence),
+    counts,
+    amounts,
+    queue,
+  };
 }
 
 function planClassification(insight: ManagementInsight) {
@@ -522,7 +735,8 @@ function insightTimestamp(insight: ManagementInsight) {
 }
 
 function findFinancialRisk(metrics: ManagementInsightMetric[], insights: ManagementInsight[]) {
-  const metric = metrics.find(item => normalize(item.metric_key) === "overdue_payables")
+  const metric = metrics.find(item => normalize(item.metric_key) === "overdue_payables_trusted_v1")
+    || metrics.find(item => normalize(item.metric_key) === "overdue_payables")
     || metrics.find(item => {
       const key = normalize(item.metric_key);
       return key.includes("risk") && (key.includes("finance") || key.includes("cash"));
@@ -856,10 +1070,24 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
       {latestRun && !decisions.length ? <DataGap text="Não há insights correspondentes aos filtros atuais. Ajuste o período ou aguarde a próxima execução." /> : null}
       <div className={styles.decisionList}>
         {decisions.map(insight => {
-          const evidence = displayItems(insight.evidence);
+          const criticality = paymentCriticalitySnapshot(insight.evidence);
+          const displaySummary = criticality && criticality.totalAmount !== null && criticality.totalTitles !== null
+            ? `Há ${moneyFormat.format(criticality.totalAmount)} em ${numberFormat.format(criticality.totalTitles)} obrigação(ões) vencida(s), aprovada(s) e não liquidada(s).`
+            : insight.summary;
+          const evidenceRecord = recordValue(insight.evidence);
+          const evidence = displayItems(criticality && evidenceRecord
+            ? Object.fromEntries(Object.entries(evidenceRecord).filter(([key]) => key !== "payment_criticality"))
+            : insight.evidence);
           const impact = displayItems(insight.impact);
           const steps = recommendationSteps(insight.recommendation);
           const plan = recommendedPlan(insight, steps);
+          const highestSnapshotBand = criticality
+            ? PAYMENT_CRITICALITY_BANDS.find(band => Number(criticality.counts[band] || 0) > 0) || criticality.queue[0]?.band || ""
+            : "";
+          const registeredSeverity = normalize(insight.severity);
+          const criticalityLevel = highestSnapshotBand === "medium"
+            ? "moderate"
+            : highestSnapshotBand || (registeredSeverity === "warning" ? "moderate" : registeredSeverity) || "low";
           const decisionSuggestion = steps[0] || insight.recommendation;
           const relatedView = VIEW_BY_AREA[normalize(insight.related_view)] || VIEW_BY_AREA[normalize(insight.area)];
           const relatedPermission = relatedView ? PERMISSION_BY_VIEW[relatedView] : null;
@@ -874,16 +1102,78 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
               <time dateTime={insight.created_at}>{formatDateTime(insight.created_at)}</time>
             </header>
             <div className={styles.decisionTitle}>
-              <div><h4>{insight.title}</h4><p>{insight.summary}</p></div>
+              <div><h4>{insight.title}</h4><p>{displaySummary}</p></div>
               <span className={styles.confidence}><small>Confiança</small><strong>{insight.confidence_pct === null ? "—" : `${numberFormat.format(Number(insight.confidence_pct))}%`}</strong></span>
             </div>
             <section className={styles.decisionCallout}>
               <small>DECISÃO SUGERIDA</small>
               <strong>{decisionSuggestion || "A rotina não registrou uma decisão sugerida."}</strong>
             </section>
+            {criticality ? <section className={styles.criticalityPanel} data-level={criticalityLevel} aria-label={`Análise estruturada de criticidade para ${insight.title}`}>
+              <header>
+                <div><small>CRITICIDADE POR TÍTULO</small><strong>Maior faixa: {criticalityBandLabel(highestSnapshotBand)}</strong></div>
+                <span>{criticality.policyVersion ? `Política ${criticality.policyVersion}` : "Snapshot registrado"}</span>
+              </header>
+              <div className={styles.criticalitySnapshotSummary}>
+                <div><small>DATA DE REFERÊNCIA</small><strong>{formatCalendarDate(criticality.asOf)}</strong></div>
+                <div><small>TÍTULOS CLASSIFICADOS</small><strong>{criticality.totalTitles === null ? "—" : numberFormat.format(criticality.totalTitles)}</strong></div>
+                <div><small>EXPOSIÇÃO CLASSIFICADA</small><strong>{criticality.totalAmount === null ? "—" : moneyFormat.format(criticality.totalAmount)}</strong></div>
+                <div><small>CONFIANÇA DA CARTEIRA</small><strong>{criticality.confidencePct === null ? "—" : `${numberFormat.format(criticality.confidencePct)}%`}</strong></div>
+              </div>
+              <div className={styles.criticalityBands}>
+                {PAYMENT_CRITICALITY_BANDS.map(band => <article key={`${insight.id}-band-${band}`} data-band={band}>
+                  <small>{criticalityBandLabel(band)}</small>
+                  <strong>{criticality.counts[band] === null ? "—" : numberFormat.format(Number(criticality.counts[band]))}</strong>
+                  <span>{criticality.amounts[band] === null ? "valor não informado" : moneyFormat.format(Number(criticality.amounts[band]))}</span>
+                </article>)}
+              </div>
+              <section className={styles.priorityQueue}>
+                <header><div><small>FILA RECOMENDADA</small><strong>Prioridade individual — não classificação única do total</strong></div><span>{criticality.queue.length} item(ns) no snapshot</span></header>
+                {criticality.queue.length ? <div className={styles.priorityQueueList}>
+                  {criticality.queue.slice(0, 5).map((item, queueIndex) => {
+                    const increasingFactors = item.factors.filter(factor => factor.direction !== "reduce");
+                    const reducingFactors = item.factors.filter(factor => factor.direction === "reduce");
+                    return <article key={`${insight.id}-${item.key}`} className={styles.queueItem} data-band={item.band}>
+                      <header>
+                        <b>{item.treatmentRank === null ? queueIndex + 1 : numberFormat.format(item.treatmentRank)}</b>
+                        <div><strong>{item.title}</strong><span>{item.counterparty || "Contraparte não informada"}</span></div>
+                        <div className={styles.queueScore}><small>{criticalityBandLabel(item.band)}</small><strong>{item.score === null ? "—" : numberFormat.format(item.score)}{item.score === null ? "" : "/100"}</strong></div>
+                      </header>
+                      <dl className={styles.queueFacts}>
+                        <div><dt>Valor</dt><dd>{item.amount === null ? "Não informado" : moneyFormat.format(item.amount)}</dd></div>
+                        <div><dt>Vencimento</dt><dd>{formatCalendarDate(item.dueAt)}{item.daysOverdue === null ? null : <small>{numberFormat.format(item.daysOverdue)} dia(s) de atraso</small>}</dd></div>
+                        <div><dt>Classificação</dt><dd>{item.classification || "Não informada"}</dd></div>
+                        <div><dt>Ordem de pagamento</dt><dd>{item.paymentOrder === null ? "Não elegível ou não definida" : `${numberFormat.format(item.paymentOrder)}ª posição`}</dd></div>
+                        <div><dt>Liberação financeira</dt><dd>{paymentGateLabel(item.paymentGate)}{item.paymentGateReason ? <small>{item.paymentGateReason}</small> : null}</dd></div>
+                      </dl>
+                      <div className={styles.queueAnalysis}>
+                        <section><small>AÇÃO RECOMENDADA</small>{item.actionLabel ? <strong>{item.actionLabel}</strong> : null}<p>{item.action || "Não registrada no snapshot."}</p></section>
+                        <section><small>IMPACTO DE ADIAMENTO</small>{item.postponementImpact.length ? <ul>{item.postponementImpact.slice(0, 3).map((value, index) => <li key={`${item.key}-postponement-${index}`}>{value}</li>)}</ul> : <p>Não registrado no snapshot.</p>}</section>
+                        <section><small>CONFIANÇA</small><p>{item.confidencePct === null ? "Não informada" : `${numberFormat.format(item.confidencePct)}%`}</p></section>
+                      </div>
+                      <div className={styles.queueFactors}>
+                        <section data-direction="increase"><small>FATORES QUE AUMENTAM</small>{increasingFactors.length ? <ul>{increasingFactors.slice(0, 6).map((factor, index) => <li key={`${item.key}-factor-up-${index}`}><strong>{factor.label}{factor.weight === null ? "" : ` (+${numberFormat.format(factor.weight)}${factor.maximumWeight === null ? "" : `/${numberFormat.format(factor.maximumWeight)}`})`}</strong>{factor.detail ? <span>{factor.detail}</span> : null}</li>)}</ul> : <p>Nenhum fator de elevação registrado.</p>}</section>
+                        <section data-direction="reduce"><small>FATORES QUE REDUZEM</small>{reducingFactors.length ? <ul>{reducingFactors.slice(0, 6).map((factor, index) => <li key={`${item.key}-factor-down-${index}`}><strong>{factor.label}{factor.weight === null ? "" : ` (${numberFormat.format(factor.weight)}${factor.maximumWeight === null ? "" : `/${numberFormat.format(factor.maximumWeight)}`})`}</strong>{factor.detail ? <span>{factor.detail}</span> : null}</li>)}</ul> : <p>Nenhum redutor foi registrado para este título.</p>}</section>
+                      </div>
+                    </article>;
+                  })}
+                </div> : <DataGap text="O snapshot foi gravado, mas não contém a fila individual de títulos. Nenhum score foi estimado pela interface." compact />}
+              </section>
+              <p className={styles.criticalityMethod}>Scores, faixas, fatores e sequência são lidos do snapshot gravado no insight. A interface não recalcula nem atribui a criticidade de um título ao valor total da carteira.</p>
+            </section> : <section className={`${styles.criticalityPanel} ${styles.criticalityFallback}`} data-level={criticalityLevel} aria-label={`Criticidade registrada para ${insight.title}`}>
+              <header><div><small>CRITICIDADE REGISTRADA</small><strong>{SEVERITY_LABELS[normalize(insight.severity)] || insight.severity}</strong></div><span>Sem score estruturado</span></header>
+              <div className={styles.criticalityFallbackGrid}>
+                <div><small>Severidade</small><strong>{SEVERITY_LABELS[normalize(insight.severity)] || insight.severity}</strong></div>
+                <div><small>Prioridade</small><strong>{PRIORITY_LABELS[normalizedPriority(insight)]}</strong></div>
+                <div><small>Prazo registrado</small><strong>{formatDate(insight.due_at)}</strong></div>
+                <div><small>Status</small><strong>{STATUS_LABELS[normalize(insight.status)] || insight.status}</strong></div>
+              </div>
+              <div className={styles.postponementImpact}><small>IMPACTO DE ADIAMENTO</small>{impact.length ? <ul>{impact.slice(0, 3).map((item, index) => <li key={`${insight.id}-fallback-impact-${index}`}>{item}</li>)}</ul> : <p>Não há impacto estruturado suficiente para classificar o adiamento.</p>}</div>
+              <p className={styles.criticalityMethod}>Sem snapshot persistido, a tela não inventa score, fatores ou posição de fila. Ela exibe apenas a severidade, a prioridade, o prazo, o status e o impacto registrados pela rotina.</p>
+            </section>}
             <div className={styles.decisionEvidence}>
               <section className={styles.recommendation}><small>O QUE A ARISA FARIA</small><p>{insight.recommendation || "A rotina não registrou recomendação para este caso."}</p></section>
-              <section className={styles.justification}><small>JUSTIFICATIVA</small><p>{insight.summary}</p>{impact.length ? <ul>{impact.slice(0, 4).map((item, index) => <li key={`${insight.id}-i-${index}`}>{item}</li>)}</ul> : null}</section>
+              <section className={styles.justification}><small>JUSTIFICATIVA</small><p>{displaySummary}</p>{impact.length ? <ul>{impact.slice(0, 4).map((item, index) => <li key={`${insight.id}-i-${index}`}>{item}</li>)}</ul> : null}</section>
               <section><small>DADOS QUE EMBASAM</small>{evidence.length ? <ul>{evidence.slice(0, 5).map((item, index) => <li key={`${insight.id}-e-${index}`}>{item}</li>)}</ul> : <p>Não há evidência registrada para detalhar esta recomendação.</p>}</section>
             </div>
             <section className={styles.recommendedPlan} aria-label={`Plano recomendado para ${insight.title}`}>
@@ -892,7 +1182,7 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
                 <span>Sugestão · aguardando validação</span>
               </header>
               <dl className={styles.planFacts}>
-                <div><dt>Classificação</dt><dd>{plan.classification}</dd></div>
+                <div><dt>Natureza do plano</dt><dd>{plan.classification}</dd></div>
                 <div data-priority={plan.priority}><dt>Prioridade sugerida</dt><dd>{plan.priorityLabel}</dd></div>
                 <div><dt>Função responsável</dt><dd>{plan.responsibleRole}</dd></div>
                 <div><dt>Início sugerido</dt><dd>{plan.startAt}</dd></div>

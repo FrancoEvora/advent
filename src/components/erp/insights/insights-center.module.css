@@ -443,44 +443,123 @@
 .recommendation p { color: #365c2d; font-weight: 680; }
 .justification p { margin-bottom: 10px; color: #385664; font-weight: 650; }
 
-.nextSteps {
+.recommendedPlan {
   display: grid;
-  grid-template-columns: minmax(185px, .42fr) minmax(0, 1.58fr);
-  align-items: start;
-  gap: 18px;
-  padding: 17px 20px;
+  gap: 15px;
+  padding: 20px;
   border-bottom: 1px solid #e4ebeb;
-  background: #fff;
+  background: linear-gradient(145deg, #f7faf9, #fff);
 }
 
-.nextSteps > div {
+.recommendedPlan > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.recommendedPlan > header > div {
   display: grid;
   gap: 5px;
 }
 
-.nextSteps > div small {
+.recommendedPlan > header small,
+.planFlow section > small {
   color: #71858e;
   font-size: 9px;
   font-weight: 850;
   letter-spacing: .12em;
 }
 
-.nextSteps > div strong {
+.recommendedPlan > header strong {
   color: var(--ink);
-  font-size: 12px;
-  line-height: 1.4;
+  font-size: 16px;
 }
 
-.nextSteps ol {
+.recommendedPlan > header > span {
+  flex: 0 1 auto;
+  padding: 7px 10px;
+  border: 1px solid #d5e2d1;
+  border-radius: 999px;
+  background: #f1f7ed;
+  color: #557340;
+  font-size: 10px;
+  font-weight: 720;
+  text-align: right;
+}
+
+.planFacts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.planFacts > div {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  padding: 12px 13px;
+  border: 1px solid #dfe8e7;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.planFacts dt {
+  color: #7a8b92;
+  font-size: 9px;
+}
+
+.planFacts dd {
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: 12px;
+  font-weight: 780;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.planFacts dd small {
+  display: block;
+  margin-top: 3px;
+  color: #74868d;
+  font-size: 10px;
+  font-weight: 580;
+}
+
+.planFacts > div[data-priority="urgent"] { border-color: #e4b7ba; background: #fff4f4; }
+.planFacts > div[data-priority="urgent"] dd { color: #982f35; }
+.planFacts > div[data-priority="high"] { border-color: #e8cfad; background: #fff8ef; }
+.planFacts > div[data-priority="high"] dd { color: #925513; }
+.planFacts > div[data-priority="medium"] { border-color: #e6dcb1; background: #fffbec; }
+.planFacts > div[data-priority="medium"] dd { color: #806517; }
+
+.planFlow {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(250px, .5fr);
+  gap: 10px;
+}
+
+.planFlow > section {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #dfe8e7;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.planFlow ol {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  margin: 0;
+  margin: 11px 0 0;
   padding: 0;
   list-style: none;
 }
 
-.nextSteps li {
+.planFlow li {
   min-width: 0;
   display: grid;
   grid-template-columns: 27px minmax(0, 1fr);
@@ -494,7 +573,7 @@
   line-height: 1.4;
 }
 
-.nextSteps li b {
+.planFlow li b {
   display: grid;
   place-items: center;
   width: 26px;
@@ -505,9 +584,16 @@
   font-size: 10px;
 }
 
-.nextSteps li span,
-.nextSteps > p { overflow-wrap: anywhere; }
-.nextSteps > p { margin: 0; color: #647781; font-size: 12px; }
+.planFlow li span { overflow-wrap: anywhere; }
+.planFlow .completionCriterion { background: #eef5e9; }
+.completionCriterion p {
+  margin: 11px 0 0;
+  color: #365d35;
+  font-size: 12px;
+  font-weight: 680;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
 
 .decisionCard > footer {
   display: flex;
@@ -679,7 +765,7 @@
   .biGrid,
   .routineGrid { grid-template-columns: 1fr; }
   .decisionEvidence { grid-template-columns: 1fr; }
-  .nextSteps { grid-template-columns: 1fr; }
+  .planFlow { grid-template-columns: 1fr; }
   .sectionHeading { align-items: flex-start; flex-direction: column; }
   .manualControl { width: 100%; flex-basis: auto; justify-items: start; }
   .manualControl small { text-align: left; }
@@ -703,7 +789,10 @@
   .decisionTitle { grid-template-columns: 1fr; }
   .decisionCallout { margin-inline: 14px; }
   .confidence { text-align: left; }
-  .nextSteps ol { grid-template-columns: 1fr; }
+  .recommendedPlan > header { align-items: flex-start; flex-direction: column; }
+  .recommendedPlan > header > span { text-align: left; }
+  .planFacts,
+  .planFlow ol { grid-template-columns: 1fr; }
   .cardActions { width: 100%; justify-content: stretch; }
   .cardActions button { flex: 1 1 100%; }
   .metricGrid { grid-template-columns: 1fr; }

@@ -103,6 +103,82 @@ const STATUS_LABELS: Record<string, string> = {
   descartado: "Descartado",
 };
 
+const PRIORITY_LABELS: Record<string, string> = {
+  urgent: "Urgente",
+  high: "Alta",
+  medium: "Média",
+  low: "Baixa",
+};
+
+const RESPONSIBLE_ROLE_BY_AREA: Record<string, string> = {
+  corporativo: "Diretoria executiva",
+  financeiro: "Gerência financeira",
+  financial: "Gerência financeira",
+  caixa: "Tesouraria e gerência financeira",
+  comercial: "Gerência comercial",
+  vendas: "Gerência comercial",
+  crm: "Coordenação de CRM e SDR",
+  vendas_crm_sdr: "Coordenação de CRM e SDR",
+  marketing: "Gestão de marketing",
+  obras: "Coordenação de engenharia",
+  construction: "Coordenação de engenharia",
+  compras: "Gestão de suprimentos",
+  procurement: "Gestão de suprimentos",
+  combustiveis: "Gestão de frota e combustíveis",
+  contratos: "Gestão de contratos e jurídico",
+  pos_venda: "Coordenação de pós-venda",
+  posvenda: "Coordenação de pós-venda",
+  pos_venda_agenda: "Coordenação de pós-venda",
+  rh: "Gestão de pessoas",
+  governanca: "Controladoria e diretoria",
+};
+
+const PLAN_NATURE_BY_AREA: Record<string, string> = {
+  corporativo: "Direcionamento corporativo",
+  financeiro: "Caixa, cobrança e liquidez",
+  financial: "Caixa, cobrança e liquidez",
+  caixa: "Fluxo de caixa",
+  comercial: "Pipeline e conversão",
+  vendas: "Pipeline e conversão",
+  crm: "SLA, qualificação e conversão",
+  vendas_crm_sdr: "SLA, qualificação e conversão",
+  marketing: "Aquisição e relacionamento",
+  obras: "Cronograma físico-financeiro",
+  construction: "Cronograma físico-financeiro",
+  compras: "Suprimentos e aprovações",
+  procurement: "Suprimentos e aprovações",
+  combustiveis: "Conformidade operacional e fiscal",
+  contratos: "Vigência, medição e conformidade",
+  pos_venda: "Relacionamento e agenda",
+  posvenda: "Relacionamento e agenda",
+  pos_venda_agenda: "Relacionamento e agenda",
+  rh: "Pessoas e obrigações",
+  governanca: "Aprovações e continuidade",
+};
+
+const COMPLETION_CRITERION_BY_AREA: Record<string, string> = {
+  corporativo: "Decisão registrada, responsável definido e impacto reavaliado na próxima rotina gerencial.",
+  financeiro: "Título tratado, datas e valores conciliados e reflexo confirmado no fluxo de caixa.",
+  financial: "Título tratado, datas e valores conciliados e reflexo confirmado no fluxo de caixa.",
+  caixa: "Programação financeira ajustada, exposição recalculada e saldo projetado novamente validado.",
+  comercial: "Oportunidade atualizada no CRM, responsável e próxima ação definidos e resultado mensurado.",
+  vendas: "Oportunidade atualizada no CRM, responsável e próxima ação definidos e resultado mensurado.",
+  crm: "Lead classificado, responsável e próxima interação registrados, sem SLA pendente.",
+  vendas_crm_sdr: "Lead classificado, responsável e próxima interação registrados, sem SLA pendente.",
+  marketing: "Ação executada, público e canal registrados e indicador de resultado atualizado.",
+  obras: "Etapa reprogramada, responsável definido e avanço físico comprovado na Gestão de Obras.",
+  construction: "Etapa reprogramada, responsável definido e avanço físico comprovado na Gestão de Obras.",
+  compras: "Solicitação tratada, alçada concluída e pedido ou contratação atualizado no sistema.",
+  procurement: "Solicitação tratada, alçada concluída e pedido ou contratação atualizado no sistema.",
+  combustiveis: "Abastecimento conciliado com comprovante, equipamento e horímetro, sem pendência documental.",
+  contratos: "Contrato, vigência, responsável e documentos atualizados, sem pendência crítica aberta.",
+  pos_venda: "Demanda respondida, encaminhamento registrado e retorno confirmado com o cliente.",
+  posvenda: "Demanda respondida, encaminhamento registrado e retorno confirmado com o cliente.",
+  pos_venda_agenda: "Demanda respondida, encaminhamento registrado e retorno confirmado com o cliente.",
+  rh: "Pendência tratada, documento ou evento registrado e conformidade conferida pela área responsável.",
+  governanca: "Deliberação registrada, evidências anexadas e trilha de auditoria concluída.",
+};
+
 const RUN_STATUS_LABELS: Record<string, string> = {
   started: "Em execução",
   completed: "Concluído",
@@ -128,6 +204,18 @@ const moneyFormat = new Intl.NumberFormat("pt-BR", {
 const weekdayFormat = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/Sao_Paulo",
   weekday: "short",
+});
+const planDateFormat = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "UTC",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+});
+const saoPauloDatePartsFormat = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
 });
 
 const DATA_FIELD_LABELS: Record<string, string> = {
@@ -275,6 +363,123 @@ function recommendationSteps(recommendation: string | null | undefined) {
     .map(step => step.trim().replace(/^./, first => first.toLocaleUpperCase("pt-BR")))
     .filter(Boolean)
     .slice(0, 5);
+}
+
+function dateKey(value: string | null | undefined) {
+  if (!value) return null;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  const parts = saoPauloDatePartsFormat.formatToParts(date);
+  const year = parts.find(part => part.type === "year")?.value;
+  const month = parts.find(part => part.type === "month")?.value;
+  const day = parts.find(part => part.type === "day")?.value;
+  return year && month && day ? `${year}-${month}-${day}` : null;
+}
+
+function parseDateKey(value: string | null | undefined) {
+  const key = dateKey(value);
+  if (!key) return null;
+  const date = new Date(`${key}T12:00:00Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isBusinessCalendarDate(date: Date) {
+  const weekday = date.getUTCDay();
+  return weekday !== 0 && weekday !== 6;
+}
+
+function moveToNextBusinessDate(value: Date) {
+  const date = new Date(value);
+  while (!isBusinessCalendarDate(date)) date.setUTCDate(date.getUTCDate() + 1);
+  return date;
+}
+
+function addBusinessDays(value: Date, days: number) {
+  const date = moveToNextBusinessDate(value);
+  let remaining = Math.max(0, Math.floor(days));
+  while (remaining > 0) {
+    date.setUTCDate(date.getUTCDate() + 1);
+    if (isBusinessCalendarDate(date)) remaining -= 1;
+  }
+  return date;
+}
+
+function countBusinessDays(start: Date, end: Date) {
+  if (end.getTime() < start.getTime()) return 0;
+  const cursor = new Date(start);
+  let total = 0;
+  while (cursor.getTime() <= end.getTime()) {
+    if (isBusinessCalendarDate(cursor)) total += 1;
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return total;
+}
+
+function planClassification(insight: ManagementInsight) {
+  const severity = normalize(insight.severity);
+  const priority = normalize(insight.priority);
+  const content = normalize(`${insight.title} ${insight.summary}`);
+  const nature = PLAN_NATURE_BY_AREA[normalize(insight.area)] || "Gestão e controle";
+  if (content.includes("cobertura") || content.includes("dados insuficientes")) return `Qualidade de dados · ${nature}`;
+  if (severity === "critical" || priority === "urgent") return `Corretiva crítica · ${nature}`;
+  if (severity === "high" || priority === "high") return `Corretiva · ${nature}`;
+  if (severity === "warning" || priority === "medium") return `Preventiva · ${nature}`;
+  return `Monitoramento · ${nature}`;
+}
+
+function normalizedPriority(insight: ManagementInsight) {
+  const priority = normalize(insight.priority);
+  if (PRIORITY_LABELS[priority]) return priority;
+  const severity = normalize(insight.severity);
+  if (severity === "critical") return "urgent";
+  if (severity === "high") return "high";
+  if (severity === "warning") return "medium";
+  return "low";
+}
+
+function recommendedBusinessDays(priority: string) {
+  if (priority === "urgent") return 1;
+  if (priority === "high") return 3;
+  if (priority === "medium") return 5;
+  return 10;
+}
+
+function recommendedPlan(insight: ManagementInsight, extractedSteps: string[]) {
+  const area = normalize(insight.area);
+  const priority = normalizedPriority(insight);
+  const defaultBusinessDays = recommendedBusinessDays(priority);
+  const start = moveToNextBusinessDate(parseDateKey(insight.acknowledged_at || insight.created_at) || new Date("2000-01-03T12:00:00Z"));
+  const registeredDueDate = parseDateKey(insight.due_at);
+  const hasUsableRegisteredDueDate = Boolean(registeredDueDate && registeredDueDate.getTime() >= start.getTime());
+  const target = hasUsableRegisteredDueDate && registeredDueDate
+    ? moveToNextBusinessDate(registeredDueDate)
+    : addBusinessDays(start, defaultBusinessDays - 1);
+  const businessDays = Math.max(1, countBusinessDays(start, target));
+  const review = addBusinessDays(start, Math.max(0, Math.ceil(businessDays / 2) - 1));
+  const completionCriterion = COMPLETION_CRITERION_BY_AREA[area]
+    || "Evidências validadas, ação executada, registro atualizado e indicador reavaliado na próxima rotina.";
+  const sequence = [
+    `Validar as evidências registradas em ${areaLabel(insight.area)}.`,
+    "Confirmar classificação, prioridade, datas e a pessoa que assumirá a função responsável.",
+    ...extractedSteps.slice(0, 2),
+    "Atualizar o item de origem e registrar o resultado do tratamento.",
+    "Reavaliar o indicador na próxima rotina de insights.",
+  ].filter((step, index, items) => items.findIndex(item => normalize(item) === normalize(step)) === index).slice(0, 6);
+
+  return {
+    classification: planClassification(insight),
+    priority,
+    priorityLabel: PRIORITY_LABELS[priority],
+    responsibleRole: RESPONSIBLE_ROLE_BY_AREA[area] || "Gestor da área responsável",
+    startAt: planDateFormat.format(start),
+    reviewAt: planDateFormat.format(review),
+    targetAt: planDateFormat.format(target),
+    businessDays,
+    deadlineOrigin: hasUsableRegisteredDueDate ? "prazo já registrado" : "prazo recomendado",
+    sequence,
+    completionCriterion,
+  };
 }
 
 function parseTrendPoints(value: unknown): InsightTrendPoint[] {
@@ -654,6 +859,7 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
           const evidence = displayItems(insight.evidence);
           const impact = displayItems(insight.impact);
           const steps = recommendationSteps(insight.recommendation);
+          const plan = recommendedPlan(insight, steps);
           const decisionSuggestion = steps[0] || insight.recommendation;
           const relatedView = VIEW_BY_AREA[normalize(insight.related_view)] || VIEW_BY_AREA[normalize(insight.area)];
           const relatedPermission = relatedView ? PERMISSION_BY_VIEW[relatedView] : null;
@@ -680,12 +886,32 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
               <section className={styles.justification}><small>JUSTIFICATIVA</small><p>{insight.summary}</p>{impact.length ? <ul>{impact.slice(0, 4).map((item, index) => <li key={`${insight.id}-i-${index}`}>{item}</li>)}</ul> : null}</section>
               <section><small>DADOS QUE EMBASAM</small>{evidence.length ? <ul>{evidence.slice(0, 5).map((item, index) => <li key={`${insight.id}-e-${index}`}>{item}</li>)}</ul> : <p>Não há evidência registrada para detalhar esta recomendação.</p>}</section>
             </div>
-            <section className={styles.nextSteps}>
-              <div><small>PRÓXIMOS PASSOS</small><strong>Sequência prática extraída da recomendação</strong></div>
-              {steps.length ? <ol>{steps.map((step, index) => <li key={`${insight.id}-step-${index}`}><b>{index + 1}</b><span>{step}</span></li>)}</ol> : <p>A rotina precisa registrar uma recomendação antes de propor próximos passos.</p>}
+            <section className={styles.recommendedPlan} aria-label={`Plano recomendado para ${insight.title}`}>
+              <header>
+                <div><small>PLANO RECOMENDADO PARA AVALIAÇÃO</small><strong>Encaminhamento sugerido pela análise</strong></div>
+                <span>Sugestão · aguardando validação</span>
+              </header>
+              <dl className={styles.planFacts}>
+                <div><dt>Classificação</dt><dd>{plan.classification}</dd></div>
+                <div data-priority={plan.priority}><dt>Prioridade sugerida</dt><dd>{plan.priorityLabel}</dd></div>
+                <div><dt>Função responsável</dt><dd>{plan.responsibleRole}</dd></div>
+                <div><dt>Início sugerido</dt><dd>{plan.startAt}</dd></div>
+                <div><dt>Revisão sugerida</dt><dd>{plan.reviewAt}</dd></div>
+                <div><dt>Conclusão sugerida</dt><dd>{plan.targetAt}<small>{plan.businessDays === 1 ? "1 dia útil" : `${plan.businessDays} dias úteis`} · {plan.deadlineOrigin}</small></dd></div>
+              </dl>
+              <div className={styles.planFlow}>
+                <section>
+                  <small>SEQUÊNCIA RECOMENDADA</small>
+                  <ol>{plan.sequence.map((step, index) => <li key={`${insight.id}-plan-step-${index}`}><b>{index + 1}</b><span>{step}</span></li>)}</ol>
+                </section>
+                <section className={styles.completionCriterion}>
+                  <small>CRITÉRIO DE CONCLUSÃO</small>
+                  <p>{plan.completionCriterion}</p>
+                </section>
+              </div>
             </section>
             <footer>
-              <div><small>Prazo de tratamento</small><strong>{formatDate(insight.due_at)}</strong></div>
+              <div><small>Prazo registrado no sistema</small><strong>{formatDate(insight.due_at)}</strong></div>
               <div className={styles.cardActions}>
                 {!isResolved(insight) && normalize(insight.status) !== "reconhecido" && mayTreat ? <button type="button" onClick={() => void updateInsight(insight, "reconhecido")} disabled={actionBusy === insight.id}>Reconhecer</button> : null}
                 {!isResolved(insight) && mayTreat ? <button type="button" onClick={() => void updateInsight(insight, "resolvido")} disabled={actionBusy === insight.id}>Marcar resolvido</button> : null}

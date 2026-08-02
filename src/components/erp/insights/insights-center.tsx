@@ -125,6 +125,72 @@ const moneyFormat = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
   maximumFractionDigits: 0,
 });
+const weekdayFormat = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Sao_Paulo",
+  weekday: "short",
+});
+
+const DATA_FIELD_LABELS: Record<string, string> = {
+  actual_pct: "Avanço realizado",
+  activities_overdue: "Atividades vencidas",
+  as_of: "Data de referência",
+  cash_conversion_risk: "Risco de conversão em caixa",
+  cash_risk: "Solicitações com risco de caixa",
+  cash_risk_entries: "Lançamentos com risco de caixa",
+  cash_risk_payrolls: "Folhas com risco de caixa",
+  continuity_risk_contracts: "Contratos com risco de continuidade",
+  continuity_risk_runs: "Execuções com risco de continuidade",
+  conversion_risk_leads: "Leads com risco de conversão",
+  cost_exposure: "Exposição de custo",
+  coverage_pct: "Cobertura observada",
+  decision: "Diretriz de decisão",
+  decision_quality: "Qualidade da decisão",
+  delayed_packages: "Etapas atrasadas",
+  document_and_reconciliation_risk: "Pendências documentais e de conciliação",
+  expiring_contracts: "Contratos próximos do vencimento",
+  financial_exposure: "Exposição financeira",
+  forecast_overrun: "Previsão acima do orçamento",
+  governance_bottleneck: "Decisões no gargalo de aprovação",
+  journey_actions_overdue: "Jornadas sem próxima ação",
+  labor_and_cash_risk: "Obrigações trabalhistas e financeiras em risco",
+  minimum_expected_pct: "Cobertura mínima esperada",
+  metric_key: "Indicador de origem",
+  missing_receipts: "Abastecimentos sem comprovante",
+  open_leads: "Leads em aberto",
+  open_receivables: "Recebíveis em aberto",
+  operational_delay_requests: "Solicitações com risco de atraso operacional",
+  overdue_amount: "Obrigações vencidas",
+  overdue_approvals: "Aprovações vencidas",
+  overdue_events: "Eventos de RH vencidos",
+  overdue_needs: "Necessidades vencidas",
+  overdue_receivables: "Recebíveis vencidos",
+  payment_and_execution_risk: "Medições com risco financeiro e de execução",
+  pending_approvals: "Aprovações pendentes",
+  pending_measurements: "Medições pendentes",
+  period_cost: "Custo do período",
+  period_fuel_cost: "Custo de combustível no período",
+  pipeline_at_risk: "Leads em risco no funil",
+  planned_pct: "Avanço previsto",
+  recent_backup_failures: "Backups recentes não concluídos",
+  schedule_variance_pct: "Desvio do cronograma",
+  sla_hours: "Limite de primeira resposta",
+  sla_overdue: "Leads com SLA vencido",
+  stagnation_hours: "Janela de estagnação",
+  stagnant_leads: "Leads sem evolução",
+  threshold_hours: "Limite de aprovação",
+  tickets_sla_overdue: "Chamados com SLA vencido",
+  unhandled_commitments: "Compromissos sem tratamento",
+  variance_pct: "Desvio de avanço",
+  window_days: "Janela de vencimento",
+  window_hours: "Janela de verificação",
+};
+
+const ACTION_VERBS = [
+  "anexar", "aplicar", "aprovar", "atribuir", "classificar", "conferir",
+  "confirmar", "concluir", "definir", "encerrar", "iniciar", "notificar",
+  "negociar", "ordenar", "registrar", "remover", "repetir", "repriorizar",
+  "reprogramar", "revisar", "segmentar", "validar", "verificar",
+];
 
 function normalize(value: string | null | undefined) {
   return String(value || "").trim().toLocaleLowerCase("pt-BR");
@@ -159,17 +225,56 @@ function formatMetricValue(value: number | null | undefined, unit: string | null
   return numberFormat.format(numeric);
 }
 
+function isBusinessDayInSaoPaulo(value = new Date()) {
+  return !["Sat", "Sun"].includes(weekdayFormat.format(value));
+}
+
+function dataFieldLabel(key: string) {
+  const normalizedKey = normalize(key).replaceAll(" ", "_");
+  if (DATA_FIELD_LABELS[normalizedKey]) return DATA_FIELD_LABELS[normalizedKey];
+  const readable = normalizedKey.replaceAll("_", " ");
+  return readable.replace(/^./, first => first.toLocaleUpperCase("pt-BR"));
+}
+
+function formatDataValue(key: string, value: string | number | boolean) {
+  const normalizedKey = normalize(key).replaceAll(" ", "_");
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  if (typeof value === "number") {
+    if (/(amount|exposure|cost|vgv|receivable|payable)/.test(normalizedKey)) return moneyFormat.format(value);
+    if (/(^|_)(pct|percentage)(_|$)/.test(normalizedKey)) return `${numberFormat.format(value)}%`;
+    if (normalizedKey.endsWith("_hours") || normalizedKey === "sla_hours") return `${numberFormat.format(value)} h`;
+    if (normalizedKey.endsWith("_days")) return `${numberFormat.format(value)} dias`;
+    return numberFormat.format(value);
+  }
+  if (/^\d{4}-\d{2}-\d{2}(?:T|$)/.test(value)) return formatDateTime(value);
+  return value.replaceAll("_", " ");
+}
+
 function displayItems(value: unknown): string[] {
   if (value === null || value === undefined || value === "") return [];
   if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return [String(value)];
   if (Array.isArray(value)) return value.flatMap(item => displayItems(item));
   if (typeof value === "object") {
     return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => {
+      if (typeof item === "string" || typeof item === "number" || typeof item === "boolean") {
+        return [`${dataFieldLabel(key)}: ${formatDataValue(key, item)}`];
+      }
       const contents = displayItems(item);
-      return contents.map(content => `${key.replaceAll("_", " ")}: ${content}`);
+      return contents.map(content => `${dataFieldLabel(key)}: ${content}`);
     });
   }
   return [];
+}
+
+function recommendationSteps(recommendation: string | null | undefined) {
+  const content = String(recommendation || "").trim().replace(/[.;]+$/, "");
+  if (!content) return [];
+  const verbPattern = ACTION_VERBS.join("|");
+  return content
+    .split(new RegExp(`;\\s*|,\\s*(?=(?:${verbPattern})\\b)`, "i"))
+    .map(step => step.trim().replace(/^./, first => first.toLocaleUpperCase("pt-BR")))
+    .filter(Boolean)
+    .slice(0, 5);
 }
 
 function parseTrendPoints(value: unknown): InsightTrendPoint[] {
@@ -292,6 +397,7 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
   const mayManage = can ? can("insights.manage") : data.membership.role === "admin";
   const mayRun = can ? can("insights.run") || mayManage : mayManage;
   const mayTreat = can ? can("insights.assign") || mayManage : mayManage;
+  const isBusinessDay = isBusinessDayInSaoPaulo();
 
   const load = useCallback(async (quiet = false) => {
     const client = getSupabase();
@@ -427,7 +533,12 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
   }
 
   async function runManualAnalysis() {
-    if (!mayRun || !window.confirm("Executar agora uma análise extraordinária de todas as áreas habilitadas?")) return;
+    if (!mayRun) return;
+    if (!isBusinessDay) {
+      setMessage("A geração de insights está disponível apenas de segunda a sexta-feira (horário de São Paulo).");
+      return;
+    }
+    if (!window.confirm("Executar agora uma análise extraordinária de todas as áreas habilitadas?")) return;
     const client = getSupabase();
     if (!client) return;
     setActionBusy("manual-run");
@@ -533,7 +644,7 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
 
     {tab === "insights" ? <section role="tabpanel" className={styles.tabPanel}>
       <header className={styles.sectionHeading}>
-        <div><small>FILA DE DECISÕES</small><h3>Evidência, impacto e ação recomendada</h3><p>O insight permanece rastreável desde a geração até a resolução.</p></div>
+        <div><small>FILA DE DECISÕES</small><h3>O que fazer, por que fazer e como começar</h3><p>Cada recomendação usa exclusivamente os dados registrados na plataforma e permanece rastreável até a resolução.</p></div>
         <span>{decisions.length} registro(s) no recorte</span>
       </header>
       {!latestRun ? <DataGap text="Nenhuma rotina foi executada. Assim que a primeira análise for concluída, os insights aparecerão aqui." /> : null}
@@ -542,6 +653,8 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
         {decisions.map(insight => {
           const evidence = displayItems(insight.evidence);
           const impact = displayItems(insight.impact);
+          const steps = recommendationSteps(insight.recommendation);
+          const decisionSuggestion = steps[0] || insight.recommendation;
           const relatedView = VIEW_BY_AREA[normalize(insight.related_view)] || VIEW_BY_AREA[normalize(insight.area)];
           const relatedPermission = relatedView ? PERMISSION_BY_VIEW[relatedView] : null;
           const mayOpenRelated = Boolean(relatedView && onOpenArea && (!relatedPermission || !can || can(relatedPermission)));
@@ -558,11 +671,19 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
               <div><h4>{insight.title}</h4><p>{insight.summary}</p></div>
               <span className={styles.confidence}><small>Confiança</small><strong>{insight.confidence_pct === null ? "—" : `${numberFormat.format(Number(insight.confidence_pct))}%`}</strong></span>
             </div>
+            <section className={styles.decisionCallout}>
+              <small>DECISÃO SUGERIDA</small>
+              <strong>{decisionSuggestion || "A rotina não registrou uma decisão sugerida."}</strong>
+            </section>
             <div className={styles.decisionEvidence}>
-              <section><small>EVIDÊNCIA</small>{evidence.length ? <ul>{evidence.slice(0, 5).map((item, index) => <li key={`${insight.id}-e-${index}`}>{item}</li>)}</ul> : <p>Não registrada.</p>}</section>
-              <section><small>IMPACTO</small>{impact.length ? <ul>{impact.slice(0, 4).map((item, index) => <li key={`${insight.id}-i-${index}`}>{item}</li>)}</ul> : <p>Não quantificado.</p>}</section>
-              <section className={styles.recommendation}><small>RECOMENDAÇÃO</small><p>{insight.recommendation || "Não registrada."}</p></section>
+              <section className={styles.recommendation}><small>O QUE A ARISA FARIA</small><p>{insight.recommendation || "A rotina não registrou recomendação para este caso."}</p></section>
+              <section className={styles.justification}><small>JUSTIFICATIVA</small><p>{insight.summary}</p>{impact.length ? <ul>{impact.slice(0, 4).map((item, index) => <li key={`${insight.id}-i-${index}`}>{item}</li>)}</ul> : null}</section>
+              <section><small>DADOS QUE EMBASAM</small>{evidence.length ? <ul>{evidence.slice(0, 5).map((item, index) => <li key={`${insight.id}-e-${index}`}>{item}</li>)}</ul> : <p>Não há evidência registrada para detalhar esta recomendação.</p>}</section>
             </div>
+            <section className={styles.nextSteps}>
+              <div><small>PRÓXIMOS PASSOS</small><strong>Sequência prática extraída da recomendação</strong></div>
+              {steps.length ? <ol>{steps.map((step, index) => <li key={`${insight.id}-step-${index}`}><b>{index + 1}</b><span>{step}</span></li>)}</ol> : <p>A rotina precisa registrar uma recomendação antes de propor próximos passos.</p>}
+            </section>
             <footer>
               <div><small>Prazo de tratamento</small><strong>{formatDate(insight.due_at)}</strong></div>
               <div className={styles.cardActions}>
@@ -613,8 +734,11 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
 
     {tab === "rotinas" ? <section role="tabpanel" className={styles.tabPanel}>
       <header className={styles.sectionHeading}>
-        <div><small>GOVERNANÇA DA ANÁLISE</small><h3>Rotinas automáticas e histórico</h3><p>Três janelas diárias, execução extraordinária e rastreabilidade de cada geração.</p></div>
-        {mayRun ? <button type="button" className={styles.manualButton} disabled={actionBusy === "manual-run"} onClick={() => void runManualAnalysis()}>{actionBusy === "manual-run" ? "Solicitando..." : "Executar análise agora"}</button> : null}
+        <div><small>GOVERNANÇA DA ANÁLISE</small><h3>Rotinas automáticas e histórico</h3><p>Três janelas por dia útil, de segunda a sexta-feira, com execução extraordinária e rastreabilidade.</p></div>
+        {mayRun ? <div className={styles.manualControl}>
+          <button type="button" className={styles.manualButton} disabled={actionBusy === "manual-run" || !isBusinessDay} onClick={() => void runManualAnalysis()}>{actionBusy === "manual-run" ? "Solicitando..." : isBusinessDay ? "Executar análise agora" : "Disponível no próximo dia útil"}</button>
+          {!isBusinessDay ? <small>A geração de insights está disponível apenas de segunda a sexta-feira (horário de São Paulo).</small> : null}
+        </div> : null}
       </header>
       <div className={styles.routineGrid}>
         <article className={styles.scheduleCard}>
@@ -622,6 +746,7 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
           <div className={styles.scheduleStatus} data-enabled={dataset.settings?.enabled === true}><i /> <strong>{dataset.settings ? dataset.settings.enabled ? "Rotina automática ativa" : "Rotina automática pausada" : "Configuração não localizada"}</strong></div>
           {dataset.settings ? <>
             <dl>
+              <div><dt>Dias de execução</dt><dd>Segunda a sexta-feira</dd></div>
               <div><dt>Horários</dt><dd>{dataset.settings.run_times?.length ? dataset.settings.run_times.join(" · ") : "Não definidos"}</dd></div>
               <div><dt>Fuso horário</dt><dd>{dataset.settings.timezone || "Não definido"}</dd></div>
               <div><dt>Próxima execução</dt><dd>{formatDateTime(dataset.settings.next_run_at)}</dd></div>

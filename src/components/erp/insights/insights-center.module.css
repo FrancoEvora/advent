@@ -401,9 +401,33 @@
 .confidence small { color: #778990; font-size: 10px; }
 .confidence strong { color: var(--ink); font-size: 20px; }
 
+.decisionCallout {
+  display: grid;
+  gap: 7px;
+  margin: 0 20px 18px;
+  padding: 17px 19px;
+  border: 1px solid #cfe1be;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f4f9ef, #edf6e6);
+}
+
+.decisionCallout small {
+  color: #56802f;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+
+.decisionCallout strong {
+  color: #274c2d;
+  font-size: clamp(17px, 2vw, 22px);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
 .decisionEvidence {
   display: grid;
-  grid-template-columns: 1fr .8fr 1.25fr;
+  grid-template-columns: 1.05fr 1.15fr 1fr;
   gap: 1px;
   border-block: 1px solid #e4ebeb;
   background: #e4ebeb;
@@ -417,6 +441,73 @@
 .decisionEvidence p { margin: 0; color: #536c76; font-size: 12px; line-height: 1.45; overflow-wrap: anywhere; }
 .decisionEvidence .recommendation { background: #f2f7ee; }
 .recommendation p { color: #365c2d; font-weight: 680; }
+.justification p { margin-bottom: 10px; color: #385664; font-weight: 650; }
+
+.nextSteps {
+  display: grid;
+  grid-template-columns: minmax(185px, .42fr) minmax(0, 1.58fr);
+  align-items: start;
+  gap: 18px;
+  padding: 17px 20px;
+  border-bottom: 1px solid #e4ebeb;
+  background: #fff;
+}
+
+.nextSteps > div {
+  display: grid;
+  gap: 5px;
+}
+
+.nextSteps > div small {
+  color: #71858e;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: .12em;
+}
+
+.nextSteps > div strong {
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.nextSteps ol {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nextSteps li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 11px;
+  background: #f3f7f6;
+  color: #45606b;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.nextSteps li b {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: #dfeeda;
+  color: #4d772e;
+  font-size: 10px;
+}
+
+.nextSteps li span,
+.nextSteps > p { overflow-wrap: anywhere; }
+.nextSteps > p { margin: 0; color: #647781; font-size: 12px; }
 
 .decisionCard > footer {
   display: flex;
@@ -512,6 +603,26 @@
 .barTrack b { background: #b3393e; z-index: 1; opacity: .9; }
 
 .manualButton { flex: 0 0 auto; min-height: 46px; padding-inline: 18px; }
+.manualControl {
+  flex: 0 1 340px;
+  display: grid;
+  justify-items: end;
+  gap: 7px;
+}
+.manualControl small {
+  max-width: 340px;
+  color: #6d8088;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: right;
+}
+.manualControl .manualButton:disabled {
+  border-color: #d6dfdf;
+  background: #e8eeee;
+  color: #708188;
+  box-shadow: none;
+  cursor: not-allowed;
+}
 .routineGrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 14px; }
 .scheduleCard,
 .methodCard,
@@ -568,7 +679,10 @@
   .biGrid,
   .routineGrid { grid-template-columns: 1fr; }
   .decisionEvidence { grid-template-columns: 1fr; }
+  .nextSteps { grid-template-columns: 1fr; }
   .sectionHeading { align-items: flex-start; flex-direction: column; }
+  .manualControl { width: 100%; flex-basis: auto; justify-items: start; }
+  .manualControl small { text-align: left; }
 }
 
 @media (max-width: 700px) {
@@ -587,7 +701,9 @@
   .chartPanel > header { align-items: flex-start; flex-direction: column; }
   .decisionCard > header time { white-space: normal; }
   .decisionTitle { grid-template-columns: 1fr; }
+  .decisionCallout { margin-inline: 14px; }
   .confidence { text-align: left; }
+  .nextSteps ol { grid-template-columns: 1fr; }
   .cardActions { width: 100%; justify-content: stretch; }
   .cardActions button { flex: 1 1 100%; }
   .metricGrid { grid-template-columns: 1fr; }
@@ -596,7 +712,8 @@
   .chartSummary { grid-template-columns: 1fr; }
   .scheduleCard dl { grid-template-columns: 1fr; }
   .runHistory > header { align-items: flex-start; flex-direction: column; }
-  .manualButton { width: 100%; }
+  .manualButton,
+  .manualControl { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,0 +1,663 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { getSupabase } from "@/lib/supabase";
+import type { ErpData, Organization, ViewId } from "../types";
+import styles from "./insights-center.module.css";
+import type {
+  InsightDataset,
+  InsightTrendPoint,
+  ManagementInsight,
+  ManagementInsightMetric,
+  ManagementInsightRun,
+  ManagementInsightSettings,
+} from "./insights-types";
+
+type InsightsCenterProps = {
+  data: ErpData;
+  organization?: Organization;
+  can?: (permission: string) => boolean;
+  onOpenArea?: (view: ViewId) => void;
+};
+
+type TabId = "insights" | "bi" | "rotinas";
+type PeriodId = "7" | "30" | "90" | "365" | "custom" | "all";
+
+const EMPTY_DATASET: InsightDataset = { runs: [], insights: [], metrics: [], settings: null };
+const RESOLVED_STATUSES = new Set(["resolvido", "descartado", "cancelado"]);
+const CRITICAL_SEVERITIES = new Set(["critical"]);
+const HIGH_PRIORITIES = new Set(["high", "urgent"]);
+
+const AREA_LABELS: Record<string, string> = {
+  corporativo: "Corporativo",
+  financeiro: "Financeiro",
+  financial: "Financeiro",
+  caixa: "Fluxo de caixa",
+  comercial: "Comercial e vendas",
+  vendas: "Comercial e vendas",
+  crm: "CRM e leads",
+  vendas_crm_sdr: "Vendas, CRM e SDR",
+  marketing: "Marketing",
+  obras: "Obras",
+  construction: "Obras",
+  compras: "Compras e serviços",
+  procurement: "Compras e serviços",
+  combustiveis: "Combustíveis",
+  contratos: "Contratos",
+  pos_venda: "Pós-venda",
+  posvenda: "Pós-venda",
+  pos_venda_agenda: "Pós-venda e agenda",
+  rh: "Pessoas e RH",
+  governanca: "Governança",
+};
+
+const VIEW_BY_AREA: Record<string, ViewId> = {
+  financeiro: "financeiro",
+  financial: "financeiro",
+  caixa: "caixa",
+  comercial: "crm",
+  vendas: "crm",
+  crm: "crm",
+  vendas_crm_sdr: "crm",
+  marketing: "crm",
+  obras: "obras",
+  construction: "obras",
+  compras: "compras",
+  procurement: "compras",
+  combustiveis: "compras",
+  contratos: "contratos_operacionais",
+  pos_venda: "posvenda",
+  posvenda: "posvenda",
+  pos_venda_agenda: "posvenda",
+  rh: "rh",
+  governanca: "auditoria",
+};
+
+const PERMISSION_BY_VIEW: Partial<Record<ViewId, string>> = {
+  financeiro: "financial.view",
+  caixa: "financial.view",
+  crm: "crm.view",
+  obras: "construction.view",
+  compras: "procurement.view",
+  contratos_operacionais: "contracts.view",
+  posvenda: "post_sale.view",
+  rh: "hr.view",
+  aprovacoes: "financial.approve",
+  auditoria: "audit.view",
+  configuracoes: "settings.manage",
+};
+
+const SEVERITY_LABELS: Record<string, string> = {
+  info: "Informativo",
+  warning: "Atenção",
+  high: "Alto",
+  critical: "Crítico",
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  novo: "Novo",
+  aberto: "Aberto",
+  reconhecido: "Reconhecido",
+  em_tratamento: "Em tratamento",
+  resolvido: "Resolvido",
+  descartado: "Descartado",
+};
+
+const RUN_STATUS_LABELS: Record<string, string> = {
+  started: "Em execução",
+  completed: "Concluído",
+  failed: "Falhou",
+};
+
+const dateTimeFormat = new Intl.DateTimeFormat("pt-BR", {
+  timeZone: "America/Sao_Paulo",
+  day: "2-digit",
+  month: "2-digit",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+});
+const dateFormat = new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" });
+const numberFormat = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 2 });
+const compactNumberFormat = new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
+const moneyFormat = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  maximumFractionDigits: 0,
+});
+
+function normalize(value: string | null | undefined) {
+  return String(value || "").trim().toLocaleLowerCase("pt-BR");
+}
+
+function areaLabel(area: string) {
+  const key = normalize(area);
+  return AREA_LABELS[key] || area.replaceAll("_", " ").replace(/^./, value => value.toUpperCase());
+}
+
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return "Não disponível";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Não disponível" : dateTimeFormat.format(date);
+}
+
+function formatDate(value: string | null | undefined) {
+  if (!value) return "Sem prazo";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "Sem prazo" : dateFormat.format(date);
+}
+
+function formatMetricValue(value: number | null | undefined, unit: string | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(Number(value))) return "—";
+  const numeric = Number(value);
+  const normalizedUnit = normalize(unit);
+  if (["brl", "currency", "money", "real", "reais"].includes(normalizedUnit)) return moneyFormat.format(numeric);
+  if (["percent", "percentage", "percentual", "%", "pct"].includes(normalizedUnit)) return `${numberFormat.format(numeric)}%`;
+  if (["count", "quantidade", "integer", "numero", "número"].includes(normalizedUnit)) return numberFormat.format(numeric);
+  if (normalizedUnit === "days" || normalizedUnit === "dias") return `${numberFormat.format(numeric)} dias`;
+  if (unit) return `${numberFormat.format(numeric)} ${unit}`;
+  return numberFormat.format(numeric);
+}
+
+function displayItems(value: unknown): string[] {
+  if (value === null || value === undefined || value === "") return [];
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") return [String(value)];
+  if (Array.isArray(value)) return value.flatMap(item => displayItems(item));
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, item]) => {
+      const contents = displayItems(item);
+      return contents.map(content => `${key.replaceAll("_", " ")}: ${content}`);
+    });
+  }
+  return [];
+}
+
+function parseTrendPoints(value: unknown): InsightTrendPoint[] {
+  const source = Array.isArray(value)
+    ? value
+    : value && typeof value === "object" && Array.isArray((value as { points?: unknown }).points)
+      ? (value as { points: unknown[] }).points
+      : [];
+
+  return source.flatMap((point, index) => {
+    if (typeof point === "number" && Number.isFinite(point)) return [{ label: String(index + 1), value: point }];
+    if (!point || typeof point !== "object") return [];
+    const candidate = point as Record<string, unknown>;
+    const numeric = Number(candidate.value);
+    if (!Number.isFinite(numeric)) return [];
+    return [{
+      value: numeric,
+      label: String(candidate.label || candidate.at || candidate.date || candidate.period || index + 1),
+      at: typeof candidate.at === "string" ? candidate.at : undefined,
+      date: typeof candidate.date === "string" ? candidate.date : undefined,
+      period: typeof candidate.period === "string" ? candidate.period : undefined,
+    }];
+  });
+}
+
+function isResolved(insight: ManagementInsight) {
+  return RESOLVED_STATUSES.has(normalize(insight.status));
+}
+
+function runInsightCount(run: ManagementInsightRun) {
+  if (!run.executive_summary || typeof run.executive_summary !== "object") return null;
+  const insights = (run.executive_summary as { insights?: unknown }).insights;
+  if (!insights || typeof insights !== "object") return null;
+  const total = Number((insights as { total?: unknown }).total);
+  return Number.isFinite(total) ? total : null;
+}
+
+function insightTimestamp(insight: ManagementInsight) {
+  return new Date(insight.created_at).getTime();
+}
+
+function findFinancialRisk(metrics: ManagementInsightMetric[], insights: ManagementInsight[]) {
+  const metric = metrics.find(item => normalize(item.metric_key) === "overdue_payables")
+    || metrics.find(item => {
+      const key = normalize(item.metric_key);
+      return key.includes("risk") && (key.includes("finance") || key.includes("cash"));
+    });
+  if (metric && metric.numeric_value !== null) return { value: Number(metric.numeric_value), unit: metric.unit || "BRL" };
+
+  const amounts = insights
+    .filter(item => ["financeiro", "financial", "caixa"].includes(normalize(item.area)) && !isResolved(item))
+    .flatMap(item => Object.entries(item.impact && typeof item.impact === "object" ? item.impact as Record<string, unknown> : {}))
+    .filter(([key]) => ["exposure", "risco", "risk"].some(term => normalize(key).includes(term)))
+    .map(([, value]) => Number(value))
+    .filter(Number.isFinite);
+  return amounts.length ? { value: amounts.reduce((sum, value) => sum + value, 0), unit: "BRL" } : null;
+}
+
+function TrendChart({ metric }: { metric: ManagementInsightMetric }) {
+  const points = parseTrendPoints(metric.trend_points);
+  if (!points.length) return <DataGap text="Esta métrica ainda não possui série histórica gravada." compact />;
+
+  const values = points.map(point => point.value);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const spread = maximum - minimum || Math.max(Math.abs(maximum), 1);
+  const left = 34;
+  const top = 20;
+  const width = 660;
+  const height = 176;
+  const coordinates = points.map((point, index) => {
+    const x = points.length === 1 ? left + width / 2 : left + (index / (points.length - 1)) * width;
+    const y = top + height - ((point.value - minimum) / spread) * height;
+    return { ...point, x, y };
+  });
+  const polyline = coordinates.map(point => `${point.x.toFixed(1)},${point.y.toFixed(1)}`).join(" ");
+
+  return <div className={styles.trendChart}>
+    <div className={styles.chartSummary}>
+      <span><small>Mínimo</small><strong>{formatMetricValue(minimum, metric.unit)}</strong></span>
+      <span><small>Atual</small><strong>{formatMetricValue(points.at(-1)?.value, metric.unit)}</strong></span>
+      <span><small>Máximo</small><strong>{formatMetricValue(maximum, metric.unit)}</strong></span>
+    </div>
+    <svg viewBox="0 0 728 236" role="img" aria-label={`Tendência de ${metric.label}`}>
+      {[0, 1, 2, 3].map(index => <line key={index} x1="34" x2="694" y1={20 + index * 58.7} y2={20 + index * 58.7} />)}
+      {coordinates.length > 1 ? <polyline points={polyline} /> : null}
+      {coordinates.map((point, index) => <g key={`${point.label}-${index}`}>
+        <circle cx={point.x} cy={point.y} r="5" />
+        {(index === 0 || index === coordinates.length - 1 || coordinates.length <= 5) ? <text x={point.x} y="225" textAnchor={index === 0 ? "start" : index === coordinates.length - 1 ? "end" : "middle"}>{point.label}</text> : null}
+      </g>)}
+    </svg>
+  </div>;
+}
+
+function DataGap({ text, compact = false }: { text: string; compact?: boolean }) {
+  return <div className={`${styles.dataGap} ${compact ? styles.dataGapCompact : ""}`} role="status">
+    <span aria-hidden="true">◇</span>
+    <div><strong>Lacuna de dados</strong><p>{text}</p></div>
+  </div>;
+}
+
+export function InsightsCenter({ data, organization, can, onOpenArea }: InsightsCenterProps) {
+  const activeOrganization = organization || data.organization;
+  const organizationId = activeOrganization.id;
+  const [dataset, setDataset] = useState<InsightDataset>(EMPTY_DATASET);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [tab, setTab] = useState<TabId>("insights");
+  const [period, setPeriod] = useState<PeriodId>("30");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
+  const [area, setArea] = useState("todos");
+  const [severity, setSeverity] = useState("todos");
+  const [status, setStatus] = useState("todos");
+  const [selectedMetricId, setSelectedMetricId] = useState("");
+
+  const mayManage = can ? can("insights.manage") : data.membership.role === "admin";
+  const mayRun = can ? can("insights.run") || mayManage : mayManage;
+  const mayTreat = can ? can("insights.assign") || mayManage : mayManage;
+
+  const load = useCallback(async (quiet = false) => {
+    const client = getSupabase();
+    if (!client) {
+      setError("A conexão com a base de dados não está disponível.");
+      setLoading(false);
+      return;
+    }
+    if (quiet) setRefreshing(true);
+    else setLoading(true);
+    setError("");
+    try {
+      const [runsResult, insightsResult, metricsResult, settingsResult] = await Promise.all([
+        client.from("insight_runs").select("*").eq("organization_id", organizationId).order("started_at", { ascending: false }).limit(100),
+        client.from("insights").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(2000),
+        client.from("insight_metrics").select("*").eq("organization_id", organizationId).order("created_at", { ascending: false }).limit(2000),
+        client.from("insight_settings").select("*").eq("organization_id", organizationId).maybeSingle(),
+      ]);
+      const failure = [runsResult, insightsResult, metricsResult, settingsResult].find(result => result.error);
+      if (failure?.error) throw failure.error;
+      setDataset({
+        runs: (runsResult.data || []) as ManagementInsightRun[],
+        insights: (insightsResult.data || []) as ManagementInsight[],
+        metrics: (metricsResult.data || []) as ManagementInsightMetric[],
+        settings: (settingsResult.data || null) as ManagementInsightSettings | null,
+      });
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Não foi possível carregar a Central de Insights.");
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [organizationId]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => { void load(); }, 0);
+    return () => window.clearTimeout(timer);
+  }, [load]);
+
+  const latestRun = dataset.runs.find(run => normalize(run.status) === "completed") || dataset.runs[0] || null;
+  const latestRunTime = latestRun?.completed_at || latestRun?.started_at || null;
+  const nextRunAt = dataset.settings?.next_run_at || null;
+  const anchorTimestamp = latestRunTime ? new Date(latestRunTime).getTime() : null;
+
+  const areas = useMemo(() => {
+    const values = new Set<string>();
+    dataset.insights.forEach(item => item.area && values.add(item.area));
+    dataset.metrics.forEach(item => item.area && values.add(item.area));
+    return [...values].sort((left, right) => areaLabel(left).localeCompare(areaLabel(right), "pt-BR"));
+  }, [dataset.insights, dataset.metrics]);
+
+  const filteredInsights = useMemo(() => dataset.insights.filter(insight => {
+    const timestamp = insightTimestamp(insight);
+    if (period !== "all" && period !== "custom" && anchorTimestamp) {
+      const cutoff = anchorTimestamp - Number(period) * 86_400_000;
+      if (timestamp < cutoff || timestamp > anchorTimestamp) return false;
+    }
+    if (period === "custom") {
+      if (from && timestamp < new Date(`${from}T00:00:00`).getTime()) return false;
+      if (to && timestamp > new Date(`${to}T23:59:59`).getTime()) return false;
+    }
+    if (area !== "todos" && insight.area !== area) return false;
+    if (severity !== "todos" && normalize(insight.severity) !== severity) return false;
+    if (status !== "todos" && normalize(insight.status) !== status) return false;
+    return true;
+  }), [anchorTimestamp, area, dataset.insights, from, period, severity, status, to]);
+
+  const currentRunMetrics = useMemo(() => {
+    const runId = latestRun?.id;
+    const source = runId ? dataset.metrics.filter(metric => metric.run_id === runId) : dataset.metrics;
+    return area === "todos" ? source : source.filter(metric => metric.area === area);
+  }, [area, dataset.metrics, latestRun?.id]);
+
+  const trendMetrics = useMemo(
+    () => currentRunMetrics.filter(metric => parseTrendPoints(metric.trend_points).length > 0),
+    [currentRunMetrics],
+  );
+  const selectedMetric = trendMetrics.find(metric => metric.id === selectedMetricId) || trendMetrics[0] || null;
+
+  const openInsights = filteredInsights.filter(insight => !isResolved(insight));
+  const criticalCount = openInsights.filter(insight => CRITICAL_SEVERITIES.has(normalize(insight.severity))).length;
+  const highPriorityCount = openInsights.filter(insight => HIGH_PRIORITIES.has(normalize(insight.priority))).length;
+  const financialRisk = findFinancialRisk(currentRunMetrics, filteredInsights);
+  const coverageMetric = currentRunMetrics.find(metric => normalize(metric.metric_key).includes("coverage") || normalize(metric.metric_key).includes("cobertura"));
+  const coverage = area === "todos"
+    ? latestRun?.data_coverage_pct ?? null
+    : coverageMetric?.numeric_value ?? null;
+
+  const decisions = useMemo(() => filteredInsights.slice().sort((left, right) => {
+    const leftClosed = isResolved(left) ? 1 : 0;
+    const rightClosed = isResolved(right) ? 1 : 0;
+    if (leftClosed !== rightClosed) return leftClosed - rightClosed;
+    const severityScore = (item: ManagementInsight) => CRITICAL_SEVERITIES.has(normalize(item.severity)) ? 3 : normalize(item.severity) === "high" ? 2 : normalize(item.severity) === "warning" ? 1 : 0;
+    return severityScore(right) - severityScore(left) || insightTimestamp(right) - insightTimestamp(left);
+  }), [filteredInsights]);
+
+  const areaComparisons = useMemo(() => {
+    const grouped = new Map<string, { total: number; critical: number; open: number }>();
+    filteredInsights.forEach(insight => {
+      const current = grouped.get(insight.area) || { total: 0, critical: 0, open: 0 };
+      current.total += 1;
+      if (CRITICAL_SEVERITIES.has(normalize(insight.severity))) current.critical += 1;
+      if (!isResolved(insight)) current.open += 1;
+      grouped.set(insight.area, current);
+    });
+    return [...grouped.entries()]
+      .map(([key, values]) => ({ area: key, ...values }))
+      .sort((left, right) => right.open - left.open || right.critical - left.critical);
+  }, [filteredInsights]);
+  const comparisonMaximum = Math.max(0, ...areaComparisons.map(item => item.total));
+
+  async function updateInsight(insight: ManagementInsight, nextStatus: "reconhecido" | "resolvido") {
+    if (!mayTreat) return;
+    const client = getSupabase();
+    if (!client) return;
+    if (nextStatus === "resolvido" && !window.confirm(`Confirmar a resolução do insight “${insight.title}”?`)) return;
+    setActionBusy(insight.id);
+    setError("");
+    setMessage("");
+    const result = await client.rpc("set_insight_status", {
+      p_insight_id: insight.id,
+      p_status: nextStatus,
+      p_note: null,
+      p_due_at: insight.due_at,
+      p_responsible_user_id: insight.responsible_user_id,
+    });
+    if (result.error) setError(result.error.message);
+    else {
+      setMessage(nextStatus === "resolvido" ? "Insight marcado como resolvido." : "Insight reconhecido e incluído no acompanhamento.");
+      await load(true);
+    }
+    setActionBusy(null);
+  }
+
+  async function runManualAnalysis() {
+    if (!mayRun || !window.confirm("Executar agora uma análise extraordinária de todas as áreas habilitadas?")) return;
+    const client = getSupabase();
+    if (!client) return;
+    setActionBusy("manual-run");
+    setError("");
+    setMessage("");
+    const result = await client.rpc("generate_management_insights", {
+      p_organization_id: organizationId,
+      p_period_start: null,
+      p_period_end: null,
+    });
+    if (result.error) setError(result.error.message);
+    else {
+      setMessage("Análise extraordinária solicitada. A nova execução será exibida no histórico.");
+      await load(true);
+    }
+    setActionBusy(null);
+  }
+
+  function openRelatedArea(insight: ManagementInsight) {
+    const view = VIEW_BY_AREA[normalize(insight.related_view)] || VIEW_BY_AREA[normalize(insight.area)];
+    const requiredPermission = view ? PERMISSION_BY_VIEW[view] : null;
+    if (view && onOpenArea && (!requiredPermission || !can || can(requiredPermission))) onOpenArea(view);
+  }
+
+  const filtersActive = period !== "30" || from || to || area !== "todos" || severity !== "todos" || status !== "todos";
+
+  if (loading) return <section className={styles.loading} aria-live="polite"><span /><strong>Consolidando dados executivos...</strong></section>;
+
+  return <div className={styles.center}>
+    <section className={styles.hero}>
+      <div className={styles.heroCopy}>
+        <small>INTELIGÊNCIA GERENCIAL CONTÍNUA</small>
+        <h2>Central de Insights e BI</h2>
+        <p>Leituras financeiras, comerciais e operacionais registradas com evidências, prioridade e encaminhamento executivo.</p>
+      </div>
+      <dl className={styles.runFacts}>
+        <div><dt>Última geração</dt><dd>{formatDateTime(latestRunTime)}</dd></div>
+        <div><dt>Próxima rotina</dt><dd>{formatDateTime(nextRunAt)}</dd></div>
+        <div><dt>Situação</dt><dd>{latestRun ? RUN_STATUS_LABELS[normalize(latestRun.status)] || latestRun.status : "Nenhuma execução"}</dd></div>
+      </dl>
+      <button type="button" className={styles.refreshButton} onClick={() => void load(true)} disabled={refreshing}>
+        <span aria-hidden="true">↻</span>{refreshing ? "Atualizando" : "Atualizar dados"}
+      </button>
+    </section>
+
+    {error ? <div className={styles.feedbackError} role="alert"><strong>Não foi possível concluir a operação.</strong><span>{error}</span></div> : null}
+    {message ? <button type="button" className={styles.feedbackSuccess} onClick={() => setMessage("")}><span>{message}</span><b aria-label="Fechar aviso">×</b></button> : null}
+
+    <section className={styles.filters} aria-label="Filtros da Central de Insights">
+      <label>Período
+        <select value={period} onChange={event => setPeriod(event.target.value as PeriodId)}>
+          <option value="7">Últimos 7 dias</option>
+          <option value="30">Últimos 30 dias</option>
+          <option value="90">Últimos 90 dias</option>
+          <option value="365">Últimos 12 meses</option>
+          <option value="all">Todo o histórico</option>
+          <option value="custom">Período personalizado</option>
+        </select>
+      </label>
+      {period === "custom" ? <>
+        <label>De<input type="date" value={from} onChange={event => setFrom(event.target.value)} /></label>
+        <label>Até<input type="date" value={to} onChange={event => setTo(event.target.value)} /></label>
+      </> : null}
+      <label>Área
+        <select value={area} onChange={event => setArea(event.target.value)}>
+          <option value="todos">Todas as áreas</option>
+          {areas.map(item => <option key={item} value={item}>{areaLabel(item)}</option>)}
+        </select>
+      </label>
+      <label>Severidade
+        <select value={severity} onChange={event => setSeverity(event.target.value)}>
+          <option value="todos">Todas</option>
+          <option value="critical">Crítica</option>
+          <option value="high">Alta</option>
+          <option value="warning">Atenção</option>
+          <option value="info">Informativa</option>
+        </select>
+      </label>
+      <label>Status
+        <select value={status} onChange={event => setStatus(event.target.value)}>
+          <option value="todos">Todos</option>
+          <option value="novo">Novo</option>
+          <option value="reconhecido">Reconhecido</option>
+          <option value="em_tratamento">Em tratamento</option>
+          <option value="resolvido">Resolvido</option>
+        </select>
+      </label>
+      {filtersActive ? <button type="button" className={styles.clearFilters} onClick={() => { setPeriod("30"); setFrom(""); setTo(""); setArea("todos"); setSeverity("todos"); setStatus("todos"); }}>Limpar filtros</button> : null}
+    </section>
+
+    <section className={styles.kpis} aria-label="Indicadores executivos do recorte">
+      <article data-tone={criticalCount ? "critical" : "stable"}><small>Decisões críticas</small><strong>{numberFormat.format(criticalCount)}</strong><span>{criticalCount ? "exigem decisão executiva" : "nenhuma no recorte"}</span></article>
+      <article data-tone={highPriorityCount ? "warning" : "stable"}><small>Alta prioridade</small><strong>{numberFormat.format(highPriorityCount)}</strong><span>insights ainda não resolvidos</span></article>
+      <article data-tone={financialRisk?.value ? "critical" : "neutral"}><small>Risco financeiro</small><strong>{financialRisk ? formatMetricValue(financialRisk.value, financialRisk.unit) : "—"}</strong><span>{financialRisk ? "exposição identificada na base" : "métrica não disponível"}</span></article>
+      <article data-tone={coverage !== null && coverage < 80 ? "warning" : "stable"}><small>Cobertura de dados</small><strong>{coverage === null ? "—" : `${numberFormat.format(Number(coverage))}%`}</strong><span>{coverage === null ? "a rotina ainda não aferiu a cobertura" : "fontes analisadas na última rotina"}</span></article>
+    </section>
+
+    <nav className={styles.tabs} role="tablist" aria-label="Visões da Central de Insights">
+      <button type="button" role="tab" aria-selected={tab === "insights"} className={tab === "insights" ? styles.activeTab : ""} onClick={() => setTab("insights")}><span>01</span>Insights</button>
+      <button type="button" role="tab" aria-selected={tab === "bi"} className={tab === "bi" ? styles.activeTab : ""} onClick={() => setTab("bi")}><span>02</span>BI executivo</button>
+      <button type="button" role="tab" aria-selected={tab === "rotinas"} className={tab === "rotinas" ? styles.activeTab : ""} onClick={() => setTab("rotinas")}><span>03</span>Rotinas</button>
+    </nav>
+
+    {tab === "insights" ? <section role="tabpanel" className={styles.tabPanel}>
+      <header className={styles.sectionHeading}>
+        <div><small>FILA DE DECISÕES</small><h3>Evidência, impacto e ação recomendada</h3><p>O insight permanece rastreável desde a geração até a resolução.</p></div>
+        <span>{decisions.length} registro(s) no recorte</span>
+      </header>
+      {!latestRun ? <DataGap text="Nenhuma rotina foi executada. Assim que a primeira análise for concluída, os insights aparecerão aqui." /> : null}
+      {latestRun && !decisions.length ? <DataGap text="Não há insights correspondentes aos filtros atuais. Ajuste o período ou aguarde a próxima execução." /> : null}
+      <div className={styles.decisionList}>
+        {decisions.map(insight => {
+          const evidence = displayItems(insight.evidence);
+          const impact = displayItems(insight.impact);
+          const relatedView = VIEW_BY_AREA[normalize(insight.related_view)] || VIEW_BY_AREA[normalize(insight.area)];
+          const relatedPermission = relatedView ? PERMISSION_BY_VIEW[relatedView] : null;
+          const mayOpenRelated = Boolean(relatedView && onOpenArea && (!relatedPermission || !can || can(relatedPermission)));
+          return <article key={insight.id} className={styles.decisionCard} data-severity={normalize(insight.severity)} data-resolved={isResolved(insight)}>
+            <header>
+              <div className={styles.badges}>
+                <span data-kind="area">{areaLabel(insight.area)}</span>
+                <span data-kind="severity">{SEVERITY_LABELS[normalize(insight.severity)] || insight.severity}</span>
+                <span data-kind="status">{STATUS_LABELS[normalize(insight.status)] || insight.status}</span>
+              </div>
+              <time dateTime={insight.created_at}>{formatDateTime(insight.created_at)}</time>
+            </header>
+            <div className={styles.decisionTitle}>
+              <div><h4>{insight.title}</h4><p>{insight.summary}</p></div>
+              <span className={styles.confidence}><small>Confiança</small><strong>{insight.confidence_pct === null ? "—" : `${numberFormat.format(Number(insight.confidence_pct))}%`}</strong></span>
+            </div>
+            <div className={styles.decisionEvidence}>
+              <section><small>EVIDÊNCIA</small>{evidence.length ? <ul>{evidence.slice(0, 5).map((item, index) => <li key={`${insight.id}-e-${index}`}>{item}</li>)}</ul> : <p>Não registrada.</p>}</section>
+              <section><small>IMPACTO</small>{impact.length ? <ul>{impact.slice(0, 4).map((item, index) => <li key={`${insight.id}-i-${index}`}>{item}</li>)}</ul> : <p>Não quantificado.</p>}</section>
+              <section className={styles.recommendation}><small>RECOMENDAÇÃO</small><p>{insight.recommendation || "Não registrada."}</p></section>
+            </div>
+            <footer>
+              <div><small>Prazo de tratamento</small><strong>{formatDate(insight.due_at)}</strong></div>
+              <div className={styles.cardActions}>
+                {!isResolved(insight) && normalize(insight.status) !== "reconhecido" && mayTreat ? <button type="button" onClick={() => void updateInsight(insight, "reconhecido")} disabled={actionBusy === insight.id}>Reconhecer</button> : null}
+                {!isResolved(insight) && mayTreat ? <button type="button" onClick={() => void updateInsight(insight, "resolvido")} disabled={actionBusy === insight.id}>Marcar resolvido</button> : null}
+                {mayOpenRelated ? <button type="button" className={styles.primaryAction} onClick={() => openRelatedArea(insight)}>Abrir área relacionada <span aria-hidden="true">→</span></button> : null}
+              </div>
+            </footer>
+          </article>;
+        })}
+      </div>
+    </section> : null}
+
+    {tab === "bi" ? <section role="tabpanel" className={styles.tabPanel}>
+      <header className={styles.sectionHeading}>
+        <div><small>BUSINESS INTELLIGENCE</small><h3>Pulso executivo integrado</h3><p>Tendências e comparativos formados somente por métricas persistidas na última rotina.</p></div>
+        <span>{currentRunMetrics.length} métrica(s) disponível(is)</span>
+      </header>
+      {!currentRunMetrics.length ? <DataGap text="A última rotina não gravou métricas para este recorte. Isso é tratado como ausência de cobertura, não como resultado zero." /> : <>
+        <div className={styles.metricGrid}>
+          {currentRunMetrics.slice(0, 8).map(metric => <article key={metric.id}>
+            <small>{areaLabel(metric.area)}</small>
+            <h4>{metric.label}</h4>
+            <strong>{formatMetricValue(metric.numeric_value, metric.unit)}</strong>
+            <span data-trend={Number(metric.variation_pct) > 0 ? "up" : Number(metric.variation_pct) < 0 ? "down" : "flat"}>
+              {metric.variation_pct === null ? "Sem comparativo" : `${Number(metric.variation_pct) > 0 ? "+" : ""}${numberFormat.format(Number(metric.variation_pct))}% vs. período anterior`}
+            </span>
+          </article>)}
+        </div>
+        <div className={styles.biGrid}>
+          <section className={styles.chartPanel}>
+            <header><div><small>TENDÊNCIA</small><h4>{selectedMetric?.label || "Série histórica"}</h4></div>{trendMetrics.length ? <label><span className={styles.srOnly}>Selecionar métrica</span><select value={selectedMetric?.id || ""} onChange={event => setSelectedMetricId(event.target.value)}>{trendMetrics.map(metric => <option key={metric.id} value={metric.id}>{metric.label}</option>)}</select></label> : null}</header>
+            {selectedMetric ? <TrendChart metric={selectedMetric} /> : <DataGap text="Nenhuma métrica do recorte possui pontos de tendência gravados." compact />}
+          </section>
+          <section className={styles.chartPanel}>
+            <header><div><small>COMPARATIVO</small><h4>Insights por área</h4></div><span>abertos / total</span></header>
+            {areaComparisons.length ? <div className={styles.areaBars}>
+              {areaComparisons.map(item => <article key={item.area}>
+                <div><strong>{areaLabel(item.area)}</strong><span>{item.open} / {item.total}</span></div>
+                <div className={styles.barTrack}><i style={{ width: `${comparisonMaximum ? (item.total / comparisonMaximum) * 100 : 0}%` }} /><b style={{ width: `${item.total ? (item.critical / item.total) * 100 : 0}%` }} /></div>
+                <small>{item.critical} crítico(s)</small>
+              </article>)}
+            </div> : <DataGap text="Não há insights no período para formar um comparativo entre áreas." compact />}
+          </section>
+        </div>
+      </>}
+    </section> : null}
+
+    {tab === "rotinas" ? <section role="tabpanel" className={styles.tabPanel}>
+      <header className={styles.sectionHeading}>
+        <div><small>GOVERNANÇA DA ANÁLISE</small><h3>Rotinas automáticas e histórico</h3><p>Três janelas diárias, execução extraordinária e rastreabilidade de cada geração.</p></div>
+        {mayRun ? <button type="button" className={styles.manualButton} disabled={actionBusy === "manual-run"} onClick={() => void runManualAnalysis()}>{actionBusy === "manual-run" ? "Solicitando..." : "Executar análise agora"}</button> : null}
+      </header>
+      <div className={styles.routineGrid}>
+        <article className={styles.scheduleCard}>
+          <small>PROGRAMAÇÃO ATIVA</small>
+          <div className={styles.scheduleStatus} data-enabled={dataset.settings?.enabled === true}><i /> <strong>{dataset.settings ? dataset.settings.enabled ? "Rotina automática ativa" : "Rotina automática pausada" : "Configuração não localizada"}</strong></div>
+          {dataset.settings ? <>
+            <dl>
+              <div><dt>Horários</dt><dd>{dataset.settings.run_times?.length ? dataset.settings.run_times.join(" · ") : "Não definidos"}</dd></div>
+              <div><dt>Fuso horário</dt><dd>{dataset.settings.timezone || "Não definido"}</dd></div>
+              <div><dt>Próxima execução</dt><dd>{formatDateTime(dataset.settings.next_run_at)}</dd></div>
+              <div><dt>Áreas cobertas</dt><dd>{dataset.settings.areas?.length ? dataset.settings.areas.map(areaLabel).join(", ") : "Não definidas"}</dd></div>
+            </dl>
+          </> : <DataGap text="As definições da rotina ainda não foram gravadas para esta organização." compact />}
+        </article>
+        <article className={styles.methodCard}>
+          <small>MÉTODO E QUALIDADE</small>
+          <h4>Leitura multidisciplinar com rastreabilidade</h4>
+          <ol>
+            <li><b>1</b><span><strong>Validação da base</strong><small>Fontes, período e cobertura são aferidos antes da análise.</small></span></li>
+            <li><b>2</b><span><strong>Cruzamento gerencial</strong><small>Financeiro, comercial e operação são comparados no mesmo ciclo.</small></span></li>
+            <li><b>3</b><span><strong>Fila de decisão</strong><small>Cada conclusão registra evidência, impacto, recomendação e confiança.</small></span></li>
+          </ol>
+        </article>
+      </div>
+      <section className={styles.runHistory}>
+        <header><div><small>HISTÓRICO DE GERAÇÕES</small><h4>Execuções recentes</h4></div><span>{dataset.runs.length} execução(ões)</span></header>
+        {dataset.runs.length ? <div className={styles.runTable} role="table" aria-label="Histórico de rotinas de insights">
+          <div role="row" className={styles.tableHeader}><span role="columnheader">Data e hora</span><span role="columnheader">Origem</span><span role="columnheader">Status</span><span role="columnheader">Cobertura</span><span role="columnheader">Resultado</span></div>
+          {dataset.runs.slice(0, 20).map(run => <div role="row" key={run.id}>
+            <span role="cell"><strong>{formatDateTime(run.completed_at || run.started_at)}</strong><small>{run.period_start || run.period_end ? `${formatDate(run.period_start)} a ${formatDate(run.period_end)}` : "Período não informado"}</small></span>
+            <span role="cell">{run.trigger_source === "scheduled" ? "Automática" : run.trigger_source === "manual" ? "Extraordinária" : run.trigger_source === "implantacao" ? "Implantação" : run.trigger_source}</span>
+            <span role="cell"><i data-status={normalize(run.status)}>{RUN_STATUS_LABELS[normalize(run.status)] || run.status}</i></span>
+            <span role="cell">{run.data_coverage_pct === null ? "—" : `${numberFormat.format(Number(run.data_coverage_pct))}%`}</span>
+            <span role="cell">{run.error_message || (runInsightCount(run) === null ? "Resultado não quantificado" : `${numberFormat.format(Number(runInsightCount(run)))} insight(s)`)}</span>
+          </div>)}
+        </div> : <DataGap text="Ainda não existe histórico de geração para esta organização." compact />}
+      </section>
+    </section> : null}
+
+    <footer className={styles.dataFooter}>
+      <span>Organização: <strong>{activeOrganization.trade_name || activeOrganization.name}</strong></span>
+      <span>Fonte: <strong>base integrada da plataforma</strong></span>
+      <span>Itens do recorte: <strong>{compactNumberFormat.format(filteredInsights.length)}</strong></span>
+    </footer>
+  </div>;
+}

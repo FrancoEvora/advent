@@ -3159,11 +3159,11 @@
 
 /* Versão efetivamente publicada; sobrescreve os pseudo-elementos legados. */
 .sidebar-version span::after {
-  content: "Versão 6.18 Enterprise";
+  content: "Versão 6.19 Enterprise";
 }
 
 .auth-v5 form > small:first-child::after {
-  content: "ACESSO SEGURO · VERSÃO 6.18";
+  content: "ACESSO SEGURO · VERSÃO 6.19";
 }
 
 @media print {

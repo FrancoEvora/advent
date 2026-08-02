@@ -6,7 +6,7 @@ export type EntryStatus = "rascunho" | "pendente" | "pago" | "recebido" | "cance
 export type ApprovalStatus = "rascunho" | "pendente" | "aprovado" | "rejeitado";
 export type CashRiskLevel = "baixo" | "medio" | "alto" | "critico";
 export type TreatmentStatus = "nao_aplicavel" | "recomendado" | "em_negociacao" | "acordo_firmado" | "concluido";
-export type ViewId = "dashboard" | "crm" | "posvenda" | "financeiro" | "caixa" | "parceiros" | "obras" | "compras" | "contratos_operacionais" | "rh" | "documentos" | "aprovacoes" | "centros" | "cadastros" | "projetos" | "usuarios" | "relatorios" | "auditoria" | "configuracoes";
+export type ViewId = "dashboard" | "insights" | "crm" | "posvenda" | "financeiro" | "caixa" | "parceiros" | "obras" | "compras" | "contratos_operacionais" | "rh" | "documentos" | "aprovacoes" | "centros" | "cadastros" | "projetos" | "usuarios" | "relatorios" | "auditoria" | "configuracoes";
 
 export interface Organization { id: string; name: string; trade_name: string | null; document: string | null; currency: string; }
 export interface Membership { id: string; organization_id: string; user_id: string; role: Role; active: boolean; permissions: Record<string, boolean>; }

@@ -21,6 +21,23 @@ export const permissionGroups:PermissionGroup[]=[
   items:[{key:"dashboard.view",label:"Visualizar dashboard"}],
  },
  {
+  name:"Insights e BI",
+  description:"Análises automáticas, alertas gerenciais e inteligência integrada de todas as áreas.",
+  items:[
+   {
+   key:"insights.view",
+   label:"Visualizar Insights e BI",
+    description:"Concede acesso à central consolidada; os acessos diretos continuam sujeitos às permissões de cada setor.",
+   },
+   {
+    key:"insights.manage",
+    label:"Executar análises e administrar insights",
+    description:"Permite solicitar uma verificação extraordinária e tratar os relatórios gerados.",
+    requires:["insights.view"],
+   },
+  ],
+ },
+ {
   name:"CRM, leads e vendas",
   description:"Funil comercial, leads, propostas, contratos de venda e campanhas.",
   items:[

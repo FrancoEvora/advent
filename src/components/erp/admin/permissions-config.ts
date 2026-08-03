@@ -43,6 +43,34 @@ export const permissionGroups:PermissionGroup[]=[
   items:[
    {key:"crm.view",label:"Visualizar CRM, leads e vendas"},
    {key:"crm.manage",label:"Operar leads, funis, propostas e campanhas",requires:["crm.view"]},
+   {
+    key:"crm.assign",
+    label:"Designar SDRs e corretores",
+    description:"Permite distribuir atendimentos e redefinir responsáveis por leads e oportunidades.",
+    requires:["crm.view"],
+   },
+   {
+    key:"crm.monitor_team",
+    label:"Monitorar atendimento da equipe comercial",
+    description:"Exibe designações, aceite, prazos, alertas, avanços e resultados de SDRs e corretores.",
+    requires:["crm.view"],
+   },
+  ],
+ },
+ {
+  name:"Agenda e atividades",
+  description:"Distribuição, acompanhamento e supervisão das atividades corporativas.",
+  items:[
+   {
+    key:"activities.assign",
+    label:"Designar atividades a outros usuários",
+    description:"Permite criar compromissos e definir outro colaborador como responsável.",
+   },
+   {
+    key:"activities.manage_team",
+    label:"Gerenciar atividades da equipe",
+    description:"Permite acompanhar e atualizar atividades de outros usuários da organização.",
+   },
   ],
  },
  {

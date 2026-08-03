@@ -11,6 +11,7 @@ import {
   type SdrLeadContext,
   type SdrOutcome,
 } from "./sdr-engine";
+import { SdrAssignmentPanel } from "./sdr-assignment-panel";
 
 type QueueFilter = "priority" | "unanswered" | "mine" | "overdue";
 
@@ -52,11 +53,13 @@ export function SdrWorkbench({
   crm,
   openActivity,
   reload,
+  can,
 }: {
   data: ErpData;
   crm: CrmEnterpriseData;
   openActivity: (lead?: CrmRecord) => void;
   reload: () => Promise<void>;
+  can: (permission: string) => boolean;
 }) {
   const [filter, setFilter] = useState<QueueFilter>("priority");
   const [selectedId, setSelectedId] = useState("");
@@ -94,93 +97,10 @@ export function SdrWorkbench({
     setError("");
   }
 
-  async function claim(context: SdrLeadContext) {
-    clearMessages();
-    if (
-      context.lead.sdr_user_id &&
-      context.lead.sdr_user_id !== data.session.user.id
-    ) {
-      setError(
-        `Este lead já está sob responsabilidade de ${context.sdrName}.`,
-      );
-      return;
-    }
-
-    const client = getSupabase();
-    if (!client) return;
-    setBusy(`claim-${context.lead.id}`);
-    const nowIso = new Date().toISOString();
-    const assignment = await client
-      .from("crm_records")
-      .update({
-        sdr_user_id: data.session.user.id,
-        owner_user_id: data.session.user.id,
-        updated_at: nowIso,
-      })
-      .eq("organization_id", data.organization.id)
-      .eq("id", context.lead.id)
-      .is("sdr_user_id", null)
-      .select("id")
-      .maybeSingle();
-
-    if (assignment.error) {
-      setError(assignment.error.message);
-      setBusy("");
-      return;
-    }
-    if (!assignment.data) {
-      setError(
-        "O lead foi assumido por outro SDR. A fila será atualizada para evitar conflito.",
-      );
-      setBusy("");
-      await reload();
-      return;
-    }
-
-    if (!context.nextPendingAction && context.recommendation.scheduledAt) {
-      const scheduled = await client.from("crm_actions").insert({
-        organization_id: data.organization.id,
-        crm_record_id: context.lead.id,
-        action_type: "tarefa",
-        channel: context.recommendation.channel,
-        subject: context.recommendation.title,
-        scheduled_at: context.recommendation.scheduledAt,
-        action_status: "pendente",
-        assigned_to: data.session.user.id,
-        created_by: data.session.user.id,
-        metadata: {
-          sdr_cadence: true,
-          source: "sdr_workbench",
-          no_external_delivery: true,
-        },
-      });
-      if (scheduled.error) {
-        setError(
-          `Lead atribuído, mas a tarefa não foi criada: ${scheduled.error.message}`,
-        );
-      } else {
-        await client
-          .from("crm_records")
-          .update({
-            next_action_at: context.recommendation.scheduledAt,
-            updated_at: nowIso,
-          })
-          .eq("organization_id", data.organization.id)
-          .eq("id", context.lead.id);
-      }
-    }
-
-    setFeedback(
-      "Lead atribuído e próxima tarefa preparada. Nenhuma mensagem foi enviada.",
-    );
-    setBusy("");
-    await reload();
-  }
-
   async function scheduleRecommendation(context: SdrLeadContext) {
     clearMessages();
     if (!context.lead.sdr_user_id) {
-      setError("Assuma o lead antes de preparar a cadência.");
+      setError("O lead ainda aguarda designação formal de SDR.");
       return;
     }
     if (context.lead.sdr_user_id !== data.session.user.id) {
@@ -247,7 +167,7 @@ export function SdrWorkbench({
   async function registerAttempt(context: SdrLeadContext) {
     clearMessages();
     if (!context.lead.sdr_user_id) {
-      setError("Assuma o lead antes de registrar uma tentativa.");
+      setError("O lead ainda aguarda designação formal de SDR.");
       return;
     }
     if (context.lead.sdr_user_id !== data.session.user.id) {
@@ -486,6 +406,14 @@ export function SdrWorkbench({
         <span>{queue.length} lead(s)</span>
       </section>
 
+      <SdrAssignmentPanel
+        data={data}
+        crm={crm}
+        selected={selected}
+        can={can}
+        reload={reload}
+      />
+
       <div className="sdr67-workspace">
         <section className="crm5-panel sdr67-queue-panel">
           <header>
@@ -629,14 +557,10 @@ export function SdrWorkbench({
                 </div>
                 <div>
                   {!selected.lead.sdr_user_id && (
-                    <button
-                      disabled={Boolean(busy)}
-                      onClick={() => claim(selected)}
-                    >
-                      {busy === `claim-${selected.lead.id}`
-                        ? "Atribuindo..."
-                        : "Assumir e preparar"}
-                    </button>
+                    <span className="sdr67-muted">
+                      Aguardando designação formal do Diretor Comercial ou
+                      Administrador.
+                    </span>
                   )}
                   {selected.recommendation.canAutomateTask &&
                     !selected.nextPendingAction &&
@@ -696,7 +620,7 @@ export function SdrWorkbench({
                     ? "Registrando..."
                     : selected.lead.sdr_user_id === data.session.user.id
                       ? "Registrar e cadenciar"
-                      : "Assuma o lead primeiro"}
+                      : "Aguarda designação"}
                 </button>
               </section>
 

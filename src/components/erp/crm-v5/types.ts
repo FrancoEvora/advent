@@ -10,7 +10,48 @@ export interface CrmFolder { id:string; organization_id:string; parent_id:string
 export interface CrmAsset { id:string; organization_id:string; folder_id:string|null; project_id:string|null; name:string; asset_type:string; description:string|null; storage_path:string|null; external_url:string|null; mime_type:string|null; size_bytes:number|null; tags:string[]; audience:string|null; active:boolean; created_at:string; }
 export interface CrmAutomation { id:string; organization_id:string; name:string; trigger_event:string; conditions:Record<string,unknown>; actions:Array<Record<string,unknown>>; active:boolean; priority:number; last_run_at:string|null; execution_count:number; }
 export interface CrmAlert { id:string; organization_id:string; crm_record_id:string|null; alert_type:string; severity:string; title:string; message:string|null; assigned_to:string|null; due_at:string|null; status:string; created_at:string; }
+export type CrmAssignmentRole = "sdr" | "corretor";
+export type CrmAssignmentStatus = "atribuida" | "aceita" | "em_atendimento" | "concluida" | "recusada" | "cancelada" | "substituida";
+export interface CrmAssignmentGuidance {
+  headline?: string;
+  objective?: string;
+  recommended_channel?: string;
+  approach?: string;
+  opening_suggestion?: string;
+  questions?: string[];
+  next_steps?: string[];
+  cautions?: string[];
+  [key:string]: unknown;
+}
+export interface CrmLeadAssignment {
+  id:string;
+  organization_id:string;
+  crm_record_id:string;
+  assignment_role:CrmAssignmentRole;
+  assigned_user_id:string;
+  assigned_by:string|null;
+  status:CrmAssignmentStatus;
+  priority:"normal"|"alta"|"urgente";
+  instructions:string|null;
+  assignment_source:"manual"|"automation"|"migration";
+  assigned_at:string;
+  acknowledge_by:string;
+  due_at:string;
+  acknowledged_at:string|null;
+  started_at:string|null;
+  completed_at:string|null;
+  cancelled_at:string|null;
+  status_updated_by:string|null;
+  user_activity_id:string|null;
+  crm_action_id:string|null;
+  guidance:CrmAssignmentGuidance;
+  guidance_version:string;
+  guidance_generated_at:string;
+  metadata:Record<string,unknown>;
+  created_at:string;
+  updated_at:string;
+}
 export interface CrmTemplate { id:string; organization_id:string; name:string; channel:string; subject:string|null; body:string; variables:string[]; category:string|null; active:boolean; }
 export interface CrmIntegration { id:string; organization_id:string; provider:string; display_name:string; status:string; configuration:Record<string,unknown>; last_sync_at:string|null; }
 export interface CrmGoal { id:string; organization_id:string; goal_type:string; user_id:string|null; team_id:string|null; project_id:string|null; period_start:string; period_end:string; target_value:number; target_quantity:number; }
-export interface CrmEnterpriseData { records:CrmRecord[]; actions:CrmAction[]; pipelines:CrmPipeline[]; stages:CrmStage[]; teams:CrmTeam[]; teamMembers:CrmTeamMember[]; campaigns:CrmCampaign[]; folders:CrmFolder[]; assets:CrmAsset[]; automations:CrmAutomation[]; alerts:CrmAlert[]; templates:CrmTemplate[]; integrations:CrmIntegration[]; goals:CrmGoal[]; }
+export interface CrmEnterpriseData { records:CrmRecord[]; actions:CrmAction[]; pipelines:CrmPipeline[]; stages:CrmStage[]; teams:CrmTeam[]; teamMembers:CrmTeamMember[]; campaigns:CrmCampaign[]; folders:CrmFolder[]; assets:CrmAsset[]; automations:CrmAutomation[]; alerts:CrmAlert[]; assignments:CrmLeadAssignment[]; templates:CrmTemplate[]; integrations:CrmIntegration[]; goals:CrmGoal[]; }

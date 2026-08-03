@@ -20,6 +20,7 @@ type Ctx = {
   members: Membership[];
   profiles: Profile[];
   session: { user: { id: string } };
+  can: (permission: string) => boolean;
 };
 
 type ChecklistItem = { label: string; done: boolean };
@@ -66,6 +67,7 @@ type Notification = {
 
 type Mode = "command" | "board" | "list" | "notifications";
 type Horizon = "all" | "late" | "today" | "week" | "month" | "undated";
+type Scope = "all" | "mine" | "crm";
 
 const columns = [
   { id: "backlog", label: "Planejadas" },
@@ -131,12 +133,13 @@ export function ActivityPlanner({ context }: { context: Ctx }) {
   const [projectFilter, setProjectFilter] = useState("todos");
   const [ownerFilter, setOwnerFilter] = useState("todos");
   const [horizon, setHorizon] = useState<Horizon>("all");
+  const [scope, setScope] = useState<Scope>("all");
   const [progressTarget, setProgressTarget] = useState<Activity | null>(null);
   const [progressPercent, setProgressPercent] = useState(0);
   const [progressNote, setProgressNote] = useState("");
 
-  const role = String(context.membership.role || "").toLowerCase();
-  const canAssign = ["admin", "administrador", "diretoria", "diretor"].includes(role);
+  const canAssign = context.can("activities.assign");
+  const canManageTeam = context.can("activities.manage_team");
   const currentUser = context.session.user.id;
   const organizationId = context.organization.id;
 
@@ -149,7 +152,7 @@ export function ActivityPlanner({ context }: { context: Ctx }) {
     context.projects.find(project => project.id === id)?.name || "Corporativo", [context.projects]);
 
   const canEdit = useCallback((item: Activity) =>
-    canAssign || item.owner_user_id === currentUser, [canAssign, currentUser]);
+    canManageTeam || item.owner_user_id === currentUser, [canManageTeam, currentUser]);
 
   const load = useCallback(async () => {
     const supabase = getSupabase();
@@ -201,10 +204,12 @@ export function ActivityPlanner({ context }: { context: Ctx }) {
       return (!query || searchable.includes(query))
         && (projectFilter === "todos" || item.project_id === projectFilter)
         && (ownerFilter === "todos" || item.owner_user_id === ownerFilter)
+        && (scope !== "mine" || item.owner_user_id === currentUser)
+        && (scope !== "crm" || item.related_type === "crm_records")
         && (horizon !== "late" || item.board_status !== "concluida")
         && matchesHorizon(item.due_at, horizon, new Date());
     });
-  }, [horizon, items, ownerFilter, projectFilter, search]);
+  }, [currentUser, horizon, items, ownerFilter, projectFilter, scope, search]);
 
   const filteredSignals = useMemo(() => {
     const query = normalize(search.trim());
@@ -405,6 +410,26 @@ export function ActivityPlanner({ context }: { context: Ctx }) {
     if (!result.error) setNotifications(current => current.map(item => ({ ...item, read_at: item.read_at || readAt })));
   }
 
+  function notificationRelatedLink(notification: Notification) {
+    const activity = notification.activity_id
+      ? items.find(item => item.id === notification.activity_id)
+      : null;
+    const metadataType = typeof notification.metadata?.related_type === "string"
+      ? notification.metadata.related_type
+      : typeof notification.metadata?.source_type === "string"
+        ? notification.metadata.source_type
+        : null;
+    const metadataId = typeof notification.metadata?.related_id === "string"
+      ? notification.metadata.related_id
+      : typeof notification.metadata?.source_id === "string"
+        ? notification.metadata.source_id
+        : null;
+    return getActivityRelatedLink(
+      metadataType || activity?.related_type,
+      metadataId || activity?.related_id,
+    );
+  }
+
   const taskCard = (item: Activity) => {
     const isOverdue = item.due_at && new Date(item.due_at) < now && item.board_status !== "concluida";
     const relatedLink = getActivityRelatedLink(item.related_type, item.related_id);
@@ -489,6 +514,7 @@ export function ActivityPlanner({ context }: { context: Ctx }) {
       <label className="agenda-search">Buscar<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Assunto, área, ação ou tag" /></label>
       <label>Empreendimento<select value={projectFilter} onChange={event => setProjectFilter(event.target.value)}><option value="todos">Todos</option>{context.projects.map(project => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
       <label>Responsável<select value={ownerFilter} onChange={event => setOwnerFilter(event.target.value)}><option value="todos">Todos</option>{context.members.map(member => <option key={member.user_id} value={member.user_id}>{memberName(member.user_id)}</option>)}</select></label>
+      <label>Escopo<select value={scope} onChange={event => setScope(event.target.value as Scope)}><option value="all">Todas as atividades</option><option value="mine">Minhas atividades</option><option value="crm">Atendimentos do CRM</option></select></label>
       <label>Horizonte<select value={horizon} onChange={event => setHorizon(event.target.value as Horizon)}><option value="all">Todos os prazos</option><option value="late">Atrasados</option><option value="today">Hoje</option><option value="week">Próximos 7 dias</option><option value="month">Próximos 30 dias</option><option value="undated">Sem prazo</option></select></label>
     </section>
 
@@ -582,11 +608,14 @@ export function ActivityPlanner({ context }: { context: Ctx }) {
     {mode === "notifications" && <section className="agenda-card">
       <div className="activity-notifications">
         <header><div><strong>Central de notificações</strong><span>Designações, alterações, progresso, contratos e atrasos.</span></div>{unread > 0 && <button onClick={markAllRead}>Marcar todas como lidas</button>}</header>
-        {notifications.map(notification => <article key={notification.id} className={notification.read_at ? "read" : "unread"} onClick={() => !notification.read_at && markRead(notification.id)}>
-          <i data-type={notification.notification_type}>●</i>
-          <div><strong>{notification.title}</strong><p>{notification.message}</p><small>{notification.actor_user_id ? `${memberName(notification.actor_user_id)} · ` : ""}{new Date(notification.created_at).toLocaleString("pt-BR")}</small></div>
-          {!notification.read_at && <b>Nova</b>}
-        </article>)}
+        {notifications.map(notification => {
+          const relatedLink = notificationRelatedLink(notification);
+          return <article key={notification.id} className={notification.read_at ? "read" : "unread"} onClick={() => !notification.read_at && markRead(notification.id)}>
+            <i data-type={notification.notification_type}>●</i>
+            <div><strong>{notification.title}</strong><p>{notification.message}</p><small>{notification.actor_user_id ? `${memberName(notification.actor_user_id)} · ` : ""}{new Date(notification.created_at).toLocaleString("pt-BR")}</small>{relatedLink && <a className="task-related-link" href={relatedLink.href} onClick={event => event.stopPropagation()}>{relatedLink.label}<span aria-hidden="true">→</span></a>}</div>
+            {!notification.read_at && <b>Nova</b>}
+          </article>;
+        })}
         {!notifications.length && <p className="empty-state">Nenhuma notificação registrada.</p>}
       </div>
     </section>}

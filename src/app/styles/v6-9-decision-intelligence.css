@@ -418,7 +418,7 @@
 
 .agenda-smart-filters {
   display: grid;
-  grid-template-columns: minmax(240px, 1.4fr) repeat(3, minmax(155px, 0.7fr));
+  grid-template-columns: minmax(220px, 1.35fr) repeat(4, minmax(140px, 0.65fr));
   gap: 10px;
   padding: 14px;
   border: 1px solid #dce5e7;

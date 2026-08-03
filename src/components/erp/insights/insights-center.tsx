@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
+import { getActivityRelatedLink } from "../activities/activity-links";
 import type { ErpData, Organization, ViewId } from "../types";
 import styles from "./insights-center.module.css";
 import type {
@@ -977,6 +978,15 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
   }
 
   function openRelatedArea(insight: ManagementInsight) {
+    const relatedLink = getActivityRelatedLink(insight.related_entity_type, insight.related_entity_id);
+    const mayOpenLink = relatedLink && (!can || (
+      can(relatedLink.permission)
+      && (!relatedLink.parentPermission || can(relatedLink.parentPermission))
+    ));
+    if (relatedLink && mayOpenLink) {
+      window.location.assign(relatedLink.href);
+      return;
+    }
     const view = VIEW_BY_AREA[normalize(insight.related_view)] || VIEW_BY_AREA[normalize(insight.area)];
     const requiredPermission = view ? PERMISSION_BY_VIEW[view] : null;
     if (view && onOpenArea && (!requiredPermission || !can || can(requiredPermission))) onOpenArea(view);
@@ -1089,9 +1099,15 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
             ? "moderate"
             : highestSnapshotBand || (registeredSeverity === "warning" ? "moderate" : registeredSeverity) || "low";
           const decisionSuggestion = steps[0] || insight.recommendation;
+          const relatedLink = getActivityRelatedLink(insight.related_entity_type, insight.related_entity_id);
           const relatedView = VIEW_BY_AREA[normalize(insight.related_view)] || VIEW_BY_AREA[normalize(insight.area)];
           const relatedPermission = relatedView ? PERMISSION_BY_VIEW[relatedView] : null;
-          const mayOpenRelated = Boolean(relatedView && onOpenArea && (!relatedPermission || !can || can(relatedPermission)));
+          const mayOpenLink = Boolean(relatedLink && (!can || (
+            can(relatedLink.permission)
+            && (!relatedLink.parentPermission || can(relatedLink.parentPermission))
+          )));
+          const mayOpenRelated = mayOpenLink || Boolean(relatedView && onOpenArea && (!relatedPermission || !can || can(relatedPermission)));
+          const relatedActionLabel = mayOpenLink ? relatedLink?.label : "Abrir área relacionada";
           return <article key={insight.id} className={styles.decisionCard} data-severity={normalize(insight.severity)} data-resolved={isResolved(insight)}>
             <header>
               <div className={styles.badges}>
@@ -1205,7 +1221,7 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
               <div className={styles.cardActions}>
                 {!isResolved(insight) && normalize(insight.status) !== "reconhecido" && mayTreat ? <button type="button" onClick={() => void updateInsight(insight, "reconhecido")} disabled={actionBusy === insight.id}>Reconhecer</button> : null}
                 {!isResolved(insight) && mayTreat ? <button type="button" onClick={() => void updateInsight(insight, "resolvido")} disabled={actionBusy === insight.id}>Marcar resolvido</button> : null}
-                {mayOpenRelated ? <button type="button" className={styles.primaryAction} onClick={() => openRelatedArea(insight)}>Abrir área relacionada <span aria-hidden="true">→</span></button> : null}
+                {mayOpenRelated ? <button type="button" className={styles.primaryAction} onClick={() => openRelatedArea(insight)}>{relatedActionLabel} <span aria-hidden="true">→</span></button> : null}
               </div>
             </footer>
           </article>;

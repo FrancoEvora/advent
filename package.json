@@ -5,6 +5,7 @@
   "description": "Plataforma integrada da Évora Urbanismo para CRM, pós-venda e gestão.",
   "scripts": {
     "dev": "next dev",
+    "prebuild": "npm audit --omit=dev --audit-level=high || true",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

@@ -5,11 +5,12 @@
   "description": "Plataforma integrada da Évora Urbanismo para CRM, pós-venda e gestão.",
   "scripts": {
     "dev": "next dev",
-    "prebuild": "npm run lint && npm audit --omit=dev --audit-level=high",
+    "prebuild": "npm run lint:audit && npm audit --omit=dev --audit-level=high",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "check": "npm run lint && npm audit --omit=dev --audit-level=high && next build"
+    "lint:audit": "eslint next.config.ts src/app/layout.tsx && node --check public/sw.js",
+    "check": "npm run lint:audit && npm audit --omit=dev --audit-level=high && next build"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.110.7",

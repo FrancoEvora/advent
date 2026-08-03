@@ -25,6 +25,8 @@ type StorageManifestItem = StorageReference & { archive_path: string; size_bytes
 type Row = Record<string, unknown>;
 
 const MAX_SOURCE_BYTES = 85 * 1024 * 1024;
+const PAGE_SIZE = 500;
+const ID_CHUNK_SIZE = 150;
 
 function text(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -62,13 +64,40 @@ export function BackupCenter({ data }: { data: ErpData }) {
     if (!result.error) setRuns((result.data || []) as Run[]);
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { void load(); }, []);
 
   async function createBackup() {
     setBusy(true);
     setMessage("");
     const client = getSupabase();
-    if (!client) { setBusy(false); return; }
+    if (!client) { setBusy(false); setMessage("Banco de dados indisponível."); return; }
+
+    const fetchPaged = async (table: string, column: string, value: string) => {
+      const rows: unknown[] = [];
+      for (let offset = 0; ; offset += PAGE_SIZE) {
+        const result = await client.from(table).select("*").eq(column, value).range(offset, offset + PAGE_SIZE - 1);
+        if (result.error) throw new Error(`${table}: ${result.error.message}`);
+        const page = result.data || [];
+        rows.push(...page);
+        if (page.length < PAGE_SIZE) break;
+      }
+      return rows;
+    };
+
+    const fetchByIds = async (table: string, column: string, ids: string[]) => {
+      const rows: unknown[] = [];
+      for (let chunkStart = 0; chunkStart < ids.length; chunkStart += ID_CHUNK_SIZE) {
+        const chunk = ids.slice(chunkStart, chunkStart + ID_CHUNK_SIZE);
+        for (let offset = 0; ; offset += PAGE_SIZE) {
+          const result = await client.from(table).select("*").in(column, chunk).range(offset, offset + PAGE_SIZE - 1);
+          if (result.error) throw new Error(`${table}: ${result.error.message}`);
+          const page = result.data || [];
+          rows.push(...page);
+          if (page.length < PAGE_SIZE) break;
+        }
+      }
+      return rows;
+    };
 
     const start = await client.from("backup_runs").insert({
       organization_id: data.organization.id,
@@ -88,41 +117,51 @@ export function BackupCenter({ data }: { data: ErpData }) {
       for (let index = 0; index < organizationTables.length; index += 1) {
         const table = organizationTables[index];
         setProgress(`Exportando ${index + 1}/${organizationTables.length}: ${table}`);
-        const query = table === "organizations"
-          ? client.from(table).select("*").eq("id", data.organization.id)
-          : client.from(table).select("*").eq("organization_id", data.organization.id);
-        const result = await query;
-        if (result.error) {
-          errors.push(`${table}: ${result.error.message}`);
+        try {
+          const rows = await fetchPaged(table, table === "organizations" ? "id" : "organization_id", data.organization.id);
+          tables[table] = rows;
+          counts[table] = rows.length;
+        } catch (error) {
+          const detail = error instanceof Error ? error.message : `${table}: falha de exportação`;
+          errors.push(detail);
           tables[table] = [];
-        } else {
-          tables[table] = result.data || [];
-          counts[table] = (result.data || []).length;
         }
       }
 
       const memberIds = data.members.map(member => member.user_id);
       if (memberIds.length) {
-        const result = await client.from("profiles").select("*").in("id", memberIds);
-        if (result.error) errors.push(`profiles: ${result.error.message}`);
-        tables.profiles = result.data || [];
-        counts.profiles = (result.data || []).length;
+        try {
+          const rows = await fetchByIds("profiles", "id", memberIds);
+          tables.profiles = rows;
+          counts.profiles = rows.length;
+        } catch (error) {
+          errors.push(error instanceof Error ? error.message : "profiles: falha de exportação");
+          tables.profiles = [];
+        }
       }
 
       const purchaseIds = ((tables.purchase_requests || []) as Array<{ id: string }>).map(item => item.id);
       if (purchaseIds.length) {
-        const result = await client.from("purchase_request_items").select("*").in("purchase_request_id", purchaseIds);
-        if (result.error) errors.push(`purchase_request_items: ${result.error.message}`);
-        tables.purchase_request_items = result.data || [];
-        counts.purchase_request_items = (result.data || []).length;
+        try {
+          const rows = await fetchByIds("purchase_request_items", "purchase_request_id", purchaseIds);
+          tables.purchase_request_items = rows;
+          counts.purchase_request_items = rows.length;
+        } catch (error) {
+          errors.push(error instanceof Error ? error.message : "purchase_request_items: falha de exportação");
+          tables.purchase_request_items = [];
+        }
       }
 
       const payrollIds = ((tables.hr_payroll_runs || []) as Array<{ id: string }>).map(item => item.id);
       if (payrollIds.length) {
-        const result = await client.from("hr_payroll_items").select("*").in("payroll_run_id", payrollIds);
-        if (result.error) errors.push(`hr_payroll_items: ${result.error.message}`);
-        tables.hr_payroll_items = result.data || [];
-        counts.hr_payroll_items = (result.data || []).length;
+        try {
+          const rows = await fetchByIds("hr_payroll_items", "payroll_run_id", payrollIds);
+          tables.hr_payroll_items = rows;
+          counts.hr_payroll_items = rows.length;
+        } catch (error) {
+          errors.push(error instanceof Error ? error.message : "hr_payroll_items: falha de exportação");
+          tables.hr_payroll_items = [];
+        }
       }
 
       const archiveEntries: ArchiveEntry[] = [];
@@ -152,11 +191,12 @@ export function BackupCenter({ data }: { data: ErpData }) {
       const generatedAt = new Date().toISOString();
       const databasePayload = {
         format: "evora-backup",
-        version: "5.7",
+        version: "6.23.1",
         generated_at: generatedAt,
         organization: data.organization,
         created_by: data.session.user.id,
         includes_original_files: true,
+        pagination: { page_size: PAGE_SIZE, complete: true },
         tables,
       };
       const summary = {
@@ -202,7 +242,7 @@ export function BackupCenter({ data }: { data: ErpData }) {
       downloadBlob(archive.blob, fileName);
       setMessage(errors.length
         ? `Backup parcial criado com ${storageManifest.length} arquivo(s). Consulte as falhas antes de limpar a base.`
-        : `Backup integral verificado: ${storageManifest.length} arquivo(s) e ${bytes(storageBytes)} de documentos.`);
+        : `Backup integral verificado: ${storageManifest.length} arquivo(s), ${bytes(storageBytes)} de documentos e exportação paginada completa.`);
       await load();
     } catch (error) {
       const errorText = error instanceof Error ? error.message : "erro";
@@ -224,10 +264,10 @@ export function BackupCenter({ data }: { data: ErpData }) {
   }
 
   return <div className="backup-center">
-    <section className="admin-heading"><div><small>CONTINUIDADE E PROTEÇÃO</small><h2>Backup integral e recuperação</h2><p>Gere um pacote verificável com banco, documentos, materiais de marketing, contratos e fotos de perfil antes de limpar a base.</p></div><button className="primary" onClick={createBackup} disabled={busy}>{busy ? "Gerando..." : "Criar backup integral"}</button></section>
-    {progress && <div className="feedback">{progress}</div>}
-    {message && <button className="notice" onClick={() => setMessage("")}>{message}</button>}
+    <section className="admin-heading"><div><small>CONTINUIDADE E PROTEÇÃO</small><h2>Backup integral e recuperação</h2><p>Gere um pacote paginado e verificável com banco, documentos, materiais de marketing, contratos e fotos de perfil antes de limpar a base.</p></div><button className="primary" onClick={createBackup} disabled={busy}>{busy ? "Gerando..." : "Criar backup integral"}</button></section>
+    {progress && <div className="feedback" role="status" aria-live="polite">{progress}</div>}
+    {message && <button className="notice" role="status" onClick={() => setMessage("")}>{message}</button>}
     <section className="admin-card"><header><div><small>HISTÓRICO</small><h3>Backups disponíveis</h3></div></header><div className="backup-list">{runs.map(run => <article key={run.id}><div><strong>{run.file_name || "Backup em processamento"}</strong><small>{dateTime(run.created_at)} · {run.size_bytes ? bytes(run.size_bytes) : "—"} · {run.table_counts?.__storage_files || 0} arquivo(s)</small></div><i data-status={run.status}>{run.status}</i><span>{run.checksum ? `SHA-256 ${run.checksum.slice(0, 16)}…` : "Aguardando verificação"}</span><button onClick={() => download(run)} disabled={!run.storage_path}>Baixar</button></article>)}{!runs.length && <p>Nenhum backup criado.</p>}</div></section>
-    <p className="hint">A limpeza da base deve utilizar somente backups com status “verificado”. Pacotes “parciais” preservam os dados, mas possuem arquivos indisponíveis e não liberam a reinicialização segura.</p>
+    <p className="hint">A limpeza da base deve utilizar somente backups com status “verificado”. Pacotes “parciais” preservam os dados, mas possuem registros ou arquivos indisponíveis e não liberam a reinicialização segura.</p>
   </div>;
 }

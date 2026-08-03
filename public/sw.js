@@ -1,4 +1,4 @@
-const CACHE = "evora-gestao-v6-23-static";
+const CACHE = "evora-gestao-v6-23-1-static";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
   "/icon.svg",
@@ -26,7 +26,6 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Nunca armazene documentos de navegação, telas autenticadas ou links temporários.
   if (request.mode === "navigate") {
     event.respondWith(fetch(request));
     return;

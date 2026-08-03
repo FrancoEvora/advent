@@ -6,7 +6,7 @@ import "./styles/v5-5-governance.css";
 import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 
 export const metadata: Metadata = {
-  title: "Évora Gestão — Versão 5.5 Enterprise",
+  title: "Évora Gestão — Versão 5.5.1 Enterprise",
   description: "Plataforma integrada da Évora Urbanismo com CRM, pós-venda, backup verificável, governança de acessos e portal do cliente.",
   manifest: "/manifest.webmanifest",
   applicationName: "Évora Gestão",
@@ -17,7 +17,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
   viewportFit: "cover",
   themeColor: "#1D5271",
 };

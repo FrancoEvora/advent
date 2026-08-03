@@ -1250,9 +1250,9 @@ export function InsightsCenter({ data, organization, can, onOpenArea }: Insights
 
     {tab === "rotinas" ? <section role="tabpanel" className={styles.tabPanel}>
       <header className={styles.sectionHeading}>
-        <div><small>GOVERNANÇA DA ANÁLISE</small><h3>Rotinas automáticas e histórico</h3><p>Três janelas por dia útil, de segunda a sexta-feira, com execução extraordinária e rastreabilidade.</p></div>
+        <div><small>GOVERNANÇA DA ANÁLISE</small><h3>Rotinas automáticas e histórico</h3><p>Uma rotina automática por dia útil, de segunda a sexta-feira, às 06:00, com execução extraordinária e rastreabilidade.</p></div>
         {mayRun ? <div className={styles.manualControl}>
-          <button type="button" className={styles.manualButton} disabled={actionBusy === "manual-run" || !isBusinessDay} onClick={() => void runManualAnalysis()}>{actionBusy === "manual-run" ? "Solicitando..." : isBusinessDay ? "Executar análise agora" : "Disponível no próximo dia útil"}</button>
+          <button type="button" className={styles.manualButton} disabled={actionBusy === "manual-run" || !isBusinessDay} onClick={() => void runManualAnalysis()}>{actionBusy === "manual-run" ? "Solicitando..." : isBusinessDay ? "Executar análise extraordinária" : "Disponível no próximo dia útil"}</button>
           {!isBusinessDay ? <small>A geração de insights está disponível apenas de segunda a sexta-feira (horário de São Paulo).</small> : null}
         </div> : null}
       </header>

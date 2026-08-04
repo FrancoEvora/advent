@@ -1,1 +1,198 @@
 .users-list-v3>article{grid-template-columns:48px minmax(0,1fr) 175px auto}.user-actions{display:flex;gap:6px;justify-content:flex-end}.security-policy-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.security-policy-grid article{display:grid;gap:7px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--green-50)}.security-policy-grid article>b{color:var(--gold-dark)}.security-policy-grid p{margin:0;color:var(--muted);font-size:12px;line-height:1.5}.approval-row-v3.cash-risk{padding:16px;border:1px solid #efd5a8;border-radius:14px;background:#fff8ea}.approval-row-v3 p{margin:4px 0;color:#6b5123;font-size:12px}.approval-row-v3 em{color:#8a531d;font-size:11px}.settings-form-v3{grid-template-columns:1fr 1fr}.settings-form-v3 .panel-title,.settings-form-v3 .switch,.settings-form-v3 .primary{grid-column:1/-1}
+
+.user-security-button {
+  border-color: #bcd1d8 !important;
+  background: #edf5f7 !important;
+  color: #1d5271 !important;
+  font-weight: 780;
+}
+
+.user-security-modal {
+  width: min(680px, 100%);
+  display: grid;
+  gap: 18px;
+}
+
+.user-security-modal > header {
+  display: grid;
+  gap: 5px;
+  padding-right: 40px;
+}
+
+.user-security-modal > header small {
+  color: #568325;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .13em;
+}
+
+.user-security-modal > header h2 {
+  margin: 0;
+  color: #17384a;
+  font-size: clamp(24px, 3vw, 34px);
+}
+
+.user-security-modal > header p {
+  margin: 0;
+  color: #6b7b83;
+}
+
+.user-security-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  padding: 5px;
+  border-radius: 13px;
+  background: #e9eeee;
+}
+
+.user-security-tabs button {
+  min-height: 42px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #52666f;
+  font-weight: 760;
+}
+
+.user-security-tabs button.active {
+  background: #fff;
+  color: #1d5271;
+  box-shadow: 0 7px 18px rgba(25, 59, 76, .08);
+}
+
+.user-security-tabs button.active.danger {
+  color: #a63737;
+}
+
+.user-security-content {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 13px;
+  padding: 18px;
+  border: 1px solid #dce4e5;
+  border-radius: 16px;
+  background: #f8faf9;
+}
+
+.user-security-content > label {
+  display: grid;
+  gap: 7px;
+  color: #34453e;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.user-security-content input:not([type="checkbox"]) {
+  width: 100%;
+  min-height: 45px;
+  padding: 10px 12px;
+  border: 1px solid #cedadc;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.user-security-callout {
+  grid-column: 1/-1;
+  display: grid;
+  gap: 4px;
+  padding: 13px 14px;
+  border-left: 4px solid #79b82b;
+  border-radius: 11px;
+  background: #edf6e5;
+  color: #31512c;
+}
+
+.user-security-callout p {
+  margin: 0;
+  color: #58705a;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.user-security-callout.danger {
+  border-left-color: #b64040;
+  background: #fff0f0;
+  color: #852f34;
+}
+
+.user-security-callout.danger p {
+  color: #87545a;
+}
+
+.user-password-toggle {
+  grid-column: 1/-1;
+  grid-template-columns: auto 1fr !important;
+  align-items: center;
+  justify-content: start;
+}
+
+.user-password-toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: #1d5271;
+}
+
+.user-password-rule {
+  grid-column: 1/-1;
+  color: #6b7b83;
+  line-height: 1.45;
+}
+
+.user-security-content.danger-zone > label {
+  grid-column: 1/-1;
+}
+
+.user-security-reauth {
+  display: grid;
+  gap: 7px;
+  padding: 15px 16px;
+  border: 1px solid #d5e1e3;
+  border-radius: 14px;
+  background: #eef5f6;
+}
+
+.user-security-reauth label {
+  display: grid;
+  gap: 7px;
+  color: #24495b;
+  font-size: 12px;
+  font-weight: 780;
+}
+
+.user-security-reauth input {
+  width: 100%;
+  min-height: 45px;
+  padding: 10px 12px;
+  border: 1px solid #bfd0d5;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.user-security-reauth small {
+  color: #60777f;
+  line-height: 1.45;
+}
+
+.user-security-modal > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
+
+@media (max-width: 760px) {
+  .user-security-content {
+    grid-template-columns: 1fr;
+  }
+
+  .user-security-content > *,
+  .user-password-toggle,
+  .user-password-rule {
+    grid-column: 1 !important;
+  }
+
+  .user-security-modal > footer {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+}

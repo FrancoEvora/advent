@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getSupabase } from "@/lib/supabase";
-import type { CrmRecord, ErpData } from "../types";
+import type { CrmAction, CrmRecord, ErpData } from "../types";
 import { money } from "../utils";
 import type { CrmEnterpriseData } from "./types";
 import { CrmKpi, CrmSectionHeader, EmptyState, Status, UserName } from "./shared";
+import { LeadCommunicationMaterialsModal } from "./lead-communication-materials-modal";
 
 function urgency(lead:CrmRecord){if(lead.record_status!=="aberta")return"neutral";if(lead.sla_due_at&&new Date(lead.sla_due_at)<new Date())return"danger";if(lead.priority==="urgente"||lead.temperature==="quente")return"warning";return"info"}
 export function LeadsView({data,crm,openLead,openActivity,focusId=null}:{data:ErpData;crm:CrmEnterpriseData;openLead:(lead?:CrmRecord)=>void;openActivity:(lead?:CrmRecord)=>void;focusId?:string|null}){
@@ -31,4 +32,131 @@ export function PipelineView({data,crm,openLead,reload}:{data:ErpData;crm:CrmEnt
 
 export function OpportunitiesView({data,crm,openLead}:{data:ErpData;crm:CrmEnterpriseData;openLead:(lead?:CrmRecord)=>void}){const rows=crm.records.filter(r=>r.record_status==="aberta"&&Number(r.probability||0)>=40).sort((a,b)=>Number(b.estimated_value||0)-Number(a.estimated_value||0));return <div className="crm5-stack"><CrmSectionHeader eyebrow="NEGÓCIOS EM ANDAMENTO" title="Oportunidades prioritárias" description="Visitas, propostas, negociações e reservas com maior probabilidade de fechamento."/><section className="crm5-panel"><div className="crm5-opportunities">{rows.map(lead=><article key={lead.id}><div><Status tone={urgency(lead)}>{lead.stage}</Status><strong>{lead.person_name}</strong><small>{data.projects.find(p=>p.id===lead.project_id)?.name||"Sem empreendimento"}</small></div><span><small>Valor potencial</small><b>{money.format(Number(lead.estimated_value||0))}</b></span><span><small>Probabilidade</small><b>{lead.probability||0}%</b></span><span><small>Responsável</small><b><UserName id={lead.broker_user_id||lead.sdr_user_id} data={data}/></b></span><button onClick={()=>openLead(lead)}>Abrir</button></article>)}{!rows.length&&<EmptyState title="Sem oportunidades maduras" text="Os leads aparecerão aqui a partir da etapa de visita."/>}</div></section></div>}
 
-export function AgendaView({data,crm,openActivity,reload}:{data:ErpData;crm:CrmEnterpriseData;openActivity:(lead?:CrmRecord)=>void;reload:()=>Promise<void>}){const items=crm.actions.slice().sort((a,b)=>String(a.scheduled_at).localeCompare(String(b.scheduled_at)));async function complete(id:string){const client=getSupabase();if(!client)return;await client.from("crm_actions").update({action_status:"concluida",completed_at:new Date().toISOString()}).eq("id",id);await reload();}return <div className="crm5-stack"><CrmSectionHeader eyebrow="CADÊNCIA COMERCIAL" title="Agenda e atividades" description="Ligações, WhatsApp, e-mails, visitas, reuniões, propostas e tarefas." actions={<button className="primary" onClick={()=>openActivity()}>+ Nova atividade</button>}/><section className="crm5-panel"><div className="crm5-agenda">{items.map(item=>{const lead=crm.records.find(r=>r.id===item.crm_record_id);const late=item.action_status==="pendente"&&item.scheduled_at&&new Date(item.scheduled_at)<new Date();return <article key={item.id} className={late?"late":""}><Status tone={item.action_status==="concluida"?"success":late?"danger":"info"}>{item.action_type}</Status><div><strong>{item.subject}</strong><small>{lead?.person_name||"Lead removido"} · {item.channel||"canal não informado"}</small></div><time>{item.scheduled_at?new Date(item.scheduled_at).toLocaleString("pt-BR",{day:"2-digit",month:"2-digit",year:"2-digit",hour:"2-digit",minute:"2-digit"}):"Sem agendamento"}</time><span><UserName id={item.assigned_to||item.created_by} data={data}/></span>{item.action_status==="pendente"?<button onClick={()=>complete(item.id)}>Concluir</button>:<b>✓</b>}</article>})}{!items.length&&<EmptyState title="Nenhuma atividade" text="Cadastre a primeira atividade comercial."/>}</div></section></div>}
+export function AgendaView({
+  data,
+  crm,
+  openActivity,
+  reload,
+}: {
+  data: ErpData;
+  crm: CrmEnterpriseData;
+  openActivity: (lead?: CrmRecord) => void;
+  reload: () => Promise<void>;
+}) {
+  const [materials, setMaterials] = useState<CrmAction | null>(null);
+  const items = crm.actions
+    .slice()
+    .sort((a, b) => String(a.scheduled_at).localeCompare(String(b.scheduled_at)));
+
+  async function complete(id: string) {
+    const client = getSupabase();
+    if (!client) return;
+    const result = await client
+      .from("crm_actions")
+      .update({
+        action_status: "concluida",
+        completed_at: new Date().toISOString(),
+      })
+      .eq("organization_id", data.organization.id)
+      .eq("id", id);
+    if (result.error) throw new Error(result.error.message);
+    await reload();
+  }
+
+  const materialLead = materials
+    ? crm.records.find((record) => record.id === materials.crm_record_id) || null
+    : null;
+
+  return (
+    <div className="crm5-stack">
+      <CrmSectionHeader
+        eyebrow="CADÊNCIA COMERCIAL"
+        title="Agenda e atividades"
+        description="Ligações, WhatsApp, e-mails, visitas, reuniões, propostas, tarefas e materiais do atendimento."
+        actions={
+          <button className="primary" onClick={() => openActivity()}>
+            + Nova atividade
+          </button>
+        }
+      />
+      <section className="crm5-panel">
+        <div className="crm5-agenda crm5-agenda-with-materials">
+          {items.map((item) => {
+            const lead = crm.records.find(
+              (record) => record.id === item.crm_record_id,
+            );
+            const late =
+              item.action_status === "pendente" &&
+              item.scheduled_at &&
+              new Date(item.scheduled_at) < new Date();
+            return (
+              <article key={item.id} className={late ? "late" : ""}>
+                <Status
+                  tone={
+                    item.action_status === "concluida"
+                      ? "success"
+                      : late
+                        ? "danger"
+                        : "info"
+                  }
+                >
+                  {item.action_type}
+                </Status>
+                <div>
+                  <strong>{item.subject}</strong>
+                  <small>
+                    {lead?.person_name || "Lead removido"} ·{" "}
+                    {item.channel || "canal não informado"}
+                  </small>
+                </div>
+                <time>
+                  {item.scheduled_at
+                    ? new Date(item.scheduled_at).toLocaleString("pt-BR", {
+                        day: "2-digit",
+                        month: "2-digit",
+                        year: "2-digit",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Sem agendamento"}
+                </time>
+                <span>
+                  <UserName
+                    id={item.assigned_to || item.created_by}
+                    data={data}
+                  />
+                </span>
+                <div className="crm5-agenda-actions">
+                  <button type="button" onClick={() => setMaterials(item)}>
+                    Materiais
+                  </button>
+                  {item.action_status === "pendente" ? (
+                    <button type="button" onClick={() => complete(item.id)}>
+                      Concluir
+                    </button>
+                  ) : (
+                    <b aria-label="Atividade concluída">✓</b>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+          {!items.length && (
+            <EmptyState
+              title="Nenhuma atividade"
+              text="Cadastre a primeira atividade comercial."
+            />
+          )}
+        </div>
+      </section>
+      {materials && (
+        <LeadCommunicationMaterialsModal
+          data={data}
+          action={materials}
+          lead={materialLead}
+          close={() => setMaterials(null)}
+        />
+      )}
+    </div>
+  );
+}

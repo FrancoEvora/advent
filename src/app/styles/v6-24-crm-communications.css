@@ -1,0 +1,367 @@
+.communication-resources {
+  display: grid;
+  gap: 16px;
+  padding: clamp(16px, 2vw, 22px);
+  border-color: #cfdedd;
+  background:
+    radial-gradient(circle at 100% 0, rgba(121, 184, 43, .09), transparent 34%),
+    linear-gradient(145deg, #fbfdfc, #f3f8f8);
+}
+
+.sidebar-version > span::after {
+  content: "Versão 6.24 Enterprise";
+}
+
+.auth-v5 form > small:first-child::after {
+  content: "ACESSO SEGURO · VERSÃO 6.24";
+}
+
+.communication-resources > header {
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.communication-resources > header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.communication-resources > header small,
+.communication-library-picker small,
+.communication-share small {
+  color: #4d7c28;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .13em;
+}
+
+.communication-resources > header h4 {
+  margin: 0;
+  color: #17384a;
+  font-size: clamp(18px, 2vw, 24px);
+}
+
+.communication-resources > header p,
+.communication-share p {
+  margin: 0;
+  color: #536c77;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.communication-resources > header > span {
+  flex: 0 0 auto;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #e6f2ec;
+  color: #27694d;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.communication-library-picker {
+  display: grid;
+  grid-template-columns: minmax(190px, .8fr) minmax(230px, 1.4fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid #cfe0d6;
+  border-radius: 14px;
+  background: #eef7f1;
+}
+
+.communication-library-picker > div {
+  display: grid;
+  gap: 4px;
+}
+
+.communication-library-picker strong {
+  color: #17384a;
+  font-size: 13px;
+}
+
+.communication-library-picker select,
+.communication-library-picker button {
+  min-height: 42px;
+}
+
+.communication-resource-forms form {
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid #dbe5e5;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, .84);
+}
+
+.communication-resource-forms form:first-child {
+  grid-template-columns: minmax(190px, 1fr) minmax(170px, 1fr) auto;
+}
+
+.communication-resource-forms form:last-child {
+  grid-template-columns: minmax(120px, .65fr) minmax(180px, 1fr) minmax(140px, .8fr) auto;
+}
+
+.communication-resource-list {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.communication-resource-list button,
+.communication-resource-list a {
+  min-width: 0;
+  min-height: 58px;
+}
+
+.communication-resource-list button > b,
+.communication-resource-list a > b {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: #e8f1f4;
+  color: #1d5271;
+}
+
+.communication-resource-list span {
+  min-width: 0;
+}
+
+.communication-resource-list span,
+.communication-resource-list small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.communication-resource-empty {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 22px;
+  border: 1px dashed #cbd8da;
+  border-radius: 12px;
+  color: #627983;
+  text-align: center;
+}
+
+.communication-share {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 18px;
+  padding: 16px;
+  border: 1px solid #bcd4c4;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #eaf6ee, #edf5f7);
+}
+
+.communication-share > div:first-child {
+  display: grid;
+  gap: 4px;
+}
+
+.communication-share strong {
+  color: #17384a;
+  font-size: 15px;
+}
+
+.communication-share > div:last-child {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.communication-share button {
+  min-height: 40px;
+  border-color: #aac6b5;
+  background: #fff;
+  color: #1d5271;
+  font-weight: 750;
+}
+
+.communication-share button:first-child {
+  background: #2d7658;
+  color: #fff;
+}
+
+.crm5-activity-material-step,
+.crm5-materials-modal {
+  display: grid;
+  gap: 16px;
+}
+
+.crm5-activity-saved {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 12px 14px;
+  border: 1px solid #c6ddcf;
+  border-radius: 13px;
+  background: #edf8f1;
+}
+
+.crm5-activity-saved > b {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #2f825e;
+  color: #fff;
+}
+
+.crm5-activity-saved > span {
+  display: grid;
+  gap: 2px;
+}
+
+.crm5-activity-saved small {
+  color: #60747c;
+}
+
+.crm5-activity-material-step > footer,
+.crm5-materials-modal > footer {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.sdr67-material-workspace {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #bcd4c4;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #edf7f1, #f4f8f9);
+}
+
+.sdr67-material-workspace > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.sdr67-material-workspace > header > div {
+  display: grid;
+  gap: 4px;
+}
+
+.sdr67-material-workspace > header small {
+  color: #4d7c28;
+  font-size: 10px;
+  font-weight: 850;
+  letter-spacing: .12em;
+}
+
+.sdr67-material-workspace > header h4 {
+  margin: 0;
+  color: #17384a;
+  font-size: 18px;
+}
+
+.sdr67-material-workspace > header p {
+  margin: 0;
+  color: #536c77;
+  font-size: 12px;
+}
+
+.sdr67-material-workspace > header > button,
+.sdr67-bottom-grid article > button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid #c4d3d6;
+  border-radius: 9px;
+  background: #fff;
+  color: #1d5271;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.sdr67-bottom-grid article {
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.crm5-agenda-with-materials article {
+  grid-template-columns: 95px minmax(200px, 1fr) 145px 145px minmax(145px, auto);
+}
+
+.crm5-agenda-actions {
+  display: flex !important;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.crm5-agenda-actions b {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: #e6f4eb;
+  color: #287552;
+}
+
+@media (max-width: 1000px) {
+  .communication-library-picker,
+  .communication-share {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .communication-resource-forms form:first-child,
+  .communication-resource-forms form:last-child {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .communication-resource-forms form button {
+    grid-column: 1 / -1;
+  }
+
+  .communication-share > div:last-child {
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 760px) {
+  .crm5-agenda-with-materials article {
+    grid-template-columns: 80px minmax(0, 1fr);
+  }
+
+  .crm5-agenda-with-materials time,
+  .crm5-agenda-with-materials article > span,
+  .crm5-agenda-with-materials .crm5-agenda-actions {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 640px) {
+  .communication-resources > header {
+    flex-direction: column;
+  }
+
+  .communication-resource-forms form:first-child,
+  .communication-resource-forms form:last-child,
+  .communication-resource-list {
+    grid-template-columns: 1fr;
+  }
+
+  .communication-share > div:last-child,
+  .communication-share button {
+    width: 100%;
+  }
+
+  .sdr67-material-workspace > header {
+    flex-direction: column;
+  }
+
+  .sdr67-bottom-grid article {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .sdr67-bottom-grid article > button {
+    grid-column: 2;
+    justify-self: start;
+  }
+}

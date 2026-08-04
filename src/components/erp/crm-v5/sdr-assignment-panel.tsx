@@ -33,6 +33,13 @@ const roleLabels: Record<CrmAssignmentRole, string> = {
   corretor: "Corretor",
 };
 
+const directorBriefPrompts = [
+  "Objetivo do contato",
+  "Condição comercial sensível",
+  "Objeção que exige cuidado",
+  "Resultado esperado",
+] as const;
+
 function dateTimeLocal(hoursAhead: number) {
   const value = new Date(Date.now() + hoursAhead * 60 * 60 * 1000);
   value.setMinutes(value.getMinutes() - value.getTimezoneOffset());
@@ -89,12 +96,27 @@ export function SdrAssignmentPanel({
     "alta",
   );
   const [dueAt, setDueAt] = useState(() => dateTimeLocal(2));
-  const [instructions, setInstructions] = useState("");
+  const [briefDraft, setBriefDraft] = useState({ leadId: "", text: "" });
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const canAssign = can("crm.assign");
   const canSupervise = can("crm.monitor_team") || canAssign;
+  const selectedLeadId = selected?.lead.id || "";
+  const instructions =
+    briefDraft.leadId === selectedLeadId ? briefDraft.text : "";
+
+  function setInstructions(
+    next: string | ((current: string) => string),
+  ) {
+    setBriefDraft((current) => {
+      const currentText =
+        current.leadId === selectedLeadId ? current.text : "";
+      const value =
+        typeof next === "function" ? next(currentText) : next;
+      return { leadId: selectedLeadId, text: value.slice(0, 4000) };
+    });
+  }
 
   const profileName = (userId: string) =>
     data.profiles.find((profile) => profile.id === userId)?.full_name ||
@@ -165,6 +187,13 @@ export function SdrAssignmentPanel({
     setError("");
   }
 
+  function addBriefPrompt(prompt: string) {
+    setInstructions((current) => {
+      const prefix = current.trim() ? `${current.trim()}\n` : "";
+      return `${prefix}${prompt}: `;
+    });
+  }
+
   async function assignLead() {
     clearMessages();
     if (!selected || !effectiveAssignedUserId || !dueAt) {
@@ -174,23 +203,30 @@ export function SdrAssignmentPanel({
     const client = getSupabase();
     if (!client) return;
     setBusy("assign");
-    const result = await client.rpc("assign_crm_record", {
-      p_crm_record_id: selected.lead.id,
-      p_assignment_role: assignmentRole,
-      p_assigned_user_id: effectiveAssignedUserId,
-      p_priority: priority,
-      p_due_at: new Date(dueAt).toISOString(),
-      p_instructions: instructions.trim() || null,
-    });
-    if (result.error) setError(result.error.message);
-    else {
+    try {
+      const result = await client.rpc("assign_crm_record", {
+        p_crm_record_id: selected.lead.id,
+        p_assignment_role: assignmentRole,
+        p_assigned_user_id: effectiveAssignedUserId,
+        p_priority: priority,
+        p_due_at: new Date(dueAt).toISOString(),
+        p_instructions: instructions.trim() || null,
+      });
+      if (result.error) throw result.error;
       setMessage(
         `${roleLabels[assignmentRole]} designado. A atividade, o alerta e o insight de abordagem foram enviados ao profissional.`,
       );
       setInstructions("");
       await reload();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível concluir a designação.",
+      );
+    } finally {
+      setBusy("");
     }
-    setBusy("");
   }
 
   async function changeStatus(
@@ -201,12 +237,12 @@ export function SdrAssignmentPanel({
     const client = getSupabase();
     if (!client) return;
     setBusy(`${assignment.id}-${nextStatus}`);
-    const result = await client.rpc("set_crm_assignment_status", {
-      p_assignment_id: assignment.id,
-      p_status: nextStatus,
-    });
-    if (result.error) setError(result.error.message);
-    else {
+    try {
+      const result = await client.rpc("set_crm_assignment_status", {
+        p_assignment_id: assignment.id,
+        p_status: nextStatus,
+      });
+      if (result.error) throw result.error;
       setMessage(
         nextStatus === "concluida"
           ? "Atendimento concluído e supervisão atualizada."
@@ -215,20 +251,33 @@ export function SdrAssignmentPanel({
             : "Designação aceita e registrada na agenda.",
       );
       await reload();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível atualizar a designação.",
+      );
+    } finally {
+      setBusy("");
     }
-    setBusy("");
   }
 
   return (
     <>
       {(message || error) && (
-        <button
+        <div
           className={`sdr67-feedback ${error ? "error" : ""}`}
-          onClick={clearMessages}
+          role={error ? "alert" : "status"}
         >
-          {error || message}
-          <span>×</span>
-        </button>
+          <span>{error || message}</span>
+          <button
+            type="button"
+            aria-label="Fechar aviso"
+            onClick={clearMessages}
+          >
+            ×
+          </button>
+        </div>
       )}
 
       {canSupervise && (
@@ -314,78 +363,126 @@ export function SdrAssignmentPanel({
         </header>
 
         {canAssign && selected && (
-          <div className="sdr67-assignment-form">
-            <label>
-              Função
-              <select
-                value={assignmentRole}
-                onChange={(event) => {
-                  const nextRole = event.target.value as CrmAssignmentRole;
-                  setAssignmentRole(nextRole);
-                  setAssignedUserId("");
-                  setDueAt(dateTimeLocal(nextRole === "sdr" ? 2 : 24));
-                }}
+          <div className="sdr67-assignment-console">
+            <div className="sdr67-assignment-fields">
+              <label>
+                Função
+                <select
+                  value={assignmentRole}
+                  onChange={(event) => {
+                    const nextRole = event.target.value as CrmAssignmentRole;
+                    setAssignmentRole(nextRole);
+                    setAssignedUserId("");
+                    setDueAt(dateTimeLocal(nextRole === "sdr" ? 2 : 24));
+                  }}
+                >
+                  <option value="sdr">SDR</option>
+                  <option value="corretor">Corretor</option>
+                </select>
+              </label>
+              <label>
+                Profissional
+                <select
+                  value={effectiveAssignedUserId}
+                  onChange={(event) => setAssignedUserId(event.target.value)}
+                >
+                  {!candidates.length && (
+                    <option value="">Nenhum profissional elegível</option>
+                  )}
+                  {candidates.map((candidate) => (
+                    <option key={candidate.user_id} value={candidate.user_id}>
+                      {profileName(candidate.user_id)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Prioridade
+                <select
+                  value={priority}
+                  onChange={(event) =>
+                    setPriority(
+                      event.target.value as "normal" | "alta" | "urgente",
+                    )
+                  }
+                >
+                  <option value="normal">Normal</option>
+                  <option value="alta">Alta</option>
+                  <option value="urgente">Urgente</option>
+                </select>
+              </label>
+              <label>
+                Prazo do atendimento
+                <input
+                  type="datetime-local"
+                  value={dueAt}
+                  min={dateTimeLocal(0)}
+                  onChange={(event) => setDueAt(event.target.value)}
+                />
+              </label>
+            </div>
+
+            <section className="sdr67-arisa-brief">
+              <header>
+                <span className="sdr67-arisa-mark" aria-hidden="true">✦</span>
+                <div>
+                  <small>BRIEFING INTELIGENTE · ARISA</small>
+                  <h4>Contexto da direção para este atendimento</h4>
+                  <p>
+                    Registre o objetivo executivo. A Arisa o combinará com o
+                    histórico do lead para montar abordagem, perguntas e sequência.
+                  </p>
+                </div>
+                <span className="sdr67-human-review">Revisão humana</span>
+              </header>
+              <div
+                className="sdr67-arisa-signals"
+                role="group"
+                aria-label="Contexto atual do lead"
               >
-                <option value="sdr">SDR</option>
-                <option value="corretor">Corretor</option>
-              </select>
-            </label>
-            <label>
-              Profissional
-              <select
-                value={effectiveAssignedUserId}
-                onChange={(event) => setAssignedUserId(event.target.value)}
-              >
-                {!candidates.length && (
-                  <option value="">Nenhum profissional elegível</option>
-                )}
-                {candidates.map((candidate) => (
-                  <option key={candidate.user_id} value={candidate.user_id}>
-                    {profileName(candidate.user_id)}
-                  </option>
+                <span><small>Criticidade</small><b>{selected.priorityLabel}</b></span>
+                <span><small>Etapa</small><b>{selected.stage?.name || selected.lead.stage}</b></span>
+                <span><small>Próxima ação</small><b>{selected.recommendation.title}</b></span>
+              </div>
+              <label>
+                Orientação estratégica opcional
+                <textarea
+                  rows={5}
+                  maxLength={4000}
+                  value={instructions}
+                  onChange={(event) => setInstructions(event.target.value)}
+                  placeholder="Ex.: priorizar entendimento da necessidade, confirmar prazo de decisão e evitar prometer condição comercial antes da validação da diretoria."
+                />
+                <span>{instructions.length}/4.000 caracteres</span>
+              </label>
+              <div className="sdr67-brief-prompts">
+                <small>Estruture rapidamente:</small>
+                {directorBriefPrompts.map((prompt) => (
+                  <button
+                    key={prompt}
+                    type="button"
+                    onClick={() => addBriefPrompt(prompt)}
+                  >
+                    + {prompt}
+                  </button>
                 ))}
-              </select>
-            </label>
-            <label>
-              Prioridade
-              <select
-                value={priority}
-                onChange={(event) =>
-                  setPriority(
-                    event.target.value as "normal" | "alta" | "urgente",
-                  )
-                }
-              >
-                <option value="normal">Normal</option>
-                <option value="alta">Alta</option>
-                <option value="urgente">Urgente</option>
-              </select>
-            </label>
-            <label>
-              Prazo do atendimento
-              <input
-                type="datetime-local"
-                value={dueAt}
-                min={dateTimeLocal(0)}
-                onChange={(event) => setDueAt(event.target.value)}
-              />
-            </label>
-            <label className="wide">
-              Diretriz do diretor
-              <textarea
-                rows={2}
-                value={instructions}
-                onChange={(event) => setInstructions(event.target.value)}
-                placeholder="Contexto, objetivo ou cuidado específico para este atendimento"
-              />
-            </label>
-            <button
-              className="primary"
-              disabled={busy === "assign" || !effectiveAssignedUserId}
-              onClick={assignLead}
-            >
-              {busy === "assign" ? "Designando..." : "Designar e enviar à agenda"}
-            </button>
+              </div>
+              <footer>
+                <p>
+                  O insight é interno, não envia mensagens automaticamente e
+                  deve ser validado pelo profissional antes do contato.
+                </p>
+                <button
+                  type="button"
+                  className="primary"
+                  disabled={busy === "assign" || !effectiveAssignedUserId}
+                  aria-busy={busy === "assign"}
+                  onClick={assignLead}
+                >
+                  {busy === "assign" ? "Preparando insight..." : "Designar com insight da Arisa"}
+                </button>
+              </footer>
+            </section>
           </div>
         )}
 
@@ -414,11 +511,12 @@ export function SdrAssignmentPanel({
                   </header>
                   {assignment.instructions && (
                     <p className="sdr67-director-note">
-                      <b>Diretriz:</b> {assignment.instructions}
+                      <b>Contexto informado pela direção</b>
+                      <span>{assignment.instructions}</span>
                     </p>
                   )}
                   <section className="sdr67-guidance">
-                    <small>INSIGHT AUTOMÁTICO PARA O DESIGNADO</small>
+                    <small>✦ INSIGHT DA ARISA PARA O DESIGNADO</small>
                     <h4>
                       {guidance.headline ||
                         guidance.objective ||

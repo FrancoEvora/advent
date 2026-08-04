@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { getSupabase } from "@/lib/supabase";
 import type { CrmRecord, ErpData } from "../types";
+import { CommunicationResources } from "../communication/communication-resources";
 import type { CrmEnterpriseData } from "./types";
 import { CrmKpi, CrmSectionHeader, EmptyState, Status } from "./shared";
 import {
@@ -67,6 +68,11 @@ export function SdrWorkbench({
   const [busy, setBusy] = useState("");
   const [feedback, setFeedback] = useState("");
   const [error, setError] = useState("");
+  const [materialAction, setMaterialAction] = useState<{
+    actionId: string;
+    leadId: string;
+    subject: string;
+  } | null>(null);
   const now = new Date();
   const contexts = buildPrioritizedSdrQueue(data, crm, now);
   const queue = (() => {
@@ -217,6 +223,8 @@ export function SdrWorkbench({
           .update(activityPayload)
           .eq("organization_id", data.organization.id)
           .eq("id", context.nextPendingAction.id)
+          .select("id")
+          .single()
       : await client.from("crm_actions").insert({
           organization_id: data.organization.id,
           crm_record_id: context.lead.id,
@@ -224,7 +232,9 @@ export function SdrWorkbench({
           scheduled_at: nowIso,
           created_by: data.session.user.id,
           ...activityPayload,
-        });
+        })
+          .select("id")
+          .single();
     if (activity.error) {
       setError(activity.error.message);
       setBusy("");
@@ -312,6 +322,15 @@ export function SdrWorkbench({
             : "Tentativa registrada. A cadência foi encerrada para revisão humana.",
       );
     }
+    setMaterialAction({
+      actionId: activity.data.id,
+      leadId: context.lead.id,
+      subject:
+        context.nextPendingAction?.subject ||
+        `${attemptNumber}ª tentativa SDR · ${outcomeLabels[outcome]}`,
+    });
+    setFilter("mine");
+    setSelectedId(context.lead.id);
     setBusy("");
     await reload();
   }
@@ -348,16 +367,22 @@ export function SdrWorkbench({
         }
       />
       {(feedback || error) && (
-        <button
+        <div
           className={`sdr67-feedback ${error ? "error" : ""}`}
-          onClick={() => {
-            setFeedback("");
-            setError("");
-          }}
+          role={error ? "alert" : "status"}
         >
-          {error || feedback}
-          <span>×</span>
-        </button>
+          <span>{error || feedback}</span>
+          <button
+            type="button"
+            aria-label="Fechar aviso"
+            onClick={() => {
+              setFeedback("");
+              setError("");
+            }}
+          >
+            ×
+          </button>
+        </div>
       )}
       <section className="crm5-kpis four">
         <CrmKpi
@@ -624,6 +649,43 @@ export function SdrWorkbench({
                 </button>
               </section>
 
+              {materialAction?.leadId === selected.lead.id && (
+                <section className="sdr67-material-workspace">
+                  <header>
+                    <div>
+                      <small>MATERIAIS DO ATENDIMENTO</small>
+                      <h4>{materialAction.subject}</h4>
+                      <p>
+                        Selecione apresentações, vídeos, arquivos ou links e
+                        prepare o encaminhamento para o lead.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMaterialAction(null)}
+                    >
+                      Fechar
+                    </button>
+                  </header>
+                  <CommunicationResources
+                    data={data}
+                    entityType="crm_action"
+                    entityId={materialAction.actionId}
+                    shareTarget={{
+                      name: selected.lead.person_name,
+                      phone:
+                        selected.lead.phone || selected.contact?.phone,
+                      email:
+                        selected.lead.email || selected.contact?.email,
+                      subject: materialAction.subject,
+                      projectId: selected.lead.project_id,
+                      message:
+                        "Conforme nosso atendimento com a Évora Urbanismo, seguem os materiais selecionados:",
+                    }}
+                  />
+                </section>
+              )}
+
               <div className="sdr67-bottom-grid">
                 <section>
                   <header>
@@ -647,6 +709,18 @@ export function SdrWorkbench({
                           <strong>{action.subject}</strong>
                           <small>{formatDate(action.scheduled_at)}</small>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setMaterialAction({
+                              actionId: action.id,
+                              leadId: selected.lead.id,
+                              subject: action.subject,
+                            })
+                          }
+                        >
+                          Materiais
+                        </button>
                       </article>
                     ))}
                     {!selected.pendingActions.length && (
@@ -678,6 +752,18 @@ export function SdrWorkbench({
                               : ""}
                           </small>
                         </div>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setMaterialAction({
+                              actionId: action.id,
+                              leadId: selected.lead.id,
+                              subject: action.subject,
+                            })
+                          }
+                        >
+                          Materiais
+                        </button>
                       </article>
                     ))}
                     {!selected.completedActions.length && (

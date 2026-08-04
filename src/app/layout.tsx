@@ -32,7 +32,7 @@ import {GlobalModuleNav} from "@/components/GlobalModuleNav";
 import {GlobalLogoutButton} from "@/components/GlobalLogoutButton";
 import {HelpMenuShortcutV63} from "@/components/erp/help/help-menu-shortcut-v63";
 
-export const metadata:Metadata={title:"Évora Gestão — Versão 6.24 Enterprise",description:"Plataforma integrada da Évora Urbanismo com insights e BI, análises gerenciais automáticas, financeiro, CRM, obras, contratos, parceiros, agenda, pós-venda e governança.",manifest:"/manifest.webmanifest",applicationName:"Évora Gestão",icons:{icon:"/icon.svg",apple:"/icon.svg"},appleWebApp:{capable:true,statusBarStyle:"default",title:"Évora Gestão"}};
+export const metadata:Metadata={title:"Évora Gestão — Versão 6.24.1 Enterprise",description:"Plataforma integrada da Évora Urbanismo com insights e BI, análises gerenciais automáticas, financeiro, CRM, obras, contratos, parceiros, agenda, pós-venda e governança.",manifest:"/manifest.webmanifest",applicationName:"Évora Gestão",icons:{icon:"/icon.svg",apple:"/icon.svg"},appleWebApp:{capable:true,statusBarStyle:"default",title:"Évora Gestão"}};
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#1D5271"};
 
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){

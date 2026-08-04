@@ -139,6 +139,11 @@
   line-height: 1.45;
 }
 
+.user-password-rule.valid {
+  color: #3f7024;
+  font-weight: 720;
+}
+
 .user-security-content.danger-zone > label {
   grid-column: 1/-1;
 }
@@ -172,6 +177,55 @@
 .user-security-reauth small {
   color: #60777f;
   line-height: 1.45;
+}
+
+.user-security-progress {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 14px;
+  border: 1px solid #c7d9df;
+  border-radius: 12px;
+  background: #edf5f7;
+  color: #24495b;
+}
+
+.user-security-progress > span {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  border: 3px solid #bdd0d6;
+  border-top-color: #1d5271;
+  border-radius: 50%;
+  animation: user-security-spin .8s linear infinite;
+}
+
+.user-security-progress div {
+  display: grid;
+  gap: 2px;
+}
+
+.user-security-progress small {
+  color: #60777f;
+}
+
+.user-security-feedback span,
+.user-security-feedback small {
+  line-height: 1.45;
+}
+
+.user-security-feedback small {
+  font-weight: 750;
+}
+
+@keyframes user-security-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-security-progress > span {
+    animation: none;
+  }
 }
 
 .user-security-modal > footer {

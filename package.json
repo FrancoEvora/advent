@@ -1,6 +1,6 @@
 {
   "name": "evora-gestao",
-  "version": "1.0.0",
+  "version": "6.23.2",
   "private": true,
   "description": "Plataforma integrada da Évora Urbanismo para CRM, pós-venda e gestão.",
   "scripts": {
@@ -8,7 +8,7 @@
     "prebuild": "npm run lint:strict && npm run lint && npm run typecheck && npm run audit:prod",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --max-warnings=157",
+    "lint": "eslint . --max-warnings=156",
     "lint:strict": "eslint next.config.ts src/app/layout.tsx --max-warnings=0 && node --check public/sw.js",
     "typecheck": "tsc --noEmit",
     "audit:prod": "npm audit --omit=dev --audit-level=high",

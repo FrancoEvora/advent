@@ -1,0 +1,1 @@
+Évora Gestão 6.24.2: auditoria incremental de qualidade, segurança, performance, acessibilidade e integridade financeira. Homologação aprovada com lint integral sem erros, TypeScript e build aprovados; pendências não bloqueantes documentadas no changelog.

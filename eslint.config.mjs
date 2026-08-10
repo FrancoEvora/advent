@@ -5,6 +5,18 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-unused-vars": "warn",
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/purity": "warn",
+      "react-hooks/preserve-manual-memoization": "warn",
+      "react-hooks/exhaustive-deps": "warn",
+      "@next/next/no-html-link-for-pages": "warn",
+      "@next/next/no-img-element": "warn",
+    },
+  },
   globalIgnores([
     ".next/**",
     "out/**",

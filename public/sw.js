@@ -1,4 +1,4 @@
-const CACHE = "evora-gestao-v6-24-2-static";
+const CACHE = "evora-gestao-v6-24-3-static";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
   "/icon.svg",

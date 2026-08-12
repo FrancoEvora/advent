@@ -42,7 +42,31 @@ export const permissionGroups:PermissionGroup[]=[
   description:"Funil comercial, leads, propostas, contratos de venda e campanhas.",
   items:[
    {key:"crm.view",label:"Visualizar CRM, leads e vendas"},
+   {
+    key:"crm.attribution.view",
+    label:"Visualizar atribuição detalhada de mídia",
+    description:"Exibe IDs e snapshots de campanha, conjunto, anúncio, criativo e formulário vinculados ao lead.",
+    requires:["crm.view"],
+   },
    {key:"crm.manage",label:"Operar leads, funis, propostas e campanhas",requires:["crm.view"]},
+   {
+    key:"crm.integrations.manage",
+    label:"Configurar integrações comerciais",
+    description:"Permite administrar origens externas e, nas próximas etapas, conexões e rotas do Hub de Integração.",
+    requires:["crm.view"],
+   },
+   {
+    key:"crm.copilot.use",
+    label:"Usar a Vitória em modo copiloto",
+    description:"Permite solicitar análises e rascunhos com base no contexto autorizado do lead.",
+    requires:["crm.view"],
+   },
+   {
+    key:"crm.copilot.approve_send",
+    label:"Aprovar e enviar respostas da Vitória",
+    description:"Autoriza a revisão humana final antes do envio e do registro no histórico.",
+    requires:["crm.view","crm.copilot.use"],
+   },
    {
     key:"crm.assign",
     label:"Designar SDRs e corretores",

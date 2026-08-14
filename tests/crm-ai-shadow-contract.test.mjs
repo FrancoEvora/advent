@@ -57,6 +57,23 @@ test("queue hardening recovers exhausted leases and rejects idempotency collisio
   );
 });
 
+test("AI table hardening keeps clients denied and FK paths indexed", async () => {
+  const sql = await source(
+    "supabase/migrations/20260814211000_crm_ai_security_performance_hardening.sql",
+  );
+
+  for (const table of ["crm_ai_jobs", "crm_conversations", "crm_messages"]) {
+    assert.match(sql, new RegExp(`${table}_deny_client_access`, "i"));
+  }
+  assert.match(sql, /as restrictive/i);
+  assert.match(sql, /to anon, authenticated/i);
+  assert.match(sql, /using \(false\)/i);
+  assert.match(sql, /with check \(false\)/i);
+  assert.match(sql, /crm_ai_jobs_contact_idx/i);
+  assert.match(sql, /crm_conversations_contact_idx/i);
+  assert.match(sql, /crm_conversations_assigned_idx/i);
+});
+
 test("OpenAI shadow request minimizes data and never persists provider state", async () => {
   const code = await source("src/lib/ai/openai.ts");
 

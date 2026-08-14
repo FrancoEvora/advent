@@ -141,8 +141,9 @@ begin
    where job.status in ('pending', 'retry')
      and job.attempt_count >= job.max_attempts;
 
-  -- Se o worker caiu depois de consumir a ultima tentativa, o lease expirado
-  -- encerra o job como falha. Assim nenhum registro fica preso em processing.
+  -- Se o worker caiu depois de consumir a ultima tentativa, um lease ausente
+  -- ou expirado encerra o job como falha. Assim nenhum registro fica preso em
+  -- processing por corrupcao parcial ou queda do worker.
   update public.crm_ai_jobs job
      set status = 'failed',
          locked_at = null,
@@ -154,8 +155,10 @@ begin
          updated_at = now()
    where job.status = 'processing'
      and job.attempt_count >= job.max_attempts
-     and job.locked_at is not null
-     and job.locked_at < now() - make_interval(secs => safe_lease_seconds);
+     and (
+       job.locked_at is null
+       or job.locked_at < now() - make_interval(secs => safe_lease_seconds)
+     );
 
   return query
     with candidates as (
@@ -166,8 +169,10 @@ begin
            (job.status in ('pending', 'retry') and job.available_at <= now())
            or (
              job.status = 'processing'
-             and job.locked_at is not null
-             and job.locked_at < now() - make_interval(secs => safe_lease_seconds)
+             and (
+               job.locked_at is null
+               or job.locked_at < now() - make_interval(secs => safe_lease_seconds)
+             )
            )
          )
        order by job.available_at, job.created_at, job.id

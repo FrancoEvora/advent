@@ -17,4 +17,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - run: node --test tests/crm-ai-runtime-hardening.test.mjs
+      - run: >-
+          node --test
+          tests/crm-ai-runtime-hardening.test.mjs
+          tests/crm-ai-supervised-review.test.mjs

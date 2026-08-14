@@ -23,6 +23,7 @@ type Obj = Record<string, unknown>;
 class ApiError extends Error {
   status: number;
   code: string;
+
   constructor(message: string, status = 400, code = "AI_RUNTIME_REQUEST_FAILED") {
     super(message);
     this.name = "ApiError";
@@ -38,7 +39,9 @@ function isObj(value: unknown): value is Obj {
 function publicConfig() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
-  if (!url || !key) throw new ApiError("Supabase público indisponível.", 503, "SUPABASE_PUBLIC_UNAVAILABLE");
+  if (!url || !key) {
+    throw new ApiError("Supabase público indisponível.", 503, "SUPABASE_PUBLIC_UNAVAILABLE");
+  }
   return { url, key };
 }
 
@@ -66,19 +69,50 @@ async function userClient(request: NextRequest) {
     global: { headers: { Authorization: `Bearer ${token}` } },
   });
   const user = await client.auth.getUser(token);
-  if (user.error || !user.data.user) throw new ApiError("Sessão expirada.", 401, "SESSION_EXPIRED");
+  if (user.error || !user.data.user) {
+    throw new ApiError("Sessão expirada.", 401, "SESSION_EXPIRED");
+  }
   return client;
 }
 
+function safeDate(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function safeVersion(value: unknown): number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : 0;
+}
+
 function sanitizedStatus(data: unknown) {
-  if (!isObj(data)) throw new ApiError("Contrato de runtime inválido.", 503, "AI_RUNTIME_INVALID_CONTRACT");
-  // Defesa adicional: mesmo que a RPC mude no futuro, campos com segredo nunca
-  // atravessam esta API administrativa.
-  const { api_key: _apiKey, access_token: _accessToken, secret: _secret, ...safe } = data;
-  void _apiKey;
+  if (!isObj(data)) {
+    throw new ApiError("Contrato de runtime inválido.", 503, "AI_RUNTIME_INVALID_CONTRACT");
+  }
+
+  const rawApiStatus = isObj(data.api_key) ? data.api_key : null;
+  const apiStatus = {
+    configured: rawApiStatus?.configured === true,
+    version: safeVersion(rawApiStatus?.version),
+    configured_at: safeDate(rawApiStatus?.configured_at),
+    updated_at: safeDate(rawApiStatus?.updated_at),
+  };
+
+  // Mesmo que a RPC seja alterada no futuro, nenhum campo bruto com nome de
+  // segredo atravessa a API. `api_key` é reconstruído apenas com metadados.
+  const {
+    api_key: _rawApiKey,
+    access_token: _accessToken,
+    secret: _secret,
+    decrypted_secret: _decryptedSecret,
+    ...safe
+  } = data;
+  void _rawApiKey;
   void _accessToken;
   void _secret;
-  return safe;
+  void _decryptedSecret;
+
+  return { ...safe, api_key: apiStatus };
 }
 
 async function configureWorkerRuntime() {
@@ -92,8 +126,50 @@ async function configureWorkerRuntime() {
     p_rotate_secret: false,
   });
   if (result.error) {
-    throw new ApiError("Worker da Vitória não pôde ser preparado.", 503, "AI_WORKER_RUNTIME_UNAVAILABLE");
+    throw new ApiError(
+      "Worker da Vitória não pôde ser preparado.",
+      503,
+      "AI_WORKER_RUNTIME_UNAVAILABLE",
+    );
   }
+}
+
+function optionalBoolean(value: unknown, field: string): boolean | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "boolean") {
+    throw new ApiError(`${field} inválido.`, 400, "INVALID_ENABLED_STATE");
+  }
+  return value;
+}
+
+function optionalModel(value: unknown, code: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || !MODEL.test(value)) {
+    throw new ApiError("Modelo inválido.", 400, code);
+  }
+  return value;
+}
+
+function optionalReasoning(value: unknown, code: string): string | null {
+  if (value === undefined || value === null) return null;
+  if (typeof value !== "string" || !REASONING.has(value)) {
+    throw new ApiError("Raciocínio inválido.", 400, code);
+  }
+  return value;
+}
+
+function optionalApiKey(value: unknown): string | null {
+  if (value === undefined || value === null || value === "") return null;
+  if (
+    typeof value !== "string" ||
+    value !== value.trim() ||
+    value.length < 32 ||
+    value.length > 512 ||
+    /\s/.test(value)
+  ) {
+    throw new ApiError("Chave OpenAI inválida.", 400, "INVALID_OPENAI_KEY");
+  }
+  return value;
 }
 
 export async function GET(request: NextRequest) {
@@ -101,16 +177,23 @@ export async function GET(request: NextRequest) {
     enforceSameOrigin(request);
     const org = organizationId(request);
     const client = await userClient(request);
-    const result = await client.rpc("get_crm_ai_runtime_status", { p_organization_id: org });
+    const result = await client.rpc("get_crm_ai_runtime_status", {
+      p_organization_id: org,
+    });
     if (result.error) {
       const forbidden = result.error.code === "42501";
       throw new ApiError(
-        forbidden ? "Seu perfil não pode gerenciar a Vitória." : "Status da Vitória indisponível.",
+        forbidden
+          ? "Seu perfil não pode gerenciar a Vitória."
+          : "Status da Vitória indisponível.",
         forbidden ? 403 : 503,
         forbidden ? "AI_RUNTIME_PERMISSION_REQUIRED" : "AI_RUNTIME_STATUS_FAILED",
       );
     }
-    return NextResponse.json({ ok: true, runtime: sanitizedStatus(result.data) }, { status: 200, headers: HEADERS });
+    return NextResponse.json(
+      { ok: true, runtime: sanitizedStatus(result.data) },
+      { status: 200, headers: HEADERS },
+    );
   } catch (error) {
     const known = error instanceof ApiError ? error : null;
     return NextResponse.json(
@@ -131,28 +214,21 @@ export async function PUT(request: NextRequest) {
     const org = organizationId(request, body);
     const client = await userClient(request);
 
-    const apiKey = body.apiKey === undefined || body.apiKey === null || body.apiKey === ""
-      ? null
-      : typeof body.apiKey === "string" ? body.apiKey : (() => { throw new ApiError("Chave OpenAI inválida.", 400, "INVALID_OPENAI_KEY"); })();
-    if (apiKey && (apiKey !== apiKey.trim() || apiKey.length < 32 || apiKey.length > 512 || /\s/.test(apiKey))) {
-      throw new ApiError("Chave OpenAI inválida.", 400, "INVALID_OPENAI_KEY");
-    }
-
-    const enabled = body.enabled === undefined || body.enabled === null
-      ? null
-      : typeof body.enabled === "boolean" ? body.enabled : (() => { throw new ApiError("Estado inválido.", 400, "INVALID_ENABLED_STATE"); })();
-    const agentModel = body.agentModel === undefined || body.agentModel === null
-      ? null
-      : typeof body.agentModel === "string" && MODEL.test(body.agentModel) ? body.agentModel : (() => { throw new ApiError("Modelo inválido.", 400, "INVALID_AGENT_MODEL"); })();
-    const supervisorModel = body.supervisorModel === undefined || body.supervisorModel === null
-      ? null
-      : typeof body.supervisorModel === "string" && MODEL.test(body.supervisorModel) ? body.supervisorModel : (() => { throw new ApiError("Modelo inválido.", 400, "INVALID_SUPERVISOR_MODEL"); })();
-    const agentReasoning = body.agentReasoning === undefined || body.agentReasoning === null
-      ? null
-      : typeof body.agentReasoning === "string" && REASONING.has(body.agentReasoning) ? body.agentReasoning : (() => { throw new ApiError("Raciocínio inválido.", 400, "INVALID_AGENT_REASONING"); })();
-    const supervisorReasoning = body.supervisorReasoning === undefined || body.supervisorReasoning === null
-      ? null
-      : typeof body.supervisorReasoning === "string" && REASONING.has(body.supervisorReasoning) ? body.supervisorReasoning : (() => { throw new ApiError("Raciocínio inválido.", 400, "INVALID_SUPERVISOR_REASONING"); })();
+    const apiKey = optionalApiKey(body.apiKey);
+    const enabled = optionalBoolean(body.enabled, "Estado");
+    const agentModel = optionalModel(body.agentModel, "INVALID_AGENT_MODEL");
+    const supervisorModel = optionalModel(
+      body.supervisorModel,
+      "INVALID_SUPERVISOR_MODEL",
+    );
+    const agentReasoning = optionalReasoning(
+      body.agentReasoning,
+      "INVALID_AGENT_REASONING",
+    );
+    const supervisorReasoning = optionalReasoning(
+      body.supervisorReasoning,
+      "INVALID_SUPERVISOR_REASONING",
+    );
 
     if (enabled === true) await configureWorkerRuntime();
 
@@ -169,12 +245,17 @@ export async function PUT(request: NextRequest) {
     if (result.error) {
       const forbidden = result.error.code === "42501";
       throw new ApiError(
-        forbidden ? "Seu perfil não pode gerenciar a Vitória." : "Configuração da Vitória não pôde ser salva.",
+        forbidden
+          ? "Seu perfil não pode gerenciar a Vitória."
+          : "Configuração da Vitória não pôde ser salva.",
         forbidden ? 403 : 400,
         forbidden ? "AI_RUNTIME_PERMISSION_REQUIRED" : "AI_RUNTIME_CONFIG_FAILED",
       );
     }
-    return NextResponse.json({ ok: true, runtime: sanitizedStatus(result.data) }, { status: 200, headers: HEADERS });
+    return NextResponse.json(
+      { ok: true, runtime: sanitizedStatus(result.data) },
+      { status: 200, headers: HEADERS },
+    );
   } catch (error) {
     const known = error instanceof ApiError ? error : null;
     return NextResponse.json(
@@ -189,16 +270,23 @@ export async function DELETE(request: NextRequest) {
     enforceSameOrigin(request);
     const org = organizationId(request);
     const client = await userClient(request);
-    const result = await client.rpc("revoke_crm_ai_runtime_api_key", { p_organization_id: org });
+    const result = await client.rpc("revoke_crm_ai_runtime_api_key", {
+      p_organization_id: org,
+    });
     if (result.error) {
       const forbidden = result.error.code === "42501";
       throw new ApiError(
-        forbidden ? "Seu perfil não pode gerenciar a Vitória." : "A chave da Vitória não pôde ser revogada.",
+        forbidden
+          ? "Seu perfil não pode gerenciar a Vitória."
+          : "A chave da Vitória não pôde ser revogada.",
         forbidden ? 403 : 503,
         forbidden ? "AI_RUNTIME_PERMISSION_REQUIRED" : "AI_RUNTIME_REVOKE_FAILED",
       );
     }
-    return NextResponse.json({ ok: true, runtime: sanitizedStatus(result.data) }, { status: 200, headers: HEADERS });
+    return NextResponse.json(
+      { ok: true, runtime: sanitizedStatus(result.data) },
+      { status: 200, headers: HEADERS },
+    );
   } catch (error) {
     const known = error instanceof ApiError ? error : null;
     return NextResponse.json(

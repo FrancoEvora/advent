@@ -95,3 +95,26 @@ test("AI worker stays behind an explicit feature flag and bearer gate", async ()
   assert.match(config, /CRM_AI_SHADOW_ENABLED/);
   assert.match(config, /CRM_AI_WORKER_TOKEN/);
 });
+
+test("AI shadow read model is permissioned, scoped and read-only", async () => {
+  const route = await source("src/app/api/ai/leads/shadow/route.ts");
+
+  assert.match(route, /crm\.copilot\.use/);
+  assert.match(route, /isCrmAiShadowEnabled/);
+  assert.match(route, /RECORD_SCOPE_REJECTED/);
+  assert.match(route, /\.from\("crm_conversations"\)/);
+  assert.match(route, /\.from\("crm_messages"\)/);
+  assert.doesNotMatch(route, /\.insert\(/);
+  assert.doesNotMatch(route, /\.update\(/);
+  assert.doesNotMatch(route, /\.delete\(/);
+  assert.doesNotMatch(route, /crm\.copilot\.approve_send/);
+});
+
+test("lead portfolio only surfaces Vitória when the feature is enabled", async () => {
+  const view = await source("src/components/erp/crm-v5/leads-view.tsx");
+
+  assert.match(view, /aiEnabled && <span>Atendimento IA<\/span>/);
+  assert.match(view, /Bloqueado pelo supervisor/);
+  assert.match(view, /Rascunho pronto/);
+  assert.match(view, /Qualidade \$\{ai\.qualityScore\}\/100/);
+});

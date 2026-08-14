@@ -18,4 +18,5 @@ jobs:
         with:
           node-version: 24
       - run: npm install --no-audit --no-fund
+      - run: node --test tests/crm-ai-shadow-contract.test.mjs
       - run: npm run build

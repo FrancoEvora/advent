@@ -129,7 +129,7 @@ export async function getMetaGraphConfig(organizationId: string, pageId: string)
   if (!apiVersion || !/^v\d{1,3}\.\d{1,2}$/.test(apiVersion)) {
     throw new MetaIntegrationConfigError("META_GRAPH_API_VERSION");
   }
-  let credentials: { appSecret: string; accessToken: string };
+  let credentials: { appSecret: string | null; accessToken: string };
   try {
     const stored = await fetchMetaGraphRuntimeCredential(organizationId, pageId);
     credentials = {

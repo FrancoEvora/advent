@@ -209,7 +209,7 @@ test("AI runtime admin API never returns secrets and prepares worker only on ena
   const route = await source("src/app/api/ai/runtime/route.ts");
   assert.match(route, /crm_ai_worker_runtime/);
   assert.match(route, /if \(enabled === true\) await configureWorkerRuntime\(\)/);
-  assert.match(route, /api_key: _apiKey/);
+  assert.match(route, /api_key:\s*_[A-Za-z0-9]*ApiKey/);
   assert.match(route, /secret: _secret/);
   assert.doesNotMatch(route, /console\.log\([^)]*apiKey/i);
 });

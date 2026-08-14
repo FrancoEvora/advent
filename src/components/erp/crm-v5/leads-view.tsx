@@ -20,6 +20,8 @@ type LeadSort =
 type AiShadowLead = {
   crmRecordId: string;
   status: string;
+  messageId: string | null;
+  deliveryStatus: string | null;
   draft: string | null;
   qualityScore: number | null;
   supervisorDecision: string | null;
@@ -29,6 +31,17 @@ type AiShadowLead = {
 type AiShadowResponse = {
   enabled?: boolean;
   leads?: AiShadowLead[];
+};
+
+type AiPrepareResponse = {
+  prepared?: boolean;
+  message?: {
+    messageId: string;
+    content: string;
+    deliveryStatus: string;
+    preparedAt: string | null;
+  };
+  error?: string;
 };
 
 const leadCollator = new Intl.Collator("pt-BR", {
@@ -104,14 +117,37 @@ function chunks<T>(values: T[], size: number) {
   return result;
 }
 
+function normalizeWhatsApp(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) return "";
+  return digits.startsWith("55") ? digits : `55${digits}`;
+}
+
 function aiStatusLabel(value: AiShadowLead | undefined) {
   if (!value) return null;
   if (value.supervisorDecision === "block") return "Bloqueado pelo supervisor";
+  if (value.deliveryStatus === "prepared") return "WhatsApp preparado";
   if (value.status === "human_required") return "Requer humano";
   if (value.status === "human_active") return "Humano assumiu";
   if (value.status === "paused") return "IA pausada";
   if (value.draft) return "Rascunho pronto";
+  if (value.status === "failed") return "Falha na análise";
   return "Vitória em análise";
+}
+
+function preparationError(code: string | undefined) {
+  switch (code) {
+    case "COPILOT_APPROVAL_PERMISSION_REQUIRED":
+      return "Seu perfil não pode aprovar mensagens da Vitória.";
+    case "AI_DRAFT_PREPARE_FORBIDDEN":
+      return "A preparação foi bloqueada pelas regras de comunicação.";
+    case "AI_DRAFT_PREPARE_REJECTED":
+      return "Este rascunho não está mais disponível. Atualize a carteira.";
+    case "INVALID_MESSAGE_CONTENT":
+      return "Revise o texto: a mensagem deve ter entre 1 e 1.200 caracteres.";
+    default:
+      return "Não foi possível preparar a mensagem no momento.";
+  }
 }
 
 export function LeadsView({
@@ -133,6 +169,10 @@ export function LeadsView({
   const [sort, setSort] = useState<LeadSort>("origin_desc");
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiByLead, setAiByLead] = useState<Record<string, AiShadowLead>>({});
+  const [reviewLeadId, setReviewLeadId] = useState<string | null>(null);
+  const [reviewContent, setReviewContent] = useState("");
+  const [reviewError, setReviewError] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
 
   const projectById = useMemo(
     () => new Map(data.projects.map((project) => [project.id, project.name])),
@@ -143,6 +183,12 @@ export function LeadsView({
     () => crm.records.map((record) => record.id).sort(),
     [crm.records],
   );
+
+  const reviewLead = useMemo(
+    () => crm.records.find((record) => record.id === reviewLeadId) || null,
+    [crm.records, reviewLeadId],
+  );
+  const reviewAi = reviewLeadId ? aiByLead[reviewLeadId] : undefined;
 
   useEffect(() => {
     let cancelled = false;
@@ -196,7 +242,12 @@ export function LeadsView({
           setAiByLead(collected);
         }
       } catch (error) {
-        if (cancelled || (error instanceof Error && error.name === "AbortError")) return;
+        if (
+          cancelled ||
+          (error instanceof Error && error.name === "AbortError")
+        ) {
+          return;
+        }
         setAiEnabled(false);
         setAiByLead({});
       }
@@ -209,16 +260,117 @@ export function LeadsView({
     };
   }, [aiRecordIds, data.organization.id, data.session.access_token]);
 
+  useEffect(() => {
+    if (!reviewLeadId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !reviewBusy) {
+        setReviewLeadId(null);
+        setReviewError("");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [reviewBusy, reviewLeadId]);
+
+  function openAiReview(lead: CrmRecord, ai: AiShadowLead) {
+    if (!ai.draft || !ai.messageId) return;
+    setReviewLeadId(lead.id);
+    setReviewContent(ai.draft);
+    setReviewError("");
+  }
+
+  function closeAiReview() {
+    if (reviewBusy) return;
+    setReviewLeadId(null);
+    setReviewContent("");
+    setReviewError("");
+  }
+
+  async function prepareAndOpenWhatsApp() {
+    if (!reviewLead || !reviewAi?.messageId || !reviewAi.draft) return;
+    const phone = normalizeWhatsApp(reviewLead.phone || "");
+    const content = reviewContent.normalize("NFC").trim();
+    if (!phone) {
+      setReviewError("O lead não possui WhatsApp cadastrado.");
+      return;
+    }
+    if (!content || content.length > 1_200) {
+      setReviewError("A mensagem deve ter entre 1 e 1.200 caracteres.");
+      return;
+    }
+
+    const popup = window.open("", "_blank");
+    if (popup) popup.opener = null;
+    setReviewBusy(true);
+    setReviewError("");
+
+    try {
+      const response = await fetch("/api/ai/leads/shadow/prepare", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${data.session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          organizationId: data.organization.id,
+          crmRecordId: reviewLead.id,
+          messageId: reviewAi.messageId,
+          content,
+        }),
+        cache: "no-store",
+      });
+      const payload = (await response.json()) as AiPrepareResponse;
+      if (!response.ok || !payload.prepared || !payload.message) {
+        throw new Error(payload.error || "AI_DRAFT_PREPARE_UNAVAILABLE");
+      }
+
+      const prepared = payload.message;
+      setAiByLead((current) => ({
+        ...current,
+        [reviewLead.id]: {
+          ...current[reviewLead.id],
+          status: "human_active",
+          messageId: prepared.messageId,
+          deliveryStatus: "prepared",
+          draft: null,
+          updatedAt: prepared.preparedAt || new Date().toISOString(),
+        },
+      }));
+
+      const whatsappUrl = `https://wa.me/${phone}?text=${encodeURIComponent(
+        prepared.content,
+      )}`;
+      if (popup) {
+        popup.location.href = whatsappUrl;
+      } else {
+        window.location.href = whatsappUrl;
+      }
+      setReviewLeadId(null);
+      setReviewContent("");
+    } catch (error) {
+      popup?.close();
+      setReviewError(
+        preparationError(error instanceof Error ? error.message : undefined),
+      );
+    } finally {
+      setReviewBusy(false);
+    }
+  }
+
   const rows = useMemo(() => {
     const query = q.trim().toLocaleLowerCase("pt-BR");
     const filtered = crm.records.filter((item) => {
       if (status !== "todos" && item.record_status !== status) return false;
-      if (temperature !== "todos" && item.temperature !== temperature) return false;
+      if (temperature !== "todos" && item.temperature !== temperature) {
+        return false;
+      }
       if (!query) return true;
-      const project = item.project_id ? projectById.get(item.project_id) || "" : "";
-      return `${item.person_name} ${item.company_name || ""} ${item.phone || ""} ${
-        item.email || ""
-      } ${project} ${item.source || ""}`
+      const project = item.project_id
+        ? projectById.get(item.project_id) || ""
+        : "";
+      return `${item.person_name} ${item.company_name || ""} ${
+        item.phone || ""
+      } ${item.email || ""} ${project} ${item.source || ""}`
         .toLocaleLowerCase("pt-BR")
         .includes(query);
     });
@@ -227,36 +379,64 @@ export function LeadsView({
       let result = 0;
       switch (sort) {
         case "origin_asc":
-          result = compareOptionalDates(originDate(first), originDate(second), "asc");
+          result = compareOptionalDates(
+            originDate(first),
+            originDate(second),
+            "asc",
+          );
           break;
         case "name_asc":
-          result = leadCollator.compare(first.person_name || "", second.person_name || "");
+          result = leadCollator.compare(
+            first.person_name || "",
+            second.person_name || "",
+          );
           break;
         case "name_desc":
-          result = leadCollator.compare(second.person_name || "", first.person_name || "");
+          result = leadCollator.compare(
+            second.person_name || "",
+            first.person_name || "",
+          );
           break;
         case "project_asc":
           result = leadCollator.compare(
-            (first.project_id && projectById.get(first.project_id)) || "Não definido",
-            (second.project_id && projectById.get(second.project_id)) || "Não definido",
+            (first.project_id && projectById.get(first.project_id)) ||
+              "Não definido",
+            (second.project_id && projectById.get(second.project_id)) ||
+              "Não definido",
           );
           break;
         case "next_action_asc":
-          result = compareOptionalDates(first.next_action_at, second.next_action_at, "asc");
+          result = compareOptionalDates(
+            first.next_action_at,
+            second.next_action_at,
+            "asc",
+          );
           break;
         case "score_desc":
-          result = Number(second.lead_score || 0) - Number(first.lead_score || 0);
+          result =
+            Number(second.lead_score || 0) - Number(first.lead_score || 0);
           break;
         case "sla_asc":
-          result = compareOptionalDates(first.sla_due_at, second.sla_due_at, "asc");
+          result = compareOptionalDates(
+            first.sla_due_at,
+            second.sla_due_at,
+            "asc",
+          );
           break;
         case "origin_desc":
         default:
-          result = compareOptionalDates(originDate(first), originDate(second), "desc");
+          result = compareOptionalDates(
+            originDate(first),
+            originDate(second),
+            "desc",
+          );
           break;
       }
       if (result !== 0) return result;
-      const byName = leadCollator.compare(first.person_name || "", second.person_name || "");
+      const byName = leadCollator.compare(
+        first.person_name || "",
+        second.person_name || "",
+      );
       return byName || first.id.localeCompare(second.id);
     });
   }, [crm.records, projectById, q, sort, status, temperature]);
@@ -290,7 +470,10 @@ export function LeadsView({
           onChange={(event) => setQ(event.target.value)}
           placeholder="Buscar por nome, empresa, telefone ou e-mail"
         />
-        <select value={status} onChange={(event) => setStatus(event.target.value)}>
+        <select
+          value={status}
+          onChange={(event) => setStatus(event.target.value)}
+        >
           <option value="aberta">Em aberto</option>
           <option value="ganha">Ganhos</option>
           <option value="perdida">Perdidos</option>
@@ -343,12 +526,16 @@ export function LeadsView({
                 id={`agenda-record-${lead.id}`}
                 data-record-id={lead.id}
                 tabIndex={lead.id === focusId ? -1 : undefined}
-                className={lead.id === focusId ? "agenda-linked-target" : undefined}
+                className={
+                  lead.id === focusId ? "agenda-linked-target" : undefined
+                }
                 key={lead.id}
               >
                 <div>
                   <strong>{lead.person_name}</strong>
-                  <small>{lead.company_name || lead.phone || lead.email || "Sem contato"}</small>
+                  <small>
+                    {lead.company_name || lead.phone || lead.email || "Sem contato"}
+                  </small>
                   <div className="crm5-tags">
                     {(lead.tags || []).slice(0, 3).map((tag) => (
                       <i key={tag}>{tag}</i>
@@ -358,14 +545,21 @@ export function LeadsView({
 
                 <div>
                   <strong>
-                    {(lead.project_id && projectById.get(lead.project_id)) || "Não definido"}
+                    {(lead.project_id && projectById.get(lead.project_id)) ||
+                      "Não definido"}
                   </strong>
-                  <small>{lead.source || lead.source_channel || "Origem não informada"}</small>
+                  <small>
+                    {lead.source ||
+                      lead.source_channel ||
+                      "Origem não informada"}
+                  </small>
                 </div>
 
                 <div className={styles.origin}>
                   <strong>{formatOriginDate(originDate(lead))}</strong>
-                  <small>{isMetaLead(lead) ? "Cadastro na Meta" : "Cadastro no CRM"}</small>
+                  <small>
+                    {isMetaLead(lead) ? "Cadastro na Meta" : "Cadastro no CRM"}
+                  </small>
                 </div>
 
                 <div>
@@ -376,7 +570,9 @@ export function LeadsView({
                   >
                     {lead.lead_score || 0}
                   </b>
-                  <Status tone={urgency(lead)}>{lead.temperature || "morno"}</Status>
+                  <Status tone={urgency(lead)}>
+                    {lead.temperature || "morno"}
+                  </Status>
                 </div>
 
                 <div>
@@ -394,11 +590,23 @@ export function LeadsView({
                       <>
                         <strong>{aiLabel}</strong>
                         <small>
-                          {ai?.qualityScore !== null && ai?.qualityScore !== undefined
+                          {ai?.qualityScore !== null &&
+                          ai?.qualityScore !== undefined
                             ? `Qualidade ${ai.qualityScore}/100`
                             : "Modo sombra"}
                         </small>
-                        {ai?.draft && <small title={ai.draft}>{ai.draft}</small>}
+                        {ai?.draft && (
+                          <small title={ai.draft}>{ai.draft}</small>
+                        )}
+                        {ai?.draft && ai.messageId && (
+                          <button
+                            type="button"
+                            className={styles.reviewButton}
+                            onClick={() => openAiReview(lead, ai)}
+                          >
+                            Revisar
+                          </button>
+                        )}
                       </>
                     ) : (
                       <>
@@ -423,13 +631,16 @@ export function LeadsView({
                   </strong>
                   <small>
                     {lead.sla_due_at
-                      ? `SLA ${new Date(lead.sla_due_at).toLocaleString("pt-BR", {
-                          timeZone: "America/Sao_Paulo",
-                          day: "2-digit",
-                          month: "2-digit",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}`
+                      ? `SLA ${new Date(lead.sla_due_at).toLocaleString(
+                          "pt-BR",
+                          {
+                            timeZone: "America/Sao_Paulo",
+                            day: "2-digit",
+                            month: "2-digit",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          },
+                        )}`
                       : "Sem SLA"}
                   </small>
                 </div>
@@ -450,6 +661,116 @@ export function LeadsView({
           )}
         </div>
       </section>
+
+      {reviewLead && reviewAi?.draft && reviewAi.messageId && (
+        <div
+          className={styles.reviewBackdrop}
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeAiReview();
+          }}
+        >
+          <section
+            className={styles.reviewDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="vitoria-review-title"
+          >
+            <header>
+              <div>
+                <small>REVISÃO HUMANA OBRIGATÓRIA</small>
+                <h3 id="vitoria-review-title">Mensagem da Vitória</h3>
+                <p>
+                  {reviewLead.person_name} ·{" "}
+                  {(reviewLead.project_id &&
+                    projectById.get(reviewLead.project_id)) ||
+                    "Empreendimento não definido"}
+                </p>
+              </div>
+              <button
+                type="button"
+                aria-label="Fechar revisão"
+                disabled={reviewBusy}
+                onClick={closeAiReview}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className={styles.reviewMetrics}>
+              <span>
+                Supervisor
+                <strong>
+                  {reviewAi.supervisorDecision === "revise"
+                    ? "Revisado"
+                    : "Aprovado"}
+                </strong>
+              </span>
+              <span>
+                Qualidade
+                <strong>
+                  {reviewAi.qualityScore !== null
+                    ? `${reviewAi.qualityScore}/100`
+                    : "Não informada"}
+                </strong>
+              </span>
+              <span>
+                Canal
+                <strong>WhatsApp</strong>
+              </span>
+            </div>
+
+            <label className={styles.reviewField}>
+              Mensagem final
+              <textarea
+                autoFocus
+                maxLength={1_200}
+                rows={8}
+                value={reviewContent}
+                disabled={reviewBusy}
+                onChange={(event) => {
+                  setReviewContent(event.target.value);
+                  setReviewError("");
+                }}
+              />
+              <small>{reviewContent.length}/1.200 caracteres</small>
+            </label>
+
+            <div className={styles.reviewNotice}>
+              <strong>Nenhum envio automático será realizado.</strong>
+              <p>
+                A aprovação registra a revisão na Enterprise e abre o WhatsApp
+                com a mensagem preparada. O profissional ainda precisa conferir
+                e confirmar o envio no aplicativo.
+              </p>
+            </div>
+
+            {reviewError && (
+              <p className={styles.reviewError} role="alert">
+                {reviewError}
+              </p>
+            )}
+
+            <footer>
+              <button
+                type="button"
+                disabled={reviewBusy}
+                onClick={closeAiReview}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={reviewBusy || !reviewContent.trim()}
+                onClick={() => void prepareAndOpenWhatsApp()}
+              >
+                {reviewBusy ? "Registrando revisão..." : "Aprovar e abrir WhatsApp"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

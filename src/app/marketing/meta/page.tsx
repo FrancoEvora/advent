@@ -1,5 +1,5 @@
-import {MetaLeadAdsStandalone} from "@/components/erp/marketing/meta-lead-ads";
+import {redirect} from "next/navigation";
 
 export default function MetaLeadAdsPage(){
- return <MetaLeadAdsStandalone/>;
+ redirect("/?meta=leads#meta-lead-integration");
 }

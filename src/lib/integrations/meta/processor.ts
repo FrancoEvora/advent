@@ -1,5 +1,8 @@
 import { randomUUID } from "node:crypto";
 
+import { isCrmAiShadowEnabled } from "@/lib/ai/config";
+import { enqueueCrmAiJob } from "@/lib/ai/gateway";
+
 import { fetchMetaLeadBundle, MetaGraphRequestError } from "./graph-api";
 import {
   buildMetaIngestPayload,
@@ -13,6 +16,7 @@ import {
   MetaInboxGatewayError,
   notificationFromClaim,
   type ClaimedMetaLeadEvent,
+  type MetaLeadIngestResult,
 } from "./supabase-gateway";
 
 export type MetaProcessingResult = {
@@ -64,6 +68,31 @@ function safeFailure(error: unknown): SafeFailure {
   };
 }
 
+async function enqueueShadowAgentFailOpen(
+  event: ClaimedMetaLeadEvent,
+  ingest: MetaLeadIngestResult,
+): Promise<void> {
+  if (!isCrmAiShadowEnabled()) return;
+  try {
+    await enqueueCrmAiJob({
+      organizationId: ingest.organizationId,
+      crmRecordId: ingest.crmRecordId,
+      contactId: ingest.contactId,
+      jobType: "lead_created",
+      triggerKey: `lead-created:${ingest.crmRecordId}`,
+      mode: "shadow",
+    });
+  } catch (error) {
+    // O CRM/Meta é o caminho crítico. A camada IA nunca pode fazer o ingresso
+    // canônico retroceder ou entrar em retry por uma falha própria.
+    console.error("CRM AI shadow enqueue skipped after Meta ingest", {
+      eventId: event.id,
+      crmRecordId: ingest.crmRecordId,
+      errorCode: error instanceof Error ? error.name : "UnknownError",
+    });
+  }
+}
+
 async function processClaimedEvent(
   event: ClaimedMetaLeadEvent,
   normalization: {
@@ -79,7 +108,8 @@ async function processClaimedEvent(
       event.defaultCountryCallingCode || normalization.defaultCountryCode,
       normalization.marketingConsentCheckboxKeys,
     );
-    await ingestMetaLeadEvent(event, ingestPayload);
+    const ingest = await ingestMetaLeadEvent(event, ingestPayload);
+    await enqueueShadowAgentFailOpen(event, ingest);
     return "processed";
   } catch (error) {
     const failure = safeFailure(error);

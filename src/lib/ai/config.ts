@@ -78,6 +78,18 @@ export function getCrmAiQueueConfig() {
   };
 }
 
+export function getCrmAiRequestTimeoutMs(): number {
+  return positiveInteger(
+    "OPENAI_REQUEST_TIMEOUT_MS",
+    25_000,
+    3_000,
+    60_000,
+  );
+}
+
+// Compatibilidade legada. O runtime tenant-scoped no Supabase Vault e a fonte
+// preferencial; este bloco so e usado quando nao existe configuracao persistida
+// e CRM_AI_SHADOW_ENABLED=true foi explicitamente definido no ambiente.
 export function getCrmAiOpenAiConfig() {
   return {
     apiKey: requiredSecret("OPENAI_API_KEY", 32, 16_384),
@@ -85,12 +97,7 @@ export function getCrmAiOpenAiConfig() {
     agentReasoning: reasoningEffort("OPENAI_AGENT_REASONING", "medium"),
     supervisorModel: modelName("OPENAI_SUPERVISOR_MODEL", "gpt-5.6-sol"),
     supervisorReasoning: reasoningEffort("OPENAI_SUPERVISOR_REASONING", "high"),
-    requestTimeoutMs: positiveInteger(
-      "OPENAI_REQUEST_TIMEOUT_MS",
-      25_000,
-      3_000,
-      60_000,
-    ),
+    requestTimeoutMs: getCrmAiRequestTimeoutMs(),
   };
 }
 

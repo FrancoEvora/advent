@@ -36,7 +36,7 @@ export type MetaWebhookRuntimeCredentials = {
 export type MetaGraphRuntimeCredential = {
   organizationId: string;
   pageId: string;
-  appSecret: string;
+  appSecret: string | null;
   accessToken: string;
 };
 
@@ -162,7 +162,9 @@ export async function fetchMetaGraphRuntimeCredential(
   organizationId: string,
   pageId: string,
 ): Promise<MetaGraphRuntimeCredential> {
-  const { data, error } = await database().rpc("get_meta_graph_runtime_credentials", {
+  // O Graph runtime do Enterprise usa a mesma credencial de Página do Campaign Control.
+  // O App Secret permanece opcional, exatamente como no conector local.
+  const { data, error } = await database().rpc("get_campaign_control_meta_runtime_credentials", {
     p_organization_id: organizationId,
     p_page_id: pageId,
   });
@@ -172,12 +174,14 @@ export async function fetchMetaGraphRuntimeCredential(
     ? data.organization_id
     : null;
   const returnedPageId = metaId(data.page_id);
-  const appSecret = secret(data.app_secret, 24, 512);
+  const appSecret = data.app_secret === null || data.app_secret === undefined
+    ? null
+    : secret(data.app_secret, 24, 512);
   const accessToken = secret(data.access_token, 32, 8_192);
   if (
     returnedOrganizationId !== organizationId ||
     returnedPageId !== pageId ||
-    !appSecret ||
+    (data.app_secret !== null && data.app_secret !== undefined && !appSecret) ||
     !accessToken
   ) {
     throw new MetaCredentialStoreError("invalid_contract");

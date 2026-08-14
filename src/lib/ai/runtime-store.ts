@@ -7,6 +7,7 @@ import {
   isCrmAiShadowEnabled,
   type CrmAiReasoningEffort,
 } from "./config";
+import type { ClaimedCrmAiJob } from "./types";
 
 type JsonObject = Record<string, unknown>;
 
@@ -199,9 +200,6 @@ export async function fetchCrmAiRuntime(
   }
 
   const runtime = parseVaultRuntime(organizationId, data);
-  // Compatibilidade de transicao: ausencia de linha persistida vem com
-  // updated_at=null e versao 0. Nesse caso apenas, um flag legado explicitamente
-  // ativo pode fornecer o runtime pelo ambiente.
   if (
     !runtime.enabled &&
     runtime.updatedAt === null &&
@@ -217,4 +215,21 @@ export async function isCrmAiRuntimeEnabled(
 ): Promise<boolean> {
   const runtime = await fetchCrmAiRuntime(organizationId);
   return runtime.enabled && runtime.mode === "shadow" && Boolean(runtime.apiKey);
+}
+
+export async function cancelCrmAiJobForDisabledRuntime(
+  job: ClaimedCrmAiJob,
+  reason = "CRM_AI_RUNTIME_DISABLED",
+): Promise<void> {
+  const { error } = await database().rpc("cancel_crm_ai_job", {
+    p_job_id: job.id,
+    p_lock_token: job.lockToken,
+    p_reason: reason.slice(0, 128),
+  });
+  if (error) {
+    throw new CrmAiRuntimeStoreError(
+      `CRM_AI_CANCEL_${databaseCode(error)}`,
+      true,
+    );
+  }
 }

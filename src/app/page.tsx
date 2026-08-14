@@ -6,6 +6,12 @@ type HomeProps = {
 };
 
 export default async function Home({ searchParams }: HomeProps) {
-  const target = parseActivityDeepLink(await searchParams);
-  return <ErpAppV55 initialTarget={target} />;
+  const params = await searchParams;
+  const target = parseActivityDeepLink(params);
+  const metaLeads = params.meta === "leads";
+  return <ErpAppV55
+    initialTarget={target}
+    initialView={metaLeads ? "crm" : "dashboard"}
+    initialCrmSection={metaLeads ? "settings" : "overview"}
+  />;
 }

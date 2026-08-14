@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 
-import { isCrmAiShadowEnabled } from "@/lib/ai/config";
 import { enqueueCrmAiJob } from "@/lib/ai/gateway";
+import { isCrmAiRuntimeEnabled } from "@/lib/ai/runtime-store";
 
 import { fetchMetaLeadBundle, MetaGraphRequestError } from "./graph-api";
 import {
@@ -72,8 +72,8 @@ async function enqueueShadowAgentFailOpen(
   event: ClaimedMetaLeadEvent,
   ingest: MetaLeadIngestResult,
 ): Promise<void> {
-  if (!isCrmAiShadowEnabled()) return;
   try {
+    if (!(await isCrmAiRuntimeEnabled(ingest.organizationId))) return;
     await enqueueCrmAiJob({
       organizationId: ingest.organizationId,
       crmRecordId: ingest.crmRecordId,
@@ -83,8 +83,8 @@ async function enqueueShadowAgentFailOpen(
       mode: "shadow",
     });
   } catch (error) {
-    // O CRM/Meta é o caminho crítico. A camada IA nunca pode fazer o ingresso
-    // canônico retroceder ou entrar em retry por uma falha própria.
+    // O CRM/Meta é o caminho crítico. Runtime, Vault ou OpenAI nunca podem
+    // fazer o ingresso canônico retroceder ou entrar em retry por falha da IA.
     console.error("CRM AI shadow enqueue skipped after Meta ingest", {
       eventId: event.id,
       crmRecordId: ingest.crmRecordId,

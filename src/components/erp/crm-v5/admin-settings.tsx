@@ -4,6 +4,7 @@ import Image from "next/image";
 import { getSupabase } from "@/lib/supabase";
 import type { ErpData } from "../types";
 import type { CrmEnterpriseData } from "./types";
+import { AiRuntimeSettings } from "./ai-runtime-settings";
 import { CrmSectionHeader, Status } from "./shared";
 import { MetaCampaignControlSettings } from "./meta-campaign-control-settings";
 
@@ -17,7 +18,7 @@ export function SettingsView({ data, crm, reload, can = () => false }: { data: E
     if (result.error) throw result.error; await reload();
   }
   return <div className="crm5-stack">
-    <CrmSectionHeader eyebrow="CONFIGURAÇÃO" title="Parâmetros e integrações" description="Canais de entrada, comunicação, SLAs, distribuição e governança do CRM. A conexão Meta usa exatamente o mesmo processo do Évora Campaign Control." />
+    <CrmSectionHeader eyebrow="CONFIGURAÇÃO" title="Parâmetros e integrações" description="Canais de entrada, comunicação, SLAs, distribuição, inteligência comercial e governança do CRM. A conexão Meta usa exatamente o mesmo processo do Évora Campaign Control." />
     <section className="crm5-panel crm5-version"><Image src="/evora-brand.svg" alt="Évora Urbanismo" width={310} height={90} /><div><small>PLATAFORMA PROPRIETÁRIA</small><h3>Évora Gestão CRM</h3><strong>Versão 5.0 Enterprise</strong><p>© 2026 Évora Urbanismo. Uso interno e titularidade exclusiva da Évora Urbanismo.</p></div></section>
     <section className="crm5-integrations">{providers.map((provider) => {
       const current = crm.integrations.find((item) => item.provider === provider);
@@ -29,6 +30,7 @@ export function SettingsView({ data, crm, reload, can = () => false }: { data: E
       return <article key={provider}><div className="crm5-integration-icon">{providerIcon(provider)}</div><div><strong>{providerLabel(provider)}</strong><small>{description}</small></div><Status tone={provider === "meta" && metaActive ? "success" : status === "conectado" ? "success" : "neutral"}>{status}</Status><button disabled={!canManage} onClick={() => provider === "meta" ? document.getElementById("meta-campaign-control-setup")?.scrollIntoView({ behavior: "smooth", block: "start" }) : save(provider, current?.status === "conectado" ? "desconectado" : "configuracao_pendente")}>{provider === "meta" ? "Configurar Meta Leads" : "Configurar"}</button></article>;
     })}</section>
     <MetaCampaignControlSettings data={data} crm={crm} reload={reload} canManage={canManage} />
+    <AiRuntimeSettings data={data} canManage={canManage} />
     <section className="crm5-panel"><header><div><small>POLÍTICAS</small><h3>Parâmetros operacionais recomendados</h3></div></header><div className="crm5-policy-grid"><article><strong>1 hora</strong><span>SLA de primeiro atendimento</span></article><article><strong>24 horas</strong><span>Alerta de lead sem contato</span></article><article><strong>3 tentativas</strong><span>Cadência inicial mínima</span></article><article><strong>48 horas</strong><span>Alerta de estagnação por etapa</span></article><article><strong>Score 70</strong><span>Classificação de lead quente</span></article><article><strong>Round robin</strong><span>Distribuição padrão para SDR</span></article></div></section>
   </div>;
 }

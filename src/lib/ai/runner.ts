@@ -9,15 +9,28 @@ import {
   loadCrmAiLeadContext,
 } from "./gateway";
 import { CrmAiModelError, generateSupervisedShadowDraft } from "./openai";
+import {
+  cancelCrmAiJobForDisabledRuntime,
+  CrmAiRuntimeStoreError,
+  fetchCrmAiRuntime,
+} from "./runtime-store";
 import type { ClaimedCrmAiJob } from "./types";
 
 export type CrmAiProcessingResult = {
   claimed: number;
   completed: number;
   blocked: number;
+  cancelled: number;
   failed: number;
   retryable: number;
 };
+
+type JobOutcome =
+  | "completed"
+  | "blocked"
+  | "cancelled"
+  | "failed"
+  | "retryable";
 
 type SafeFailure = {
   code: string;
@@ -40,6 +53,13 @@ function safeFailure(error: unknown): SafeFailure {
       retryable: error.retryable,
     };
   }
+  if (error instanceof CrmAiRuntimeStoreError) {
+    return {
+      code: error.code,
+      message: "O runtime tenant da Vitória não pôde ser validado.",
+      retryable: error.retryable,
+    };
+  }
   if (error instanceof CrmAiConfigError) {
     return {
       code: error.code,
@@ -54,21 +74,26 @@ function safeFailure(error: unknown): SafeFailure {
   };
 }
 
-async function processJob(
-  job: ClaimedCrmAiJob,
-): Promise<"completed" | "blocked" | "failed" | "retryable"> {
+async function processJob(job: ClaimedCrmAiJob): Promise<JobOutcome> {
   try {
-    if (job.mode !== "shadow") {
-      await failCrmAiJob(job, {
-        code: "CRM_AI_MODE_NOT_ENABLED",
-        message: "O worker atual aceita apenas modo sombra.",
-        retryable: false,
-      });
-      return "failed";
+    const runtime = await fetchCrmAiRuntime(job.organizationId);
+    if (
+      !runtime.enabled ||
+      runtime.mode !== "shadow" ||
+      !runtime.apiKey ||
+      job.mode !== "shadow"
+    ) {
+      await cancelCrmAiJobForDisabledRuntime(
+        job,
+        job.mode !== "shadow"
+          ? "CRM_AI_MODE_NOT_ENABLED"
+          : "CRM_AI_RUNTIME_DISABLED",
+      );
+      return "cancelled";
     }
 
     const context = await loadCrmAiLeadContext(job);
-    const result = await generateSupervisedShadowDraft(context);
+    const result = await generateSupervisedShadowDraft(context, runtime);
     await completeCrmAiShadowJob(job, result);
     return result.decision === "block" ? "blocked" : "completed";
   } catch (error) {
@@ -95,11 +120,18 @@ export async function processCrmAiShadowQueue(options?: {
   const workerId = `evora-crm-ai-${randomUUID()}`;
   const jobs = await claimCrmAiJobs(workerId, limit, config.leaseSeconds);
   if (jobs.length === 0) {
-    return { claimed: 0, completed: 0, blocked: 0, failed: 0, retryable: 0 };
+    return {
+      claimed: 0,
+      completed: 0,
+      blocked: 0,
+      cancelled: 0,
+      failed: 0,
+      retryable: 0,
+    };
   }
 
   let cursor = 0;
-  const outcomes: Array<"completed" | "blocked" | "failed" | "retryable"> = [];
+  const outcomes: JobOutcome[] = [];
   const worker = async () => {
     while (cursor < jobs.length) {
       const job = jobs[cursor];
@@ -119,6 +151,7 @@ export async function processCrmAiShadowQueue(options?: {
     claimed: jobs.length,
     completed: outcomes.filter((outcome) => outcome === "completed").length,
     blocked: outcomes.filter((outcome) => outcome === "blocked").length,
+    cancelled: outcomes.filter((outcome) => outcome === "cancelled").length,
     failed: outcomes.filter((outcome) => outcome === "failed").length,
     retryable: outcomes.filter((outcome) => outcome === "retryable").length,
   };

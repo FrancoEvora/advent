@@ -1,4 +1,7 @@
-import { getCrmAiOpenAiConfig } from "./config";
+import {
+  getCrmAiOpenAiConfig,
+  type CrmAiReasoningEffort,
+} from "./config";
 import type {
   CrmAiLeadContext,
   CrmAiShadowResult,
@@ -141,6 +144,7 @@ function outputText(payload: ResponsePayload): string {
 
 async function structuredResponse<T>(input: {
   model: string;
+  reasoningEffort: CrmAiReasoningEffort;
   schemaName: string;
   schema: JsonObject;
   system: string;
@@ -158,6 +162,7 @@ async function structuredResponse<T>(input: {
       },
       body: JSON.stringify({
         model: input.model,
+        reasoning: { effort: input.reasoningEffort },
         input: [
           { role: "system", content: input.system },
           { role: "user", content: input.user },
@@ -241,10 +246,7 @@ function safeContext(context: CrmAiLeadContext) {
   // Minimização explícita: além de telefone, e-mail, documentos, renda e
   // endereço completo, a capacidade de pagamento também não é enviada ao
   // modelo no modo sombra. Ela permanece apenas no CRM canônico.
-  const {
-    paymentCapacity: _paymentCapacity,
-    ...safeLead
-  } = context.lead;
+  const { paymentCapacity: _paymentCapacity, ...safeLead } = context.lead;
   void _paymentCapacity;
 
   return {
@@ -327,6 +329,7 @@ export async function generateSupervisedShadowDraft(
 
   const draft = await structuredResponse<VitoriaDraft>({
     model: config.agentModel,
+    reasoningEffort: config.agentReasoning,
     schemaName: "vitoria_shadow_draft",
     schema: DRAFT_SCHEMA as unknown as JsonObject,
     system: [
@@ -345,6 +348,7 @@ export async function generateSupervisedShadowDraft(
 
   const supervisor = await structuredResponse<SupervisorReview>({
     model: config.supervisorModel,
+    reasoningEffort: config.supervisorReasoning,
     schemaName: "vitoria_shadow_supervisor_review",
     schema: SUPERVISOR_SCHEMA as unknown as JsonObject,
     system: [

@@ -1,7 +1,6 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 
-import { isCrmAiShadowEnabled } from "@/lib/ai/config";
 import { parseMetaCredentialBearer } from "@/lib/integrations/meta/credential-contract";
 
 export const runtime = "nodejs";
@@ -140,7 +139,14 @@ export async function POST(request: NextRequest) {
     const crmRecordIds = normalizeRecordIds(raw.crmRecordIds);
     const auth = await authContext(request, organizationId);
 
-    if (!isCrmAiShadowEnabled()) {
+    const readiness = await auth.service.rpc("get_crm_ai_runtime_readiness", {
+      p_organization_id: auth.organizationId,
+    });
+    if (readiness.error) {
+      throw new ApiError("Estado da Vitória indisponível.", 503, "AI_RUNTIME_READINESS_FAILED");
+    }
+    const ready = isObj(readiness.data) && readiness.data.ready === true;
+    if (!ready) {
       return NextResponse.json(
         { enabled: false, leads: [] satisfies ShadowRow[] },
         { status: 200, headers: HEADERS },

@@ -7,6 +7,14 @@ export class CrmAiConfigError extends Error {
   }
 }
 
+export type CrmAiReasoningEffort =
+  | "none"
+  | "low"
+  | "medium"
+  | "high"
+  | "xhigh"
+  | "max";
+
 function requiredSecret(
   name: string,
   minimumLength = 24,
@@ -47,6 +55,17 @@ function modelName(name: string, fallback: string): string {
   return value;
 }
 
+function reasoningEffort(
+  name: string,
+  fallback: CrmAiReasoningEffort,
+): CrmAiReasoningEffort {
+  const value = (process.env[name]?.trim().toLowerCase() || fallback) as string;
+  if (!["none", "low", "medium", "high", "xhigh", "max"].includes(value)) {
+    throw new CrmAiConfigError(name);
+  }
+  return value as CrmAiReasoningEffort;
+}
+
 export function isCrmAiShadowEnabled(): boolean {
   return process.env.CRM_AI_SHADOW_ENABLED?.trim().toLowerCase() === "true";
 }
@@ -62,8 +81,10 @@ export function getCrmAiQueueConfig() {
 export function getCrmAiOpenAiConfig() {
   return {
     apiKey: requiredSecret("OPENAI_API_KEY", 32, 16_384),
-    agentModel: modelName("OPENAI_AGENT_MODEL", "gpt-5.6"),
-    supervisorModel: modelName("OPENAI_SUPERVISOR_MODEL", "gpt-5.6"),
+    agentModel: modelName("OPENAI_AGENT_MODEL", "gpt-5.6-sol"),
+    agentReasoning: reasoningEffort("OPENAI_AGENT_REASONING", "medium"),
+    supervisorModel: modelName("OPENAI_SUPERVISOR_MODEL", "gpt-5.6-sol"),
+    supervisorReasoning: reasoningEffort("OPENAI_SUPERVISOR_REASONING", "high"),
     requestTimeoutMs: positiveInteger(
       "OPENAI_REQUEST_TIMEOUT_MS",
       25_000,

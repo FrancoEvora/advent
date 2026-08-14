@@ -80,6 +80,18 @@ export type ClaimedMetaLeadEvent = {
   attempts: number;
 };
 
+export type MetaLeadIngestResult = {
+  eventId: string;
+  organizationId: string;
+  contactId: string;
+  crmRecordId: string;
+  attributionId: string | null;
+  ownerUserId: string | null;
+  outcome: string;
+  idempotent: boolean;
+  contactMatch: string;
+};
+
 export class MetaInboxGatewayError extends Error {
   readonly code: string;
   readonly retryable: boolean;
@@ -119,6 +131,15 @@ function isObject(value: unknown): value is JsonObject {
 function databaseCode(error: unknown): string | undefined {
   if (!isObject(error) || typeof error.code !== "string") return undefined;
   return error.code.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 32) || undefined;
+}
+
+function uuid(value: unknown): string | null {
+  return typeof value === "string" && UUID_PATTERN.test(value) ? value : null;
+}
+
+function nullableUuid(value: unknown): string | null | undefined {
+  if (value === null || value === undefined) return null;
+  return uuid(value) || undefined;
 }
 
 function metaId(value: unknown): string | null {
@@ -177,6 +198,40 @@ function parseClaimedEvent(value: unknown): ClaimedMetaLeadEvent | null {
     correlationId:
       typeof value.correlation_id === "string" ? value.correlation_id : null,
     attempts,
+  };
+}
+
+function parseIngestResult(value: unknown): MetaLeadIngestResult | null {
+  if (!isObject(value)) return null;
+  const eventId = uuid(value.event_id);
+  const organizationId = uuid(value.organization_id);
+  const contactId = uuid(value.contact_id);
+  const crmRecordId = uuid(value.crm_record_id);
+  const attributionId = nullableUuid(value.attribution_id);
+  const ownerUserId = nullableUuid(value.owner_user_id);
+  if (
+    !eventId ||
+    !organizationId ||
+    !contactId ||
+    !crmRecordId ||
+    attributionId === undefined ||
+    ownerUserId === undefined ||
+    typeof value.outcome !== "string" ||
+    typeof value.idempotent !== "boolean" ||
+    typeof value.contact_match !== "string"
+  ) {
+    return null;
+  }
+  return {
+    eventId,
+    organizationId,
+    contactId,
+    crmRecordId,
+    attributionId,
+    ownerUserId,
+    outcome: value.outcome.slice(0, 120),
+    idempotent: value.idempotent,
+    contactMatch: value.contact_match.slice(0, 120),
   };
 }
 
@@ -280,8 +335,8 @@ export async function claimMetaLeadEvents(
 export async function ingestMetaLeadEvent(
   event: ClaimedMetaLeadEvent,
   lead: JsonObject,
-): Promise<void> {
-  const { error } = await database().rpc(META_INGRESS_RPC.ingest.name, {
+): Promise<MetaLeadIngestResult> {
+  const { data, error } = await database().rpc(META_INGRESS_RPC.ingest.name, {
     [META_INGRESS_RPC.ingest.eventId]: event.id,
     [META_INGRESS_RPC.ingest.lockToken]: event.lockToken,
     [META_INGRESS_RPC.ingest.lead]: lead,
@@ -289,6 +344,12 @@ export async function ingestMetaLeadEvent(
   if (error) {
     throw new MetaInboxGatewayError("ingest", databaseCode(error));
   }
+  const raw = Array.isArray(data) ? data[0] : data;
+  const result = parseIngestResult(raw);
+  if (!result) {
+    throw new MetaInboxGatewayError("ingest_contract", undefined, false);
+  }
+  return result;
 }
 
 export async function failMetaLeadEvent(input: {

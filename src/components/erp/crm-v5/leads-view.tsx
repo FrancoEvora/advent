@@ -17,6 +17,20 @@ type LeadSort =
   | "score_desc"
   | "sla_asc";
 
+type AiShadowLead = {
+  crmRecordId: string;
+  status: string;
+  draft: string | null;
+  qualityScore: number | null;
+  supervisorDecision: string | null;
+  updatedAt: string | null;
+};
+
+type AiShadowResponse = {
+  enabled?: boolean;
+  leads?: AiShadowLead[];
+};
+
 const leadCollator = new Intl.Collator("pt-BR", {
   sensitivity: "base",
   numeric: true,
@@ -82,6 +96,24 @@ function isMetaLead(lead: CrmRecord) {
   );
 }
 
+function chunks<T>(values: T[], size: number) {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) {
+    result.push(values.slice(index, index + size));
+  }
+  return result;
+}
+
+function aiStatusLabel(value: AiShadowLead | undefined) {
+  if (!value) return null;
+  if (value.supervisorDecision === "block") return "Bloqueado pelo supervisor";
+  if (value.status === "human_required") return "Requer humano";
+  if (value.status === "human_active") return "Humano assumiu";
+  if (value.status === "paused") return "IA pausada";
+  if (value.draft) return "Rascunho pronto";
+  return "Vitória em análise";
+}
+
 export function LeadsView({
   data,
   crm,
@@ -99,11 +131,83 @@ export function LeadsView({
   const [status, setStatus] = useState(focusId ? "todos" : "aberta");
   const [temperature, setTemperature] = useState("todos");
   const [sort, setSort] = useState<LeadSort>("origin_desc");
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiByLead, setAiByLead] = useState<Record<string, AiShadowLead>>({});
 
   const projectById = useMemo(
     () => new Map(data.projects.map((project) => [project.id, project.name])),
     [data.projects],
   );
+
+  const aiRecordIds = useMemo(
+    () => crm.records.map((record) => record.id).sort(),
+    [crm.records],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const controller = new AbortController();
+
+    async function loadAiShadow() {
+      const token = data.session.access_token;
+      if (!token || !aiRecordIds.length) {
+        setAiEnabled(false);
+        setAiByLead({});
+        return;
+      }
+
+      const collected: Record<string, AiShadowLead> = {};
+      let enabled = false;
+
+      try {
+        for (const batch of chunks(aiRecordIds, 200)) {
+          const response = await fetch("/api/ai/leads/shadow", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              organizationId: data.organization.id,
+              crmRecordIds: batch,
+            }),
+            cache: "no-store",
+            signal: controller.signal,
+          });
+
+          if (response.status === 401 || response.status === 403) {
+            if (!cancelled) {
+              setAiEnabled(false);
+              setAiByLead({});
+            }
+            return;
+          }
+          if (!response.ok) throw new Error("AI_SHADOW_READ_FAILED");
+
+          const payload = (await response.json()) as AiShadowResponse;
+          enabled = enabled || payload.enabled === true;
+          for (const lead of payload.leads || []) {
+            if (lead.crmRecordId) collected[lead.crmRecordId] = lead;
+          }
+        }
+
+        if (!cancelled) {
+          setAiEnabled(enabled);
+          setAiByLead(collected);
+        }
+      } catch (error) {
+        if (cancelled || (error instanceof Error && error.name === "AbortError")) return;
+        setAiEnabled(false);
+        setAiByLead({});
+      }
+    }
+
+    void loadAiShadow();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [aiRecordIds, data.organization.id, data.session.access_token]);
 
   const rows = useMemo(() => {
     const query = q.trim().toLocaleLowerCase("pt-BR");
@@ -226,91 +330,117 @@ export function LeadsView({
             <span>Cadastro</span>
             <span>Score</span>
             <span>Responsáveis</span>
+            {aiEnabled && <span>Atendimento IA</span>}
             <span>Próxima ação</span>
             <span>Ações</span>
           </header>
 
-          {rows.map((lead) => (
-            <article
-              id={`agenda-record-${lead.id}`}
-              data-record-id={lead.id}
-              tabIndex={lead.id === focusId ? -1 : undefined}
-              className={lead.id === focusId ? "agenda-linked-target" : undefined}
-              key={lead.id}
-            >
-              <div>
-                <strong>{lead.person_name}</strong>
-                <small>{lead.company_name || lead.phone || lead.email || "Sem contato"}</small>
-                <div className="crm5-tags">
-                  {(lead.tags || []).slice(0, 3).map((tag) => (
-                    <i key={tag}>{tag}</i>
-                  ))}
+          {rows.map((lead) => {
+            const ai = aiByLead[lead.id];
+            const aiLabel = aiStatusLabel(ai);
+            return (
+              <article
+                id={`agenda-record-${lead.id}`}
+                data-record-id={lead.id}
+                tabIndex={lead.id === focusId ? -1 : undefined}
+                className={lead.id === focusId ? "agenda-linked-target" : undefined}
+                key={lead.id}
+              >
+                <div>
+                  <strong>{lead.person_name}</strong>
+                  <small>{lead.company_name || lead.phone || lead.email || "Sem contato"}</small>
+                  <div className="crm5-tags">
+                    {(lead.tags || []).slice(0, 3).map((tag) => (
+                      <i key={tag}>{tag}</i>
+                    ))}
+                  </div>
                 </div>
-              </div>
 
-              <div>
-                <strong>
-                  {(lead.project_id && projectById.get(lead.project_id)) || "Não definido"}
-                </strong>
-                <small>{lead.source || lead.source_channel || "Origem não informada"}</small>
-              </div>
+                <div>
+                  <strong>
+                    {(lead.project_id && projectById.get(lead.project_id)) || "Não definido"}
+                  </strong>
+                  <small>{lead.source || lead.source_channel || "Origem não informada"}</small>
+                </div>
 
-              <div className={styles.origin}>
-                <strong>{formatOriginDate(originDate(lead))}</strong>
-                <small>{isMetaLead(lead) ? "Cadastro na Meta" : "Cadastro no CRM"}</small>
-              </div>
+                <div className={styles.origin}>
+                  <strong>{formatOriginDate(originDate(lead))}</strong>
+                  <small>{isMetaLead(lead) ? "Cadastro na Meta" : "Cadastro no CRM"}</small>
+                </div>
 
-              <div>
-                <b
-                  className={`crm5-score ${
-                    Number(lead.lead_score || 0) >= 70 ? "hot" : ""
-                  }`}
-                >
-                  {lead.lead_score || 0}
-                </b>
-                <Status tone={urgency(lead)}>{lead.temperature || "morno"}</Status>
-              </div>
+                <div>
+                  <b
+                    className={`crm5-score ${
+                      Number(lead.lead_score || 0) >= 70 ? "hot" : ""
+                    }`}
+                  >
+                    {lead.lead_score || 0}
+                  </b>
+                  <Status tone={urgency(lead)}>{lead.temperature || "morno"}</Status>
+                </div>
 
-              <div>
-                <small>
-                  SDR: <UserName id={lead.sdr_user_id} data={data} />
-                </small>
-                <small>
-                  Corretor: <UserName id={lead.broker_user_id} data={data} />
-                </small>
-              </div>
+                <div>
+                  <small>
+                    SDR: <UserName id={lead.sdr_user_id} data={data} />
+                  </small>
+                  <small>
+                    Corretor: <UserName id={lead.broker_user_id} data={data} />
+                  </small>
+                </div>
 
-              <div>
-                <strong>
-                  {lead.next_action_at
-                    ? new Date(lead.next_action_at).toLocaleString("pt-BR", {
-                        timeZone: "America/Sao_Paulo",
-                        day: "2-digit",
-                        month: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })
-                    : "Não agendada"}
-                </strong>
-                <small>
-                  {lead.sla_due_at
-                    ? `SLA ${new Date(lead.sla_due_at).toLocaleString("pt-BR", {
-                        timeZone: "America/Sao_Paulo",
-                        day: "2-digit",
-                        month: "2-digit",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}`
-                    : "Sem SLA"}
-                </small>
-              </div>
+                {aiEnabled && (
+                  <div className={styles.aiStatus}>
+                    {aiLabel ? (
+                      <>
+                        <strong>{aiLabel}</strong>
+                        <small>
+                          {ai?.qualityScore !== null && ai?.qualityScore !== undefined
+                            ? `Qualidade ${ai.qualityScore}/100`
+                            : "Modo sombra"}
+                        </small>
+                        {ai?.draft && <small title={ai.draft}>{ai.draft}</small>}
+                      </>
+                    ) : (
+                      <>
+                        <strong>Sem análise</strong>
+                        <small>Vitória ainda não processou</small>
+                      </>
+                    )}
+                  </div>
+                )}
 
-              <div>
-                <button onClick={() => openActivity(lead)}>Atividade</button>
-                <button onClick={() => openLead(lead)}>Editar</button>
-              </div>
-            </article>
-          ))}
+                <div>
+                  <strong>
+                    {lead.next_action_at
+                      ? new Date(lead.next_action_at).toLocaleString("pt-BR", {
+                          timeZone: "America/Sao_Paulo",
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
+                      : "Não agendada"}
+                  </strong>
+                  <small>
+                    {lead.sla_due_at
+                      ? `SLA ${new Date(lead.sla_due_at).toLocaleString("pt-BR", {
+                          timeZone: "America/Sao_Paulo",
+                          day: "2-digit",
+                          month: "2-digit",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}`
+                      : "Sem SLA"}
+                  </small>
+                </div>
+
+                <div>
+                  <button onClick={() => openActivity(lead)}>Atividade</button>
+                  <button onClick={() => openLead(lead)}>Editar</button>
+                </div>
+              </article>
+            );
+          })}
 
           {!rows.length && (
             <EmptyState

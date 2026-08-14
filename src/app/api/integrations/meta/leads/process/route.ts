@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { processMetaLeadQueue } from "@/lib/integrations/meta/processor";
+import { pullMetaLeadRoutes } from "@/lib/integrations/meta/pull-sync";
 import { getMetaWorkerConfig } from "@/lib/integrations/meta/server-config";
 import {
   authorizeBearer,
@@ -64,9 +65,13 @@ async function processRequest(request: NextRequest) {
       );
     }
 
+    // Quando não há App Secret, o Enterprise mantém o mesmo modelo de
+    // autenticação do Campaign Control e lê novos leads pela Graph API.
+    // Se houver webhook, a fila continua idempotente e elimina duplicidades.
+    const polling = await pullMetaLeadRoutes();
     const result = await processMetaLeadQueue({ limit });
     return NextResponse.json(
-      { ok: true, ...result, correlationId },
+      { ok: true, polling, ...result, correlationId },
       { status: 200, headers: RESPONSE_HEADERS },
     );
   } catch (error) {

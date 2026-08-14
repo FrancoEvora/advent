@@ -16,8 +16,9 @@ type PollRoute = {
 
 const META_ID = /^\d{1,64}$/;
 const MAX_ROUTES_PER_RUN = 20;
-const MAX_PAGES_PER_FORM = 5;
-const LOOKBACK_MS = 36 * 60 * 60 * 1000;
+const MAX_PAGES_PER_FORM = 10;
+const INITIAL_LOOKBACK_MS = 89 * 24 * 60 * 60 * 1000;
+const CHECKPOINT_OVERLAP_MS = 30 * 60 * 1000;
 
 let serviceClient: SupabaseClient | null = null;
 
@@ -50,6 +51,12 @@ function ingressMode(metadata: Obj) {
   return typeof metadata.ingress_mode === "string" ? metadata.ingress_mode.toLowerCase() : "";
 }
 
+function routeCutoff(route: PollRoute) {
+  const initial = Date.now() - INITIAL_LOOKBACK_MS;
+  const checkpoint = timestamp(route.metadata.last_poll_at);
+  return checkpoint === null ? initial : Math.max(initial, checkpoint - CHECKPOINT_OVERLAP_MS);
+}
+
 async function graphPage(url: URL, accessToken: string, appSecret: string | null, timeout: number) {
   url.searchParams.delete("access_token");
   if (appSecret) {
@@ -74,7 +81,7 @@ async function graphPage(url: URL, accessToken: string, appSecret: string | null
 
 async function recentLeads(route: PollRoute) {
   const config = await getMetaGraphConfig(route.organization_id, route.page_id);
-  const cutoff = Date.now() - LOOKBACK_MS;
+  const cutoff = routeCutoff(route);
   const leads: Obj[] = [];
   let next: URL | null = new URL(
     `https://graph.facebook.com/${config.apiVersion}/${route.form_id}/leads`,

@@ -216,7 +216,10 @@ async function structuredResponse<T>(input: {
         false,
       );
     }
-    return { id: typeof payload.id === "string" ? payload.id : null, value: parsed as T };
+    return {
+      id: typeof payload.id === "string" ? payload.id : null,
+      value: parsed as T,
+    };
   } catch (error) {
     if (error instanceof CrmAiModelError) throw error;
     if (error instanceof Error && error.name === "AbortError") {
@@ -235,11 +238,17 @@ async function structuredResponse<T>(input: {
 }
 
 function safeContext(context: CrmAiLeadContext) {
-  // Deliberadamente não inclui telefone, e-mail, documento, RG, renda, endereço
-  // completo nem payload bruto da Meta. O agente recebe somente o necessário
-  // para produzir uma abordagem comercial contextual.
+  // Minimização explícita: além de telefone, e-mail, documentos, renda e
+  // endereço completo, a capacidade de pagamento também não é enviada ao
+  // modelo no modo sombra. Ela permanece apenas no CRM canônico.
+  const {
+    paymentCapacity: _paymentCapacity,
+    ...safeLead
+  } = context.lead;
+  void _paymentCapacity;
+
   return {
-    lead: context.lead,
+    lead: safeLead,
     contact: context.contact,
     project: context.project,
     campaign: context.campaign,
@@ -304,7 +313,8 @@ export async function generateSupervisedShadowDraft(
       recommended_next_step: "human_review",
       quality_score: 100,
       issues: [governanceBlock],
-      review_summary: "A política determinística da Enterprise bloqueou a abordagem antes do modelo.",
+      review_summary:
+        "A política determinística da Enterprise bloqueou a abordagem antes do modelo.",
       draft_message: "",
       generated_at: new Date().toISOString(),
       agent_response_id: null,

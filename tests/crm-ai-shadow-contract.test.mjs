@@ -12,8 +12,17 @@ test("CRM AI foundation remains server-only and shadow-only", async () => {
   );
 
   for (const table of ["crm_ai_jobs", "crm_conversations", "crm_messages"]) {
-    assert.match(sql, new RegExp(`alter table public\\.${table} enable row level security`, "i"));
-    assert.match(sql, new RegExp(`revoke all on table public\\.${table} from public, anon, authenticated`, "i"));
+    assert.match(
+      sql,
+      new RegExp(`alter table public\\.${table} enable row level security`, "i"),
+    );
+    assert.match(
+      sql,
+      new RegExp(
+        `revoke all on table public\\.${table} from public, anon, authenticated`,
+        "i",
+      ),
+    );
   }
 
   assert.match(sql, /delivery_status[\s\S]*?'draft'/i);
@@ -42,7 +51,10 @@ test("queue hardening recovers exhausted leases and rejects idempotency collisio
   assert.match(sql, /job\.attempt_count >= job\.max_attempts/i);
   assert.match(sql, /job\.locked_at is null/i);
   assert.match(sql, /for update skip locked/i);
-  assert.match(sql, /Colisao de chave de idempotencia IA entre contextos distintos/i);
+  assert.match(
+    sql,
+    /Colisao de chave de idempotencia IA entre contextos distintos/i,
+  );
 });
 
 test("OpenAI shadow request minimizes data and never persists provider state", async () => {
@@ -52,23 +64,25 @@ test("OpenAI shadow request minimizes data and never persists provider state", a
   assert.match(code, /paymentCapacity:\s*_paymentCapacity/);
   assert.match(code, /doNotContact/);
   assert.match(code, /marketingConsentStatus/);
-  assert.match(code, /R\\\$\\s\*\\d/);
-  assert.match(code, /https\?:\\\/\\\//);
+  assert.ok(code.includes("/R\\$\\s*\\d/i"), "price gate must remain enabled");
+  assert.ok(code.includes("/https?:\\/\\//i"), "external-link gate must remain enabled");
   assert.match(code, /Supervisor de Excelência Comercial e Governança/);
 });
 
 test("Meta ingestion is authoritative and AI enqueue is fail-open", async () => {
   const code = await source("src/lib/integrations/meta/processor.ts");
-  const ingestPosition = code.indexOf("ingestMetaLeadEvent");
-  const enqueuePosition = code.indexOf("enqueueCrmAiJob");
-
-  assert.ok(ingestPosition >= 0, "canonical Meta ingest must remain present");
-  assert.ok(enqueuePosition >= 0, "AI enqueue must remain present");
-  assert.ok(
-    code.lastIndexOf("ingestMetaLeadEvent") < code.lastIndexOf("enqueueCrmAiJob"),
-    "AI work must be enqueued only after canonical ingest",
+  const canonicalIngest = code.indexOf(
+    "const ingest = await ingestMetaLeadEvent(event, ingestPayload);",
   );
-  assert.match(code, /AI shadow enqueue skipped after successful Meta ingest/);
+  const aiEnqueue = code.indexOf("await enqueueShadowAgentFailOpen(event, ingest);");
+
+  assert.ok(canonicalIngest >= 0, "canonical Meta ingest must remain present");
+  assert.ok(aiEnqueue >= 0, "AI enqueue must remain present");
+  assert.ok(
+    canonicalIngest < aiEnqueue,
+    "AI work must be enqueued only after canonical ingest succeeds",
+  );
+  assert.match(code, /CRM AI shadow enqueue skipped after Meta ingest/);
 });
 
 test("AI worker stays behind an explicit feature flag and bearer gate", async () => {

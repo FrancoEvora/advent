@@ -120,14 +120,18 @@ async function fetchGraphObject(
   fields: readonly string[],
   config: MetaGraphConfig,
 ): Promise<JsonObject> {
-  const appSecretProof = createHmac("sha256", config.appSecret)
-    .update(config.accessToken)
-    .digest("hex");
   const url = new URL(
     `https://graph.facebook.com/${config.apiVersion}/${requireMetaId(objectId)}`,
   );
   url.searchParams.set("fields", fields.join(","));
-  url.searchParams.set("appsecret_proof", appSecretProof);
+  // Igual ao Évora Campaign Control: appsecret_proof só é enviado quando
+  // há App Secret configurado. Page Access Token continua funcional sem ele.
+  if (config.appSecret) {
+    const appSecretProof = createHmac("sha256", config.appSecret)
+      .update(config.accessToken)
+      .digest("hex");
+    url.searchParams.set("appsecret_proof", appSecretProof);
+  }
 
   let response: Response;
   try {

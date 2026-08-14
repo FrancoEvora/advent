@@ -1,11 +1,10 @@
+import { createClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 
 import { processMetaLeadQueue } from "@/lib/integrations/meta/processor";
 import { pullMetaLeadRoutes } from "@/lib/integrations/meta/pull-sync";
-import { getMetaWorkerConfig } from "@/lib/integrations/meta/server-config";
 import {
-  authorizeBearer,
   correlationIdOrNew,
   isStructurallyValidWorkerAuthorization,
 } from "@/lib/integrations/meta/webhook-core";
@@ -27,10 +26,28 @@ function requestedLimit(request: NextRequest): number | undefined {
   return value >= 1 && value <= 25 ? value : Number.NaN;
 }
 
-function matchesConfiguredWorkerEndpoint(request: NextRequest, workerUrl: string): boolean {
-  const expected = new URL(workerUrl);
-  return request.nextUrl.origin === expected.origin &&
-    request.nextUrl.pathname === expected.pathname;
+function workerToken(request: NextRequest): string | null {
+  const authorization = request.headers.get("authorization");
+  if (!isStructurallyValidWorkerAuthorization(authorization)) return null;
+  const match = /^Bearer\s+([^\s]+)$/i.exec(authorization || "");
+  return match?.[1] || null;
+}
+
+async function verifyConfiguredWorker(request: NextRequest): Promise<boolean> {
+  const candidate = workerToken(request);
+  if (!candidate) return false;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
+  if (!url || !key) return false;
+  const client = createClient(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
+  const requestUrl = `${request.nextUrl.origin}${request.nextUrl.pathname}`;
+  const result = await client.rpc("verify_meta_worker_bearer", {
+    p_candidate: candidate,
+    p_request_url: requestUrl,
+  });
+  return !result.error && result.data === true;
 }
 
 async function processRequest(request: NextRequest) {
@@ -38,20 +55,7 @@ async function processRequest(request: NextRequest) {
     request.headers.get("x-correlation-id"),
   );
   try {
-    if (!isStructurallyValidWorkerAuthorization(request.headers.get("authorization"))) {
-      return NextResponse.json(
-        { ok: false, error: "PROCESS_AUTHORIZATION_REQUIRED" },
-        { status: 401, headers: RESPONSE_HEADERS },
-      );
-    }
-    const worker = await getMetaWorkerConfig();
-    if (
-      !matchesConfiguredWorkerEndpoint(request, worker.workerUrl) ||
-      !authorizeBearer(
-        request.headers.get("authorization"),
-        worker.workerSecret,
-      )
-    ) {
+    if (!(await verifyConfiguredWorker(request))) {
       return NextResponse.json(
         { ok: false, error: "PROCESS_AUTHORIZATION_REQUIRED" },
         { status: 401, headers: RESPONSE_HEADERS },
@@ -65,9 +69,6 @@ async function processRequest(request: NextRequest) {
       );
     }
 
-    // Quando não há App Secret, o Enterprise mantém o mesmo modelo de
-    // autenticação do Campaign Control e lê novos leads pela Graph API.
-    // Se houver webhook, a fila continua idempotente e elimina duplicidades.
     const polling = await pullMetaLeadRoutes();
     const result = await processMetaLeadQueue({ limit });
     return NextResponse.json(
@@ -78,6 +79,7 @@ async function processRequest(request: NextRequest) {
     console.error("Meta lead worker unavailable", {
       correlationId,
       errorCode: error instanceof Error ? error.name : "UnknownError",
+      errorMessage: error instanceof Error ? error.message.slice(0, 160) : "unknown",
     });
     return NextResponse.json(
       {

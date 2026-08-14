@@ -1,7 +1,8 @@
 import {
-  getCrmAiOpenAiConfig,
+  getCrmAiRequestTimeoutMs,
   type CrmAiReasoningEffort,
 } from "./config";
+import type { CrmAiRuntime } from "./runtime-store";
 import type {
   CrmAiLeadContext,
   CrmAiShadowResult,
@@ -143,6 +144,7 @@ function outputText(payload: ResponsePayload): string {
 }
 
 async function structuredResponse<T>(input: {
+  apiKey: string;
   model: string;
   reasoningEffort: CrmAiReasoningEffort;
   schemaName: string;
@@ -150,14 +152,13 @@ async function structuredResponse<T>(input: {
   system: string;
   user: string;
 }): Promise<{ id: string | null; value: T }> {
-  const config = getCrmAiOpenAiConfig();
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), config.requestTimeoutMs);
+  const timer = setTimeout(() => controller.abort(), getCrmAiRequestTimeoutMs());
   try {
     const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${config.apiKey}`,
+        Authorization: `Bearer ${input.apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -303,6 +304,7 @@ function localQualityGate(review: SupervisorReview): SupervisorReview {
 
 export async function generateSupervisedShadowDraft(
   context: CrmAiLeadContext,
+  runtime: CrmAiRuntime,
 ): Promise<CrmAiShadowResult> {
   const governanceBlock = blockedByGovernance(context);
   if (governanceBlock) {
@@ -324,12 +326,20 @@ export async function generateSupervisedShadowDraft(
     };
   }
 
-  const config = getCrmAiOpenAiConfig();
+  if (!runtime.enabled || runtime.mode !== "shadow" || !runtime.apiKey) {
+    throw new CrmAiModelError(
+      "CRM_AI_RUNTIME_DISABLED",
+      "O runtime da Vitória está desabilitado para esta organização.",
+      false,
+    );
+  }
+
   const contextJson = JSON.stringify(safeContext(context));
 
   const draft = await structuredResponse<VitoriaDraft>({
-    model: config.agentModel,
-    reasoningEffort: config.agentReasoning,
+    apiKey: runtime.apiKey,
+    model: runtime.agentModel,
+    reasoningEffort: runtime.agentReasoning,
     schemaName: "vitoria_shadow_draft",
     schema: DRAFT_SCHEMA as unknown as JsonObject,
     system: [
@@ -347,8 +357,9 @@ export async function generateSupervisedShadowDraft(
   });
 
   const supervisor = await structuredResponse<SupervisorReview>({
-    model: config.supervisorModel,
-    reasoningEffort: config.supervisorReasoning,
+    apiKey: runtime.apiKey,
+    model: runtime.supervisorModel,
+    reasoningEffort: runtime.supervisorReasoning,
     schemaName: "vitoria_shadow_supervisor_review",
     schema: SUPERVISOR_SCHEMA as unknown as JsonObject,
     system: [

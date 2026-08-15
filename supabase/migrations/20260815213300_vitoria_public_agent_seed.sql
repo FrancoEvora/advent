@@ -56,7 +56,7 @@ begin
     organization_key,
     'WEB_AGENT_VITORIA',
     'Site — Atendimento Inteligente Vitória',
-    'first_party',
+    'website',
     'web_agent',
     false,
     true,

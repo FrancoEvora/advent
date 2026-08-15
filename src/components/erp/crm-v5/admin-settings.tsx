@@ -7,12 +7,13 @@ import type { CrmEnterpriseData } from "./types";
 import { AiRuntimeSettings } from "./ai-runtime-settings";
 import { CrmSectionHeader, Status } from "./shared";
 import { MetaCampaignControlSettings } from "./meta-campaign-control-settings";
+import { WhatsAppRuntimeSettings } from "./whatsapp-runtime-settings";
 
 export function SettingsView({ data, crm, reload, can = () => false }: { data: ErpData; crm: CrmEnterpriseData; reload: () => Promise<void>; can?: (permission: string) => boolean }) {
   const providers = ["whatsapp", "meta", "site_forms", "email", "google_calendar", "maps", "webhook"];
   const canManage = can("crm.integrations.manage");
   async function save(provider: string, status: string) {
-    if (!canManage || provider === "meta") return;
+    if (!canManage || provider === "meta" || provider === "whatsapp") return;
     const client = getSupabase(); if (!client) return;
     const result = await client.from("crm_integrations").upsert({ organization_id: data.organization.id, provider, display_name: providerLabel(provider), status, updated_at: new Date().toISOString() }, { onConflict: "organization_id,provider" });
     if (result.error) throw result.error; await reload();
@@ -26,11 +27,14 @@ export function SettingsView({ data, crm, reload, can = () => false }: { data: E
       const status = provider === "meta" ? (metaActive ? "conectado" : crm.metaLeadRoutes.length ? "configuração pendente" : "não configurado") : current?.status || "não configurado";
       const description = provider === "meta"
         ? "Mesmo conector do Campaign Control · ativos Meta + formulários + leads → CRM"
-        : current?.last_sync_at ? `Sincronizado em ${new Date(current.last_sync_at).toLocaleString("pt-BR")}` : "Credenciais externas necessárias";
-      return <article key={provider}><div className="crm5-integration-icon">{providerIcon(provider)}</div><div><strong>{providerLabel(provider)}</strong><small>{description}</small></div><Status tone={provider === "meta" && metaActive ? "success" : status === "conectado" ? "success" : "neutral"}>{status}</Status><button disabled={!canManage} onClick={() => provider === "meta" ? document.getElementById("meta-campaign-control-setup")?.scrollIntoView({ behavior: "smooth", block: "start" }) : save(provider, current?.status === "conectado" ? "desconectado" : "configuracao_pendente")}>{provider === "meta" ? "Configurar Meta Leads" : "Configurar"}</button></article>;
+        : provider === "whatsapp"
+          ? "WhatsApp Business Platform · Cloud API · Vitória + Supervisor"
+          : current?.last_sync_at ? `Sincronizado em ${new Date(current.last_sync_at).toLocaleString("pt-BR")}` : "Credenciais externas necessárias";
+      return <article key={provider}><div className="crm5-integration-icon">{providerIcon(provider)}</div><div><strong>{providerLabel(provider)}</strong><small>{description}</small></div><Status tone={provider === "meta" && metaActive ? "success" : status === "conectado" ? "success" : "neutral"}>{status}</Status><button disabled={!canManage} onClick={() => provider === "meta" ? document.getElementById("meta-campaign-control-setup")?.scrollIntoView({ behavior: "smooth", block: "start" }) : provider === "whatsapp" ? document.getElementById("whatsapp-cloud-setup")?.scrollIntoView({ behavior: "smooth", block: "start" }) : save(provider, current?.status === "conectado" ? "desconectado" : "configuracao_pendente")}>{provider === "meta" ? "Configurar Meta Leads" : provider === "whatsapp" ? "Configurar WhatsApp" : "Configurar"}</button></article>;
     })}</section>
     <MetaCampaignControlSettings data={data} crm={crm} reload={reload} canManage={canManage} />
     <AiRuntimeSettings data={data} canManage={canManage} />
+    <WhatsAppRuntimeSettings data={data} canManage={canManage} />
     <section className="crm5-panel"><header><div><small>POLÍTICAS</small><h3>Parâmetros operacionais recomendados</h3></div></header><div className="crm5-policy-grid"><article><strong>1 hora</strong><span>SLA de primeiro atendimento</span></article><article><strong>24 horas</strong><span>Alerta de lead sem contato</span></article><article><strong>3 tentativas</strong><span>Cadência inicial mínima</span></article><article><strong>48 horas</strong><span>Alerta de estagnação por etapa</span></article><article><strong>Score 70</strong><span>Classificação de lead quente</span></article><article><strong>Round robin</strong><span>Distribuição padrão para SDR</span></article></div></section>
   </div>;
 }

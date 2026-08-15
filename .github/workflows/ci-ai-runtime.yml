@@ -22,3 +22,4 @@ jobs:
           tests/crm-ai-runtime-hardening.test.mjs
           tests/crm-ai-supervised-review.test.mjs
           tests/crm-ai-all-new-leads.test.mjs
+          tests/crm-whatsapp-cloud-contract.test.mjs

@@ -1,11 +1,9 @@
 import { createHmac, randomBytes } from "node:crypto";
 
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
 
-import { getSupabaseIntegrationConfig } from "@/lib/integrations/meta/server-config";
+import { CrmAiConfigError, getCrmAiWorkerToken } from "@/lib/ai/config";
 import type {
-  PublicAgentContextPayload,
   PublicAgentExperience,
   PublicAgentProfile,
   PublicAgentSessionPayload,
@@ -13,8 +11,7 @@ import type {
 } from "./types";
 
 type JsonObject = Record<string, unknown>;
-
-let serviceClient: SupabaseClient | null = null;
+type EdgeEnvelope<T> = { ok: true; data: T } | { ok: false; error?: string };
 
 export class PublicAgentServerError extends Error {
   readonly code: string;
@@ -26,20 +23,6 @@ export class PublicAgentServerError extends Error {
     this.code = code;
     this.status = status;
   }
-}
-
-function database(): SupabaseClient {
-  if (serviceClient) return serviceClient;
-  const config = getSupabaseIntegrationConfig();
-  serviceClient = createClient(config.url, config.serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      persistSession: false,
-    },
-    global: { headers: { "X-Client-Info": "evora-public-agent/1.0" } },
-  });
-  return serviceClient;
 }
 
 function object(value: unknown): value is JsonObject {
@@ -54,35 +37,92 @@ function safeSlug(value: string): string {
   return slug;
 }
 
-function databaseError(error: unknown): PublicAgentServerError {
-  const raw = object(error) && typeof error.message === "string" ? error.message : "";
-  const message = raw.toUpperCase();
-  if (message.includes("EXPERIENCE_NOT_FOUND")) {
-    return new PublicAgentServerError("PUBLIC_AGENT_NOT_FOUND", 404);
+function edgeEndpoint(): URL {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!raw) throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
+  let base: URL;
+  try {
+    base = new URL(raw);
+  } catch {
+    throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
-  if (message.includes("SESSION_NOT_FOUND")) {
-    return new PublicAgentServerError("PUBLIC_AGENT_SESSION_NOT_FOUND", 401);
+  if (base.protocol !== "https:") {
+    throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
-  if (message.includes("RATE_LIMIT")) {
-    return new PublicAgentServerError("PUBLIC_AGENT_RATE_LIMIT", 429);
-  }
-  if (message.includes("SESSION_INACTIVE")) {
-    return new PublicAgentServerError("PUBLIC_AGENT_SESSION_INACTIVE", 409);
-  }
-  if (message.includes("INPUT_INVALID") || message.includes("EMAIL_INVALID")) {
-    return new PublicAgentServerError("PUBLIC_AGENT_INPUT_INVALID", 400);
-  }
-  return new PublicAgentServerError("PUBLIC_AGENT_DATABASE_UNAVAILABLE", 503);
+  return new URL("/functions/v1/enterprise-public-agent", base);
 }
 
-async function rpc<T>(name: string, params: JsonObject): Promise<T> {
-  const { data, error } = await database().rpc(name, params);
-  if (error) throw databaseError(error);
-  return data as T;
+function edgeError(code: string, status: number): PublicAgentServerError {
+  if (status === 401 || code === "PUBLIC_AGENT_AUTH_REQUIRED") {
+    return new PublicAgentServerError("PUBLIC_AGENT_EDGE_AUTH_FAILED", 503);
+  }
+  if (status === 404 || code === "PUBLIC_AGENT_NOT_FOUND") {
+    return new PublicAgentServerError("PUBLIC_AGENT_NOT_FOUND", 404);
+  }
+  if (status === 429 || code.includes("RATE_LIMIT")) {
+    return new PublicAgentServerError("PUBLIC_AGENT_RATE_LIMIT", 429);
+  }
+  if (status === 409 || code.includes("INACTIVE")) {
+    return new PublicAgentServerError("PUBLIC_AGENT_SESSION_INACTIVE", 409);
+  }
+  if (status === 400 || code.includes("INVALID") || code.includes("CONSENT")) {
+    return new PublicAgentServerError(code || "PUBLIC_AGENT_INPUT_INVALID", 400);
+  }
+  return new PublicAgentServerError(code || "PUBLIC_AGENT_EDGE_UNAVAILABLE", 503);
+}
+
+async function edgeRequest<T>(action: string, payload: JsonObject, timeoutMs = 30_000): Promise<T> {
+  let token: string;
+  try {
+    token = getCrmAiWorkerToken();
+  } catch (error) {
+    if (error instanceof CrmAiConfigError) {
+      throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
+    }
+    throw error;
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(edgeEndpoint(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ action, ...payload }),
+      cache: "no-store",
+      signal: controller.signal,
+    });
+    const body = (await response.json().catch(() => null)) as EdgeEnvelope<T> | null;
+    if (!body || !response.ok || body.ok !== true) {
+      const code = body && body.ok === false && typeof body.error === "string"
+        ? body.error
+        : `PUBLIC_AGENT_EDGE_HTTP_${response.status}`;
+      throw edgeError(code, response.status);
+    }
+    return body.data;
+  } catch (error) {
+    if (error instanceof PublicAgentServerError) throw error;
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_TIMEOUT", 503);
+    }
+    throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NETWORK_FAILURE", 503);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function hashingKey(): string {
-  return getSupabaseIntegrationConfig().serviceRoleKey;
+  try {
+    return getCrmAiWorkerToken();
+  } catch (error) {
+    if (error instanceof CrmAiConfigError) {
+      throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
+    }
+    throw error;
+  }
 }
 
 export function hashPublicAgentValue(value: string): string {
@@ -166,29 +206,13 @@ export function sanitizeEmail(value: string | null | undefined): string | null {
 export function sanitizeProfile(value: unknown): PublicAgentProfile {
   if (!object(value)) return {};
   const profile: PublicAgentProfile = {};
-  const intent = value.intent;
-  if (["morar", "investir", "conhecer", "unknown"].includes(String(intent))) {
-    profile.intent = intent as PublicAgentProfile["intent"];
+  if (["morar", "investir", "conhecer", "unknown"].includes(String(value.intent))) {
+    profile.intent = value.intent as PublicAgentProfile["intent"];
   }
-  const horizon = value.purchase_horizon;
-  if (
-    [
-      "ate_3_meses",
-      "3_a_6_meses",
-      "6_a_12_meses",
-      "mais_de_12_meses",
-      "unknown",
-    ].includes(String(horizon))
-  ) {
-    profile.purchase_horizon = horizon as PublicAgentProfile["purchase_horizon"];
+  if (["ate_3_meses", "3_a_6_meses", "6_a_12_meses", "mais_de_12_meses", "unknown"].includes(String(value.purchase_horizon))) {
+    profile.purchase_horizon = value.purchase_horizon as PublicAgentProfile["purchase_horizon"];
   }
-  for (const key of [
-    "budget_min",
-    "budget_max",
-    "preferred_area_min",
-    "preferred_area_max",
-    "payment_capacity",
-  ] as const) {
+  for (const key of ["budget_min", "budget_max", "preferred_area_min", "preferred_area_max", "payment_capacity"] as const) {
     const raw = value[key];
     if (raw === null) profile[key] = null;
     else if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0 && raw <= 1_000_000_000) {
@@ -213,16 +237,13 @@ export function sanitizeProfile(value: unknown): PublicAgentProfile {
 
 export function sanitizeStage(value: unknown): PublicAgentStage {
   const stage = String(value || "discovery") as PublicAgentStage;
-  if (["welcome", "discovery", "qualification", "contact", "handoff", "completed"].includes(stage)) {
-    return stage;
-  }
-  return "discovery";
+  return ["welcome", "discovery", "qualification", "contact", "handoff", "completed"].includes(stage)
+    ? stage
+    : "discovery";
 }
 
 export async function getPublicAgentExperience(slug: string): Promise<PublicAgentExperience> {
-  return rpc<PublicAgentExperience>("get_public_agent_experience", {
-    p_slug: safeSlug(slug),
-  });
+  return edgeRequest<PublicAgentExperience>("experience", { slug: safeSlug(slug) });
 }
 
 export async function openPublicAgentSession(input: {
@@ -234,49 +255,38 @@ export async function openPublicAgentSession(input: {
   referrer: string | null;
   userAgent: string | null;
 }): Promise<PublicAgentSessionPayload> {
-  return rpc<PublicAgentSessionPayload>("open_public_agent_session", {
-    p_slug: safeSlug(input.slug),
-    p_session_token_hash: hashPublicAgentValue(input.token),
-    p_fingerprint_hash: input.fingerprint,
-    p_utm: input.attribution,
-    p_landing_page: input.landingPage?.slice(0, 1000) || null,
-    p_referrer: input.referrer?.slice(0, 1000) || null,
-    p_user_agent: input.userAgent?.slice(0, 1000) || null,
+  return edgeRequest<PublicAgentSessionPayload>("session", {
+    slug: safeSlug(input.slug),
+    tokenHash: hashPublicAgentValue(input.token),
+    fingerprintHash: input.fingerprint,
+    attribution: input.attribution,
+    landingPage: input.landingPage?.slice(0, 1000) || null,
+    referrer: input.referrer?.slice(0, 1000) || null,
+    userAgent: input.userAgent?.slice(0, 1000) || null,
   });
 }
 
-export async function getPublicAgentContext(input: {
+export async function respondPublicAgentMessage(input: {
   slug: string;
   token: string;
   fingerprint: string;
-}): Promise<PublicAgentContextPayload> {
-  return rpc<PublicAgentContextPayload>("get_public_agent_context", {
-    p_slug: safeSlug(input.slug),
-    p_session_token_hash: hashPublicAgentValue(input.token),
-    p_fingerprint_hash: input.fingerprint,
-  });
-}
-
-export async function appendPublicAgentTurn(input: {
-  slug: string;
-  token: string;
-  fingerprint: string;
-  userMessage: string;
-  assistantMessage: string;
+  message: string;
+}): Promise<{
+  reply: string;
   stage: PublicAgentStage;
   profile: PublicAgentProfile;
-  metadata: JsonObject;
-}): Promise<{ stage: PublicAgentStage; profile: PublicAgentProfile; converted: boolean }> {
-  return rpc("append_public_agent_turn", {
-    p_slug: safeSlug(input.slug),
-    p_session_token_hash: hashPublicAgentValue(input.token),
-    p_fingerprint_hash: input.fingerprint,
-    p_user_message: input.userMessage.trim(),
-    p_assistant_message: input.assistantMessage.trim(),
-    p_stage: input.stage,
-    p_profile: input.profile,
-    p_metadata: input.metadata,
-  });
+  requestContact: boolean;
+  handoffRequested: boolean;
+  quickReplies: string[];
+  converted: boolean;
+  degraded: boolean;
+}> {
+  return edgeRequest("message", {
+    slug: safeSlug(input.slug),
+    tokenHash: hashPublicAgentValue(input.token),
+    fingerprintHash: input.fingerprint,
+    message: input.message.trim(),
+  }, 60_000);
 }
 
 export async function convertPublicAgentLead(input: {
@@ -298,15 +308,15 @@ export async function convertPublicAgentLead(input: {
   assignmentId?: string;
   protocol: string;
 }> {
-  return rpc("convert_public_agent_lead", {
-    p_slug: safeSlug(input.slug),
-    p_session_token_hash: hashPublicAgentValue(input.token),
-    p_fingerprint_hash: input.fingerprint,
-    p_name: input.name.trim().slice(0, 180),
-    p_phone_e164: normalizeBrazilianPhone(input.phone),
-    p_email: sanitizeEmail(input.email),
-    p_city: input.city?.trim().slice(0, 180) || null,
-    p_marketing_consent: input.marketingConsent,
-    p_profile: sanitizeProfile(input.profile),
+  return edgeRequest("lead", {
+    slug: safeSlug(input.slug),
+    tokenHash: hashPublicAgentValue(input.token),
+    fingerprintHash: input.fingerprint,
+    name: input.name.trim().slice(0, 180),
+    phone: normalizeBrazilianPhone(input.phone),
+    email: sanitizeEmail(input.email),
+    city: input.city?.trim().slice(0, 180) || null,
+    marketingConsent: input.marketingConsent,
+    profile: sanitizeProfile(input.profile),
   });
 }

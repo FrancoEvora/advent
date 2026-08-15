@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 
 import type { NextRequest } from "next/server";
 
@@ -52,6 +52,21 @@ function edgeEndpoint(): URL {
   return new URL("/functions/v1/enterprise-public-agent", base);
 }
 
+function edgeBearer(): string {
+  const oidc = process.env.VERCEL_OIDC_TOKEN?.trim();
+  if (oidc && oidc.length >= 100 && oidc.split(".").length === 3 && !/\s/.test(oidc)) {
+    return oidc;
+  }
+  try {
+    return getCrmAiWorkerToken();
+  } catch (error) {
+    if (error instanceof CrmAiConfigError) {
+      throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
+    }
+    throw error;
+  }
+}
+
 function edgeError(code: string, status: number): PublicAgentServerError {
   if (status === 401 || code === "PUBLIC_AGENT_AUTH_REQUIRED") {
     return new PublicAgentServerError("PUBLIC_AGENT_EDGE_AUTH_FAILED", 503);
@@ -72,23 +87,13 @@ function edgeError(code: string, status: number): PublicAgentServerError {
 }
 
 async function edgeRequest<T>(action: string, payload: JsonObject, timeoutMs = 30_000): Promise<T> {
-  let token: string;
-  try {
-    token = getCrmAiWorkerToken();
-  } catch (error) {
-    if (error instanceof CrmAiConfigError) {
-      throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
-    }
-    throw error;
-  }
-
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(edgeEndpoint(), {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${edgeBearer()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ action, ...payload }),
@@ -114,19 +119,8 @@ async function edgeRequest<T>(action: string, payload: JsonObject, timeoutMs = 3
   }
 }
 
-function hashingKey(): string {
-  try {
-    return getCrmAiWorkerToken();
-  } catch (error) {
-    if (error instanceof CrmAiConfigError) {
-      throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
-    }
-    throw error;
-  }
-}
-
 export function hashPublicAgentValue(value: string): string {
-  return createHmac("sha256", hashingKey()).update(value, "utf8").digest("hex");
+  return createHash("sha256").update(value, "utf8").digest("hex");
 }
 
 export function newPublicAgentToken(): string {

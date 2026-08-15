@@ -1,0 +1,370 @@
+begin;
+
+alter table crm_private.ai_runtime_settings
+  add column if not exists knowledge_vector_store_id text;
+
+alter table crm_private.public_agent_sessions
+  add column if not exists contact_capture jsonb not null default '{}'::jsonb,
+  add column if not exists contact_consent_at timestamptz;
+
+alter table crm_private.public_agent_sessions
+  drop constraint if exists public_agent_sessions_contact_capture_check;
+alter table crm_private.public_agent_sessions
+  add constraint public_agent_sessions_contact_capture_check
+  check (jsonb_typeof(contact_capture) = 'object' and pg_column_size(contact_capture) <= 16384);
+
+create table if not exists crm_private.vitoria_knowledge_sources (
+  id uuid primary key default gen_random_uuid(),
+  organization_id uuid not null references public.organizations(id) on delete cascade,
+  project_id uuid references public.projects(id) on delete cascade,
+  scope text not null default 'organization',
+  source_type text not null,
+  title text not null,
+  content_preview text,
+  storage_path text,
+  original_filename text,
+  mime_type text,
+  bytes bigint,
+  openai_file_id text,
+  vector_store_id text,
+  vector_file_status text not null default 'pending',
+  active boolean not null default true,
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  constraint vitoria_knowledge_scope_check check (scope in ('organization','project')),
+  constraint vitoria_knowledge_type_check check (source_type in ('text','file')),
+  constraint vitoria_knowledge_title_check check (char_length(trim(title)) between 2 and 180),
+  constraint vitoria_knowledge_project_check check ((scope='organization' and project_id is null) or (scope='project' and project_id is not null)),
+  constraint vitoria_knowledge_status_check check (vector_file_status in ('pending','processing','completed','failed')),
+  constraint vitoria_knowledge_bytes_check check (bytes is null or (bytes > 0 and bytes <= 20971520))
+);
+
+create index if not exists vitoria_knowledge_org_active_idx
+  on crm_private.vitoria_knowledge_sources(organization_id, active, updated_at desc);
+create index if not exists vitoria_knowledge_project_active_idx
+  on crm_private.vitoria_knowledge_sources(organization_id, project_id, active, updated_at desc)
+  where project_id is not null;
+
+alter table crm_private.vitoria_knowledge_sources enable row level security;
+revoke all on crm_private.vitoria_knowledge_sources from public, anon, authenticated;
+
+insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)
+values(
+  'vitoria-knowledge',
+  'vitoria-knowledge',
+  false,
+  20971520,
+  array[
+    'application/pdf',
+    'text/plain',
+    'text/markdown',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+  ]::text[]
+)
+on conflict(id) do update
+set public=false,
+    file_size_limit=excluded.file_size_limit,
+    allowed_mime_types=excluded.allowed_mime_types;
+
+create or replace function public.vitoria_knowledge_authorized(
+  p_organization_id uuid,
+  p_user_id uuid
+)
+returns boolean
+language sql
+security definer
+set search_path=''
+as $function$
+  select private.member_has_app_permission(
+    p_organization_id,
+    p_user_id,
+    'crm.integrations.manage'
+  );
+$function$;
+
+create or replace function public.list_vitoria_knowledge_sources(p_organization_id uuid)
+returns jsonb
+language sql
+security definer
+set search_path=''
+as $function$
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'id', source.id,
+    'organization_id', source.organization_id,
+    'project_id', source.project_id,
+    'scope', source.scope,
+    'source_type', source.source_type,
+    'title', source.title,
+    'content_preview', source.content_preview,
+    'original_filename', source.original_filename,
+    'mime_type', source.mime_type,
+    'bytes', source.bytes,
+    'vector_file_status', source.vector_file_status,
+    'active', source.active,
+    'created_at', source.created_at,
+    'updated_at', source.updated_at
+  ) order by source.updated_at desc), '[]'::jsonb)
+  from crm_private.vitoria_knowledge_sources source
+  where source.organization_id=p_organization_id;
+$function$;
+
+create or replace function public.get_vitoria_knowledge_source(
+  p_organization_id uuid,
+  p_source_id uuid
+)
+returns jsonb
+language sql
+security definer
+set search_path=''
+as $function$
+  select to_jsonb(source)
+  from crm_private.vitoria_knowledge_sources source
+  where source.organization_id=p_organization_id and source.id=p_source_id;
+$function$;
+
+create or replace function public.upsert_vitoria_knowledge_source(
+  p_id uuid,
+  p_organization_id uuid,
+  p_project_id uuid,
+  p_scope text,
+  p_source_type text,
+  p_title text,
+  p_content_preview text,
+  p_storage_path text,
+  p_original_filename text,
+  p_mime_type text,
+  p_bytes bigint,
+  p_openai_file_id text,
+  p_vector_store_id text,
+  p_vector_file_status text,
+  p_created_by uuid
+)
+returns uuid
+language plpgsql
+security definer
+set search_path=''
+as $function$
+declare source_id uuid := coalesce(p_id, gen_random_uuid());
+begin
+  if p_scope not in ('organization','project')
+     or p_source_type not in ('text','file')
+     or p_vector_file_status not in ('pending','processing','completed','failed') then
+    raise exception 'VITORIA_KNOWLEDGE_INVALID';
+  end if;
+  if p_scope='project' and not exists(
+    select 1 from public.projects project
+    where project.id=p_project_id and project.organization_id=p_organization_id
+  ) then raise exception 'VITORIA_KNOWLEDGE_PROJECT_INVALID'; end if;
+
+  insert into crm_private.vitoria_knowledge_sources(
+    id,organization_id,project_id,scope,source_type,title,content_preview,
+    storage_path,original_filename,mime_type,bytes,openai_file_id,vector_store_id,
+    vector_file_status,active,created_by
+  ) values(
+    source_id,p_organization_id,case when p_scope='project' then p_project_id else null end,
+    p_scope,p_source_type,left(trim(p_title),180),left(p_content_preview,1200),p_storage_path,
+    p_original_filename,p_mime_type,p_bytes,p_openai_file_id,p_vector_store_id,p_vector_file_status,true,p_created_by
+  )
+  on conflict(id) do update set
+    project_id=excluded.project_id,scope=excluded.scope,source_type=excluded.source_type,
+    title=excluded.title,content_preview=excluded.content_preview,storage_path=excluded.storage_path,
+    original_filename=excluded.original_filename,mime_type=excluded.mime_type,bytes=excluded.bytes,
+    openai_file_id=excluded.openai_file_id,vector_store_id=excluded.vector_store_id,
+    vector_file_status=excluded.vector_file_status,active=true,updated_at=now();
+  return source_id;
+end
+$function$;
+
+create or replace function public.delete_vitoria_knowledge_source(
+  p_organization_id uuid,
+  p_source_id uuid
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=''
+as $function$
+declare source_row crm_private.vitoria_knowledge_sources%rowtype;
+begin
+  select * into source_row from crm_private.vitoria_knowledge_sources
+  where organization_id=p_organization_id and id=p_source_id for update;
+  if not found then raise exception 'VITORIA_KNOWLEDGE_NOT_FOUND'; end if;
+  delete from crm_private.vitoria_knowledge_sources where id=p_source_id;
+  return jsonb_build_object(
+    'id',source_row.id,
+    'storage_path',source_row.storage_path,
+    'openai_file_id',source_row.openai_file_id,
+    'vector_store_id',source_row.vector_store_id
+  );
+end
+$function$;
+
+create or replace function public.get_vitoria_knowledge_vector_store(p_organization_id uuid)
+returns text
+language sql
+security definer
+set search_path=''
+as $function$
+  select knowledge_vector_store_id from crm_private.ai_runtime_settings
+  where organization_id=p_organization_id;
+$function$;
+
+create or replace function public.set_vitoria_knowledge_vector_store(
+  p_organization_id uuid,
+  p_vector_store_id text
+)
+returns void
+language plpgsql
+security definer
+set search_path=''
+as $function$
+begin
+  if p_vector_store_id is null or p_vector_store_id !~ '^vs_[A-Za-z0-9_-]{6,}$' then
+    raise exception 'VITORIA_VECTOR_STORE_INVALID';
+  end if;
+  update crm_private.ai_runtime_settings
+  set knowledge_vector_store_id=p_vector_store_id, updated_at=now()
+  where organization_id=p_organization_id;
+  if not found then raise exception 'VITORIA_RUNTIME_NOT_CONFIGURED'; end if;
+end
+$function$;
+
+create or replace function public.update_public_agent_contact_capture(
+  p_slug text,
+  p_session_token_hash text,
+  p_fingerprint_hash text,
+  p_patch jsonb,
+  p_consent boolean default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=''
+as $function$
+declare session_row crm_private.public_agent_sessions%rowtype;
+begin
+  if p_patch is null or jsonb_typeof(p_patch)<>'object' or pg_column_size(p_patch)>8192 then
+    raise exception 'PUBLIC_AGENT_CONTACT_INVALID';
+  end if;
+  select session.* into session_row
+  from crm_private.public_agent_sessions session
+  join crm_private.public_agent_experiences experience on experience.id=session.experience_id
+  where experience.slug=lower(trim(p_slug)) and experience.active
+    and session.session_token_hash=p_session_token_hash
+    and session.fingerprint_hash=p_fingerprint_hash
+  for update of session;
+  if not found then raise exception 'PUBLIC_AGENT_SESSION_NOT_FOUND'; end if;
+  update crm_private.public_agent_sessions
+  set contact_capture=contact_capture||jsonb_strip_nulls(p_patch),
+      contact_consent_at=case when p_consent=true then now() when p_consent=false then null else contact_consent_at end,
+      marketing_consent=case when p_consent=true then true else marketing_consent end,
+      stage=case when coalesce((p_patch->>'collecting')::boolean,false) then 'contact' else stage end,
+      updated_at=now(),last_activity_at=now()
+  where id=session_row.id
+  returning * into session_row;
+  return jsonb_build_object(
+    'contactCapture',session_row.contact_capture,
+    'consented',session_row.contact_consent_at is not null,
+    'converted',session_row.crm_record_id is not null
+  );
+end
+$function$;
+
+create or replace function public.get_public_agent_v2_context(
+  p_slug text,
+  p_session_token_hash text,
+  p_fingerprint_hash text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=''
+as $function$
+declare
+  experience_row crm_private.public_agent_experiences%rowtype;
+  session_row crm_private.public_agent_sessions%rowtype;
+  runtime_row crm_private.ai_runtime_settings%rowtype;
+  transcript jsonb;
+begin
+  select session.* into session_row
+  from crm_private.public_agent_sessions session
+  join crm_private.public_agent_experiences experience on experience.id=session.experience_id
+  where experience.slug=lower(trim(p_slug)) and experience.active
+    and session.session_token_hash=p_session_token_hash
+    and session.fingerprint_hash=p_fingerprint_hash
+  for update of session;
+  if not found then raise exception 'PUBLIC_AGENT_SESSION_NOT_FOUND'; end if;
+  if session_row.status in ('closed','blocked') or session_row.expires_at<=now() then
+    raise exception 'PUBLIC_AGENT_SESSION_INACTIVE';
+  end if;
+  select * into experience_row from crm_private.public_agent_experiences where id=session_row.experience_id;
+  select * into runtime_row from crm_private.ai_runtime_settings where organization_id=session_row.organization_id;
+  select coalesce(jsonb_agg(x order by x.created_at,x.id),'[]'::jsonb) into transcript
+  from (
+    select message.id,message.direction,message.content,message.created_at
+    from crm_private.public_agent_messages message
+    where message.session_id=session_row.id
+    order by message.created_at desc,message.id desc limit 24
+  ) x;
+  return jsonb_build_object(
+    'organizationId',session_row.organization_id,
+    'projectId',experience_row.project_id,
+    'sessionId',session_row.id,
+    'stage',session_row.stage,
+    'profile',session_row.captured_profile,
+    'contactCapture',session_row.contact_capture,
+    'contactConsented',session_row.contact_consent_at is not null,
+    'converted',session_row.crm_record_id is not null,
+    'knowledge',experience_row.knowledge,
+    'vectorStoreId',runtime_row.knowledge_vector_store_id,
+    'experience',jsonb_build_object('slug',experience_row.slug,'name',experience_row.name,'agentName',experience_row.agent_name,'title',experience_row.title,'subtitle',experience_row.subtitle,'theme',experience_row.theme),
+    'messages',transcript
+  );
+end
+$function$;
+
+revoke all on function public.vitoria_knowledge_authorized(uuid,uuid) from public,anon,authenticated;
+revoke all on function public.list_vitoria_knowledge_sources(uuid) from public,anon,authenticated;
+revoke all on function public.get_vitoria_knowledge_source(uuid,uuid) from public,anon,authenticated;
+revoke all on function public.upsert_vitoria_knowledge_source(uuid,uuid,uuid,text,text,text,text,text,text,text,bigint,text,text,text,uuid) from public,anon,authenticated;
+revoke all on function public.delete_vitoria_knowledge_source(uuid,uuid) from public,anon,authenticated;
+revoke all on function public.get_vitoria_knowledge_vector_store(uuid) from public,anon,authenticated;
+revoke all on function public.set_vitoria_knowledge_vector_store(uuid,text) from public,anon,authenticated;
+revoke all on function public.update_public_agent_contact_capture(text,text,text,jsonb,boolean) from public,anon,authenticated;
+revoke all on function public.get_public_agent_v2_context(text,text,text) from public,anon,authenticated;
+
+grant execute on function public.vitoria_knowledge_authorized(uuid,uuid) to service_role;
+grant execute on function public.list_vitoria_knowledge_sources(uuid) to service_role;
+grant execute on function public.get_vitoria_knowledge_source(uuid,uuid) to service_role;
+grant execute on function public.upsert_vitoria_knowledge_source(uuid,uuid,uuid,text,text,text,text,text,text,text,bigint,text,text,text,uuid) to service_role;
+grant execute on function public.delete_vitoria_knowledge_source(uuid,uuid) to service_role;
+grant execute on function public.get_vitoria_knowledge_vector_store(uuid) to service_role;
+grant execute on function public.set_vitoria_knowledge_vector_store(uuid,text) to service_role;
+grant execute on function public.update_public_agent_contact_capture(text,text,text,jsonb,boolean) to service_role;
+grant execute on function public.get_public_agent_v2_context(text,text,text) to service_role;
+
+update crm_private.public_agent_experiences
+set knowledge = jsonb_set(
+  jsonb_set(
+    knowledge,
+    '{approvedFacts}',
+    coalesce(knowledge->'approvedFacts','[]'::jsonb) || jsonb_build_array(
+      'A Évora Urbanismo atua no desenvolvimento imobiliário e urbanístico, com foco em estruturação, loteamento, infraestrutura e gestão de empreendimentos.',
+      'O Bairro Parque das Árvores, em Monte Carmelo/MG, é um bairro planejado da Évora com vocação residencial, comercial, serviços, saúde, hotelaria e apoio ao agronegócio.',
+      'O Solaris Residencial integra o Bairro Parque das Árvores e é um dos empreendimentos residenciais da Évora Urbanismo.',
+      'A Vitória deve tratar informações da Évora e de seus empreendimentos como sua principal especialidade e priorizar a base de conhecimento corporativa cadastrada pela equipe.'
+    ),
+    true
+  ),
+  '{guardrails}',
+  coalesce(knowledge->'guardrails','[]'::jsonb) || jsonb_build_array(
+    'Quando a base corporativa trouxer informação específica, ela prevalece sobre formulações genéricas.',
+    'Se duas fontes corporativas entrarem em conflito, não escolher uma silenciosamente: explicar que a informação precisa ser confirmada pela equipe.'
+  ),
+  true
+), updated_at=now()
+where slug='solaris';
+
+commit;

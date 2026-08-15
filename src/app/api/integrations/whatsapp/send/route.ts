@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 
 import { parseMetaCredentialBearer } from "@/lib/integrations/meta/credential-contract";
@@ -23,5 +23,5 @@ export async function POST(req:NextRequest){let organizationId="",messageId="";t
       const sent=await sendWhatsAppText({runtime,to:claimed.to_phone,text:claimed.content});
       const marked=await serviceDatabase().rpc("mark_whatsapp_message_sent",{p_organization_id:organizationId,p_message_id:messageId,p_provider_message_id:sent.providerMessageId,p_actor_user_id:userId});if(marked.error)throw new ApiError("WHATSAPP_SEND_AUDIT_FAILED",503);
       return NextResponse.json({ok:true,idempotent:false,providerMessageId:sent.providerMessageId},{headers:HEADERS});
-    }catch(error){const code=error instanceof WhatsAppServerError?error.code:error instanceof ApiError?error.code:"WHATSAPP_SEND_FAILED";await serviceDatabase().rpc("release_whatsapp_send_claim",{p_organization_id:organizationId,p_message_id:messageId,p_error_code:code}).catch(()=>null);throw error;}
+    }catch(error){const code=error instanceof WhatsAppServerError?error.code:error instanceof ApiError?error.code:"WHATSAPP_SEND_FAILED";try{await serviceDatabase().rpc("release_whatsapp_send_claim",{p_organization_id:organizationId,p_message_id:messageId,p_error_code:code});}catch{console.error("WhatsApp claim release failed",{messageId});}throw error;}
   }catch(error){if(!(error instanceof ApiError)&&!(error instanceof WhatsAppServerError))console.error("Supervised WhatsApp send failed",{errorName:error instanceof Error?error.name:"UnknownError"});const status=error instanceof ApiError?error.status:error instanceof WhatsAppServerError?error.status:503;const code=error instanceof ApiError||error instanceof WhatsAppServerError?error.code:"WHATSAPP_SEND_UNAVAILABLE";return NextResponse.json({ok:false,error:code},{status,headers:HEADERS});}}

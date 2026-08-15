@@ -64,11 +64,10 @@ begin
   end if;
   city_value := left(nullif(trim(p_city), ''), 180);
 
-  select experience, session
-  into experience_row, session_row
-  from crm_private.public_agent_experiences experience
-  join crm_private.public_agent_sessions session
-    on session.experience_id = experience.id
+  select session.* into session_row
+  from crm_private.public_agent_sessions session
+  join crm_private.public_agent_experiences experience
+    on experience.id = session.experience_id
   where experience.slug = lower(trim(p_slug))
     and experience.active
     and session.session_token_hash = p_session_token_hash
@@ -77,6 +76,15 @@ begin
 
   if not found then
     raise exception 'PUBLIC_AGENT_SESSION_NOT_FOUND';
+  end if;
+
+  select experience.* into experience_row
+  from crm_private.public_agent_experiences experience
+  where experience.id = session_row.experience_id
+    and experience.active;
+
+  if not found then
+    raise exception 'PUBLIC_AGENT_EXPERIENCE_NOT_FOUND';
   end if;
 
   if session_row.crm_record_id is not null then

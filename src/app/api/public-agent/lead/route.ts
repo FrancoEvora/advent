@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
       profile: sanitizeProfile(body.profile),
     });
 
-    return NextResponse.json({ ok: true, ...result }, { headers: HEADERS });
+    return NextResponse.json(result, { headers: HEADERS });
   } catch (error) {
     const status = error instanceof PublicAgentServerError ? error.status : 503;
     const code = error instanceof PublicAgentServerError

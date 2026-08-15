@@ -1,137 +1,84 @@
 import { type NextRequest, NextResponse } from "next/server";
 
-import { secureTextEqual, verifyMetaWebhookSignature } from "@/lib/integrations/meta/webhook-core";
-import {
-  getWhatsAppCredentialsByOrganization,
-  getWhatsAppCredentialsByPhoneNumberId,
-  serviceDatabase,
-} from "@/lib/integrations/whatsapp/server";
-
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const MAX_BYTES = 1024 * 1024;
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const META_ID = /^\d{1,64}$/;
+const RESPONSE_HEADERS = {
+  "Cache-Control": "no-store",
+  "X-Content-Type-Options": "nosniff",
+};
 
-type Obj = Record<string, unknown>;
-const object = (value: unknown): value is Obj => value !== null && typeof value === "object" && !Array.isArray(value);
+function edgeEndpoint(request: NextRequest) {
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!raw) throw new Error("SUPABASE_URL_UNAVAILABLE");
+  const base = new URL(raw);
+  if (base.protocol !== "https:") throw new Error("SUPABASE_URL_INVALID");
+  const target = new URL("/functions/v1/enterprise-whatsapp-webhook", base);
+  request.nextUrl.searchParams.forEach((value, key) => target.searchParams.append(key, value));
+  return target;
+}
 
-async function rawBody(request: NextRequest) {
+async function readBody(request: NextRequest) {
   const declared = request.headers.get("content-length");
-  if (declared && (!/^\d+$/.test(declared) || Number(declared) > MAX_BYTES)) throw new Error("PAYLOAD_TOO_LARGE");
-  const buffer = new Uint8Array(await request.arrayBuffer());
-  if (buffer.byteLength > MAX_BYTES) throw new Error("PAYLOAD_TOO_LARGE");
-  return buffer;
-}
-
-function parsePayload(raw: Uint8Array): Obj {
-  let value: unknown;
-  try { value = JSON.parse(new TextDecoder().decode(raw)); } catch { throw new Error("INVALID_JSON"); }
-  if (!object(value) || value.object !== "whatsapp_business_account" || !Array.isArray(value.entry)) throw new Error("INVALID_WHATSAPP_PAYLOAD");
-  return value;
-}
-
-function changes(payload: Obj) {
-  const out: Obj[] = [];
-  for (const entry of Array.isArray(payload.entry) ? payload.entry.slice(0, 100) : []) {
-    if (!object(entry)) continue;
-    for (const change of Array.isArray(entry.changes) ? entry.changes.slice(0, 100) : []) {
-      if (object(change) && change.field === "messages" && object(change.value)) out.push(change.value);
-    }
+  if (declared && (!/^\d+$/.test(declared) || Number(declared) > MAX_BYTES)) {
+    throw new Error("PAYLOAD_TOO_LARGE");
   }
-  return out;
+  const body = new Uint8Array(await request.arrayBuffer());
+  if (body.byteLength > MAX_BYTES) throw new Error("PAYLOAD_TOO_LARGE");
+  return body;
 }
 
-function phoneNumberIds(payload: Obj) {
-  const ids = new Set<string>();
-  for (const value of changes(payload)) {
-    const metadata = object(value.metadata) ? value.metadata : null;
-    const id = metadata && typeof metadata.phone_number_id === "string" ? metadata.phone_number_id : "";
-    if (META_ID.test(id)) ids.add(id);
-  }
-  return [...ids];
-}
+async function proxy(request: NextRequest, body?: Uint8Array) {
+  const target = edgeEndpoint(request);
+  const headers = new Headers();
+  const contentType = request.headers.get("content-type");
+  const signature = request.headers.get("x-hub-signature-256");
+  if (contentType) headers.set("content-type", contentType);
+  if (signature) headers.set("x-hub-signature-256", signature);
 
-function unixDate(value: unknown) {
-  const raw = typeof value === "string" ? Number(value) : value;
-  return typeof raw === "number" && Number.isSafeInteger(raw) && raw > 0 ? new Date(raw * 1000).toISOString() : new Date().toISOString();
+  const response = await fetch(target, {
+    method: request.method,
+    headers,
+    body: body && body.byteLength ? body : undefined,
+    cache: "no-store",
+    redirect: "manual",
+  });
+  const responseBody = await response.arrayBuffer();
+  const responseHeaders = new Headers(RESPONSE_HEADERS);
+  const upstreamType = response.headers.get("content-type");
+  if (upstreamType) responseHeaders.set("content-type", upstreamType);
+  return new NextResponse(responseBody, {
+    status: response.status,
+    headers: responseHeaders,
+  });
 }
 
 export async function GET(request: NextRequest) {
-  const mode = request.nextUrl.searchParams.get("hub.mode");
-  const token = request.nextUrl.searchParams.get("hub.verify_token") || "";
-  const challenge = request.nextUrl.searchParams.get("hub.challenge") || "";
-  const organizationId = request.nextUrl.searchParams.get("organizationId") || "";
-  if (mode !== "subscribe" || !UUID.test(organizationId) || challenge.length > 2048) return new NextResponse("Forbidden", { status: 403 });
   try {
-    const runtime = await getWhatsAppCredentialsByOrganization(organizationId);
-    if (!runtime || !secureTextEqual(token, runtime.verifyToken)) return new NextResponse("Forbidden", { status: 403 });
-    return new NextResponse(challenge, { status: 200, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } });
-  } catch {
-    return new NextResponse("Unavailable", { status: 503 });
+    return await proxy(request);
+  } catch (error) {
+    console.error("WhatsApp webhook verification proxy failed", {
+      errorCode: error instanceof Error ? error.message.slice(0, 80) : "UnknownError",
+    });
+    return new NextResponse("Unavailable", { status: 503, headers: RESPONSE_HEADERS });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const raw = await rawBody(request);
-    const payload = parsePayload(raw);
-    const ids = phoneNumberIds(payload);
-    if (ids.length !== 1) return NextResponse.json({ ok: false, error: "WHATSAPP_PHONE_CONTEXT_INVALID" }, { status: 400 });
-    const runtime = await getWhatsAppCredentialsByPhoneNumberId(ids[0]);
-    if (!runtime) return NextResponse.json({ ok: false, error: "WHATSAPP_RUNTIME_NOT_FOUND" }, { status: 404 });
-    if (!verifyMetaWebhookSignature(raw, request.headers.get("x-hub-signature-256"), runtime.appSecret)) {
-      return NextResponse.json({ ok: false, error: "WHATSAPP_SIGNATURE_INVALID" }, { status: 401 });
-    }
-
-    let inbound = 0;
-    let statuses = 0;
-    for (const value of changes(payload)) {
-      const metadata = object(value.metadata) ? value.metadata : {};
-      const phoneNumberId = typeof metadata.phone_number_id === "string" ? metadata.phone_number_id : "";
-      const contacts = Array.isArray(value.contacts) ? value.contacts : [];
-      const profileName = object(contacts[0]) && object(contacts[0].profile) && typeof contacts[0].profile.name === "string" ? contacts[0].profile.name : null;
-
-      for (const message of Array.isArray(value.messages) ? value.messages.slice(0, 100) : []) {
-        if (!object(message) || message.type !== "text" || !object(message.text) || typeof message.text.body !== "string") continue;
-        if (typeof message.id !== "string" || typeof message.from !== "string") continue;
-        const { error } = await serviceDatabase().rpc("ingest_whatsapp_inbound_message", {
-          p_organization_id: runtime.organizationId,
-          p_provider_message_id: message.id,
-          p_from_phone: message.from,
-          p_profile_name: profileName,
-          p_content: message.text.body,
-          p_occurred_at: unixDate(message.timestamp),
-          p_phone_number_id: phoneNumberId,
-          p_message_type: "text",
-        });
-        if (error) throw error;
-        inbound += 1;
-      }
-
-      for (const status of Array.isArray(value.statuses) ? value.statuses.slice(0, 200) : []) {
-        if (!object(status) || typeof status.id !== "string" || typeof status.status !== "string") continue;
-        const errors = Array.isArray(status.errors) ? status.errors : [];
-        const firstError = object(errors[0]) ? errors[0] : null;
-        const errorCode = firstError && (typeof firstError.code === "string" || typeof firstError.code === "number") ? String(firstError.code) : null;
-        const { error } = await serviceDatabase().rpc("apply_whatsapp_message_status", {
-          p_organization_id: runtime.organizationId,
-          p_provider_message_id: status.id,
-          p_status: status.status,
-          p_occurred_at: unixDate(status.timestamp),
-          p_error_code: errorCode,
-        });
-        if (error) throw error;
-        statuses += 1;
-      }
-    }
-    return NextResponse.json({ ok: true, inbound, statuses }, { status: 200, headers: { "Cache-Control": "no-store" } });
+    const body = await readBody(request);
+    return await proxy(request, body);
   } catch (error) {
-    console.error("WhatsApp webhook failed", { errorCode: error instanceof Error ? error.name : "UnknownError" });
-    const code = error instanceof Error ? error.message : "WHATSAPP_WEBHOOK_FAILED";
-    const status = code === "PAYLOAD_TOO_LARGE" ? 413 : code.startsWith("INVALID_") ? 400 : 503;
-    return NextResponse.json({ ok: false, error: status === 503 ? "WHATSAPP_WEBHOOK_UNAVAILABLE" : code }, { status });
+    const code = error instanceof Error ? error.message : "WHATSAPP_WEBHOOK_PROXY_FAILED";
+    const status = code === "PAYLOAD_TOO_LARGE" ? 413 : 503;
+    console.error("WhatsApp webhook delivery proxy failed", {
+      errorCode: code.slice(0, 80),
+    });
+    return NextResponse.json(
+      { ok: false, error: status === 413 ? code : "WHATSAPP_WEBHOOK_UNAVAILABLE" },
+      { status, headers: RESPONSE_HEADERS },
+    );
   }
 }

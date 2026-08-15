@@ -49,7 +49,7 @@ function edgeEndpoint(): URL {
   if (base.protocol !== "https:") {
     throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
-  return new URL("/functions/v1/enterprise-public-agent", base);
+  return new URL("/functions/v1/enterprise-public-agent-gateway", base);
 }
 
 function edgeBearer(): string {

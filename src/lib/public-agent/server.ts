@@ -2,7 +2,6 @@ import { createHash, randomBytes } from "node:crypto";
 
 import type { NextRequest } from "next/server";
 
-import { CrmAiConfigError, getCrmAiWorkerToken } from "@/lib/ai/config";
 import type {
   PublicAgentExperience,
   PublicAgentProfile,
@@ -12,6 +11,9 @@ import type {
 
 type JsonObject = Record<string, unknown>;
 type EdgeEnvelope<T> = { ok: true; data: T } | { ok: false; error?: string };
+
+const DEFAULT_SUPABASE_URL = "https://qsdffayasuzsmngteika.supabase.co";
+const DEFAULT_PUBLISHABLE_KEY = "sb_publishable_nMCXNDXMvU0EbMSSmnEfQg_0uE_lVOW";
 
 export class PublicAgentServerError extends Error {
   readonly code: string;
@@ -38,8 +40,7 @@ function safeSlug(value: string): string {
 }
 
 function edgeEndpoint(): URL {
-  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  if (!raw) throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || DEFAULT_SUPABASE_URL;
   let base: URL;
   try {
     base = new URL(raw);
@@ -52,19 +53,12 @@ function edgeEndpoint(): URL {
   return new URL("/functions/v1/enterprise-public-agent-gateway", base);
 }
 
-function edgeBearer(): string {
-  const oidc = process.env.VERCEL_OIDC_TOKEN?.trim();
-  if (oidc && oidc.length >= 100 && oidc.split(".").length === 3 && !/\s/.test(oidc)) {
-    return oidc;
+function publishableKey(): string {
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || DEFAULT_PUBLISHABLE_KEY;
+  if (!/^sb_publishable_[A-Za-z0-9_-]{20,120}$/.test(key)) {
+    throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
-  try {
-    return getCrmAiWorkerToken();
-  } catch (error) {
-    if (error instanceof CrmAiConfigError) {
-      throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
-    }
-    throw error;
-  }
+  return key;
 }
 
 function edgeError(code: string, status: number): PublicAgentServerError {
@@ -93,7 +87,7 @@ async function edgeRequest<T>(action: string, payload: JsonObject, timeoutMs = 3
     const response = await fetch(edgeEndpoint(), {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${edgeBearer()}`,
+        apikey: publishableKey(),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ action, ...payload }),

@@ -1,13 +1,6 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { createRemoteJWKSet, jwtVerify } from "npm:jose@6";
 
-const TEAM_SLUG = "franco-3095s-projects";
-const PROJECT_NAME = "advent";
-const PROJECT_ID = "prj_nwbanG1FjXypYgaLVnFdJu1noHsv";
-const OWNER_ID = "team_MqRTvNvoaArIVzGLcNA6OU4v";
-const ISSUER = `https://oidc.vercel.com/${TEAM_SLUG}`;
-const AUDIENCE = `https://vercel.com/${TEAM_SLUG}`;
-const JWKS = createRemoteJWKSet(new URL(`${ISSUER}/.well-known/jwks`));
+const PUBLIC_KEY = "sb_publishable_nMCXNDXMvU0EbMSSmnEfQg_0uE_lVOW";
 const MAX_BYTES = 96 * 1024;
 const UPSTREAM_TIMEOUT_MS = 70_000;
 const RESPONSE_HEADERS = {
@@ -15,6 +8,7 @@ const RESPONSE_HEADERS = {
   "x-content-type-options": "nosniff",
   "referrer-policy": "no-referrer",
 };
+const ALLOWED_ACTIONS = new Set(["experience", "session", "message", "lead"]);
 
 type Obj = Record<string, unknown>;
 
@@ -44,54 +38,9 @@ function object(value: unknown): value is Obj {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-function bearer(request: Request): string {
-  const match = /^Bearer\s+([^\s]{100,8192})$/i.exec(
-    request.headers.get("authorization") || "",
-  );
-  return match?.[1] || "";
-}
-
-function expectedSubjects(): Set<string> {
-  return new Set([
-    `owner:${TEAM_SLUG}:project:${PROJECT_NAME}:environment:production`,
-    `owner:${TEAM_SLUG}:project:${PROJECT_NAME}:environment:preview`,
-  ]);
-}
-
-async function verifyVercelIdentity(token: string): Promise<boolean> {
-  try {
-    const { payload } = await jwtVerify(token, JWKS, {
-      issuer: ISSUER,
-      audience: AUDIENCE,
-      clockTolerance: 10,
-      maxTokenAge: "10m",
-    });
-
-    if (typeof payload.sub !== "string" || !expectedSubjects().has(payload.sub)) {
-      return false;
-    }
-
-    const claims = payload as Obj;
-    if (
-      typeof claims.project_id === "string" &&
-      claims.project_id !== PROJECT_ID
-    ) {
-      return false;
-    }
-    if (typeof claims.owner_id === "string" && claims.owner_id !== OWNER_ID) {
-      return false;
-    }
-    if (
-      typeof claims.environment === "string" &&
-      !["production", "preview"].includes(claims.environment)
-    ) {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
+function validPublicKey(request: Request): boolean {
+  const candidate = request.headers.get("apikey")?.trim() || "";
+  return candidate.length === PUBLIC_KEY.length && candidate === PUBLIC_KEY;
 }
 
 function upstreamUrl(): URL {
@@ -122,6 +71,9 @@ Deno.serve(async (request) => {
     if (request.method !== "POST") {
       return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
     }
+    if (!validPublicKey(request)) {
+      return json({ ok: false, error: "PUBLIC_AGENT_AUTH_REQUIRED" }, 401);
+    }
     if (
       !request.headers
         .get("content-type")
@@ -132,16 +84,8 @@ Deno.serve(async (request) => {
     }
 
     const declared = request.headers.get("content-length");
-    if (
-      declared &&
-      (!/^\d+$/.test(declared) || Number(declared) > MAX_BYTES)
-    ) {
+    if (declared && (!/^\d+$/.test(declared) || Number(declared) > MAX_BYTES)) {
       return json({ ok: false, error: "PAYLOAD_TOO_LARGE" }, 413);
-    }
-
-    const token = bearer(request);
-    if (!token || !(await verifyVercelIdentity(token))) {
-      return json({ ok: false, error: "PUBLIC_AGENT_AUTH_REQUIRED" }, 401);
     }
 
     const body = new Uint8Array(await request.arrayBuffer());
@@ -151,13 +95,21 @@ Deno.serve(async (request) => {
         body.byteLength ? 413 : 415,
       );
     }
+
+    let parsed: Obj;
     try {
-      const parsed = JSON.parse(new TextDecoder().decode(body));
-      if (!object(parsed)) {
+      const candidate = JSON.parse(new TextDecoder().decode(body));
+      if (!object(candidate)) {
         return json({ ok: false, error: "INVALID_REQUEST" }, 400);
       }
+      parsed = candidate;
     } catch {
       return json({ ok: false, error: "INVALID_JSON" }, 400);
+    }
+
+    const action = typeof parsed.action === "string" ? parsed.action : "";
+    if (!ALLOWED_ACTIONS.has(action)) {
+      return json({ ok: false, error: "PUBLIC_AGENT_ACTION_INVALID" }, 400);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -183,18 +135,14 @@ Deno.serve(async (request) => {
           Authorization: `Bearer ${internalToken}`,
           "Content-Type": "application/json",
         },
-        body: body.buffer.slice(
-          body.byteOffset,
-          body.byteOffset + body.byteLength,
-        ),
+        body: body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
         signal: controller.signal,
       });
       const upstreamBody = await upstream.arrayBuffer();
       const headers = new Headers(RESPONSE_HEADERS);
       headers.set(
         "content-type",
-        upstream.headers.get("content-type") ||
-          "application/json; charset=utf-8",
+        upstream.headers.get("content-type") || "application/json; charset=utf-8",
       );
       return new Response(upstreamBody, {
         status: upstream.status,

@@ -18,9 +18,11 @@ test("WhatsApp secrets remain server-side and Vault-backed",()=>{
   assert.doesNotMatch(all,/NEXT_PUBLIC_[A-Z0-9_]*WHATSAPP/i);
 });
 
-test("webhook requires Meta HMAC and receiver phone binding",()=>{
-  assert.match(webhook,/verifyMetaWebhookSignature/);
-  assert.match(webhook,/getWhatsAppCredentialsByPhoneNumberId/);
+test("webhook preserves Meta HMAC and delegates receiver binding to secure Edge runtime",()=>{
+  assert.match(webhook,/enterprise-whatsapp-webhook/);
+  assert.match(webhook,/x-hub-signature-256/i);
+  assert.match(webhook,/headers\.set\("x-hub-signature-256", signature\)/i);
+  assert.match(foundation,/get_whatsapp_runtime_by_phone_number_id/i);
   assert.match(foundation,/phone_number_id=trim\(p_phone_number_id\)/i);
 });
 

@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 
 import {
   enforcePublicAgentOrigin,
+  hashPublicAgentValue,
   publicAgentCookieName,
   publicAgentFingerprint,
   PublicAgentServerError,
-  respondPublicAgentMessage,
 } from "@/lib/public-agent/server";
+import { publicAgentV2Message, PublicAgentV2Error } from "@/lib/public-agent/v2-edge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,10 +20,7 @@ const HEADERS = {
 };
 
 type JsonObject = Record<string, unknown>;
-
-function object(value: unknown): value is JsonObject {
-  return value !== null && typeof value === "object" && !Array.isArray(value);
-}
+const object = (value: unknown): value is JsonObject => value !== null && typeof value === "object" && !Array.isArray(value);
 
 export async function POST(request: NextRequest) {
   try {
@@ -30,38 +28,27 @@ export async function POST(request: NextRequest) {
     if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
       throw new PublicAgentServerError("PUBLIC_AGENT_JSON_REQUIRED", 415);
     }
-
     const body = await request.json().catch(() => null);
     if (!object(body) || typeof body.slug !== "string" || typeof body.message !== "string") {
       throw new PublicAgentServerError("PUBLIC_AGENT_INPUT_INVALID", 400);
     }
     const message = body.message.trim();
-    if (message.length < 1 || message.length > 800) {
-      throw new PublicAgentServerError("PUBLIC_AGENT_MESSAGE_INVALID", 400);
-    }
-
+    if (message.length < 1 || message.length > 800) throw new PublicAgentServerError("PUBLIC_AGENT_MESSAGE_INVALID", 400);
     const token = request.cookies.get(publicAgentCookieName(body.slug))?.value;
-    if (!token) {
-      throw new PublicAgentServerError("PUBLIC_AGENT_SESSION_NOT_FOUND", 401);
-    }
+    if (!token) throw new PublicAgentServerError("PUBLIC_AGENT_SESSION_NOT_FOUND", 401);
 
-    const result = await respondPublicAgentMessage({
+    const result = await publicAgentV2Message({
       slug: body.slug,
-      token,
-      fingerprint: publicAgentFingerprint(request),
+      tokenHash: hashPublicAgentValue(token),
+      fingerprintHash: publicAgentFingerprint(request),
       message,
     });
-
     return NextResponse.json({ ok: true, ...result }, { headers: HEADERS });
   } catch (error) {
-    const status = error instanceof PublicAgentServerError ? error.status : 503;
-    const code = error instanceof PublicAgentServerError
-      ? error.code
-      : "PUBLIC_AGENT_MESSAGE_UNAVAILABLE";
-    if (!(error instanceof PublicAgentServerError)) {
-      console.error("Public agent message failed", {
-        errorName: error instanceof Error ? error.name : "UnknownError",
-      });
+    const status = error instanceof PublicAgentServerError || error instanceof PublicAgentV2Error ? error.status : 503;
+    const code = error instanceof PublicAgentServerError || error instanceof PublicAgentV2Error ? error.code : "PUBLIC_AGENT_MESSAGE_UNAVAILABLE";
+    if (!(error instanceof PublicAgentServerError) && !(error instanceof PublicAgentV2Error)) {
+      console.error("Public agent message failed", { errorName: error instanceof Error ? error.name : "UnknownError" });
     }
     return NextResponse.json({ ok: false, error: code }, { status, headers: HEADERS });
   }

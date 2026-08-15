@@ -70,7 +70,7 @@ create table if not exists crm_private.public_agent_sessions (
   marketing_consent boolean not null default false,
   contact_id uuid references public.contacts(id) on delete set null,
   crm_record_id uuid references public.crm_records(id) on delete set null,
-  conversation_id uuid,
+  conversation_id uuid references public.crm_conversations(id) on delete set null,
   message_count integer not null default 0,
   last_activity_at timestamptz not null default now(),
   converted_at timestamptz,
@@ -98,10 +98,7 @@ create table if not exists crm_private.public_agent_sessions (
   ),
   constraint public_agent_sessions_message_count_check check (
     message_count between 0 and 200
-  ),
-  constraint public_agent_sessions_org_conversation_fk foreign key (
-    organization_id, conversation_id
-  ) references public.crm_conversations(organization_id, id) on delete set null
+  )
 );
 
 create table if not exists crm_private.public_agent_messages (
@@ -252,6 +249,14 @@ begin
       and opportunity.organization_id = new.organization_id
   ) then
     raise exception 'PUBLIC_AGENT_SESSION_RECORD_INVALID';
+  end if;
+
+  if new.conversation_id is not null and not exists (
+    select 1 from public.crm_conversations conversation
+    where conversation.id = new.conversation_id
+      and conversation.organization_id = new.organization_id
+  ) then
+    raise exception 'PUBLIC_AGENT_SESSION_CONVERSATION_INVALID';
   end if;
 
   return new;

@@ -30,6 +30,14 @@ async function readBody(request: NextRequest) {
   return body;
 }
 
+function requestBody(body?: Uint8Array): ArrayBuffer | undefined {
+  if (!body?.byteLength) return undefined;
+  return body.buffer.slice(
+    body.byteOffset,
+    body.byteOffset + body.byteLength,
+  ) as ArrayBuffer;
+}
+
 async function proxy(request: NextRequest, body?: Uint8Array) {
   const target = edgeEndpoint(request);
   const headers = new Headers();
@@ -41,7 +49,7 @@ async function proxy(request: NextRequest, body?: Uint8Array) {
   const response = await fetch(target, {
     method: request.method,
     headers,
-    body: body && body.byteLength ? body : undefined,
+    body: requestBody(body),
     cache: "no-store",
     redirect: "manual",
   });

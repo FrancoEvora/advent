@@ -5,6 +5,7 @@ import { getSupabase } from "@/lib/supabase";
 import type { ErpData } from "../types";
 import type { CrmEnterpriseData } from "./types";
 import { AiRuntimeSettings } from "./ai-runtime-settings";
+import { VitoriaKnowledgeSettings } from "./vitoria-knowledge-settings";
 import { CrmSectionHeader, Status } from "./shared";
 import { MetaCampaignControlSettings } from "./meta-campaign-control-settings";
 import { WhatsAppRuntimeSettings } from "./whatsapp-runtime-settings";
@@ -34,6 +35,7 @@ export function SettingsView({ data, crm, reload, can = () => false }: { data: E
     })}</section>
     <MetaCampaignControlSettings data={data} crm={crm} reload={reload} canManage={canManage} />
     <AiRuntimeSettings data={data} canManage={canManage} />
+    <VitoriaKnowledgeSettings data={data} canManage={canManage} />
     <WhatsAppRuntimeSettings data={data} canManage={canManage} />
     <section className="crm5-panel"><header><div><small>POLÍTICAS</small><h3>Parâmetros operacionais recomendados</h3></div></header><div className="crm5-policy-grid"><article><strong>1 hora</strong><span>SLA de primeiro atendimento</span></article><article><strong>24 horas</strong><span>Alerta de lead sem contato</span></article><article><strong>3 tentativas</strong><span>Cadência inicial mínima</span></article><article><strong>48 horas</strong><span>Alerta de estagnação por etapa</span></article><article><strong>Score 70</strong><span>Classificação de lead quente</span></article><article><strong>Round robin</strong><span>Distribuição padrão para SDR</span></article></div></section>
   </div>;

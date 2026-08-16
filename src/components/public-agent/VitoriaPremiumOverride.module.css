@@ -1,0 +1,543 @@
+.shell {
+  min-height: 100vh;
+  background: #0b0d0e;
+}
+
+.shell :global(.vitoria-page) {
+  --premium-bg: #0b0d0e;
+  --premium-panel: #111518;
+  --premium-panel-2: #161b1e;
+  --premium-line: rgba(255, 255, 255, 0.09);
+  --premium-text: #f4f0e7;
+  --premium-muted: #9da6a2;
+  --premium-accent: #b6d9c3;
+  --premium-gold: #c8a96b;
+  background:
+    radial-gradient(circle at 12% 18%, rgba(65, 112, 88, 0.16), transparent 32%),
+    radial-gradient(circle at 90% 8%, rgba(187, 145, 76, 0.08), transparent 28%),
+    var(--premium-bg) !important;
+  color: var(--premium-text) !important;
+  min-height: 100vh !important;
+  padding: 0 28px 28px !important;
+  overflow-x: hidden;
+}
+
+.shell :global(.vitoria-noise) {
+  opacity: 0.025 !important;
+}
+
+.shell :global(.vitoria-header) {
+  max-width: 1540px !important;
+  margin: 0 auto !important;
+  min-height: 82px !important;
+  padding: 18px 4px !important;
+  border-bottom: 1px solid var(--premium-line) !important;
+  background: transparent !important;
+}
+
+.shell :global(.vitoria-brand img) {
+  width: 148px !important;
+  filter: brightness(0) invert(1) opacity(0.92) !important;
+}
+
+.shell :global(.vitoria-header-center) {
+  opacity: 0.72 !important;
+}
+
+.shell :global(.vitoria-header-center span) {
+  letter-spacing: 0.2em !important;
+  font-size: 10px !important;
+}
+
+.shell :global(.vitoria-header-center strong) {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+
+.shell :global(.vitoria-header-actions) {
+  gap: 8px !important;
+}
+
+.shell :global(.vitoria-header-actions button) {
+  border: 1px solid var(--premium-line) !important;
+  background: rgba(255, 255, 255, 0.025) !important;
+  color: var(--premium-muted) !important;
+  border-radius: 999px !important;
+  height: 40px !important;
+  padding: 0 14px !important;
+}
+
+.shell :global(.vitoria-stage) {
+  max-width: 1540px !important;
+  margin: 24px auto 0 !important;
+  display: grid !important;
+  grid-template-columns: minmax(330px, 0.72fr) minmax(560px, 1.28fr) !important;
+  gap: 22px !important;
+  align-items: stretch !important;
+  min-height: calc(100vh - 138px) !important;
+}
+
+.shell :global(.vitoria-visual) {
+  min-height: 0 !important;
+  border: 1px solid var(--premium-line) !important;
+  border-radius: 28px !important;
+  overflow: hidden !important;
+  background:
+    radial-gradient(circle at 52% 38%, rgba(122, 183, 150, 0.18), transparent 25%),
+    linear-gradient(150deg, #18211e 0%, #101413 46%, #0b0d0e 100%) !important;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.28) !important;
+}
+
+.shell :global(.vitoria-portrait-wrap) {
+  min-height: 100% !important;
+  height: 100% !important;
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: flex-end !important;
+  padding: 42px !important;
+  isolation: isolate !important;
+}
+
+.shell :global(.vitoria-portrait-wrap::before) {
+  content: "V";
+  position: absolute;
+  left: 50%;
+  top: 39%;
+  transform: translate(-50%, -50%);
+  width: 210px;
+  height: 210px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 98px;
+  font-weight: 500;
+  color: rgba(238, 232, 218, 0.9);
+  background:
+    radial-gradient(circle at 42% 34%, rgba(255,255,255,0.12), transparent 35%),
+    linear-gradient(145deg, rgba(45, 98, 72, 0.96), rgba(19, 45, 35, 0.96));
+  border: 1px solid rgba(199, 225, 210, 0.22);
+  box-shadow: 0 0 80px rgba(88, 180, 136, 0.14), inset 0 0 40px rgba(255,255,255,0.03);
+  z-index: -1;
+}
+
+.shell :global(.vitoria-portrait) {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+.shell :global(.vitoria-portrait-shade),
+.shell :global(.vitoria-orbit),
+.shell :global(.vitoria-wave) {
+  opacity: 0.22 !important;
+}
+
+.shell :global(.vitoria-identity) {
+  position: relative !important;
+  inset: auto !important;
+  max-width: 520px !important;
+  margin-top: auto !important;
+  z-index: 2 !important;
+}
+
+.shell :global(.vitoria-kicker) {
+  color: var(--premium-accent) !important;
+  font-size: 11px !important;
+  letter-spacing: 0.24em !important;
+}
+
+.shell :global(.vitoria-identity h1) {
+  margin: 14px 0 14px !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: clamp(36px, 4.5vw, 68px) !important;
+  line-height: 0.98 !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.035em !important;
+  color: var(--premium-text) !important;
+}
+
+.shell :global(.vitoria-identity h1 em) {
+  color: #d8c08c !important;
+  font-style: normal !important;
+}
+
+.shell :global(.vitoria-identity p) {
+  max-width: 420px !important;
+  color: var(--premium-muted) !important;
+  font-size: 16px !important;
+  line-height: 1.55 !important;
+}
+
+.shell :global(.vitoria-live-status) {
+  position: absolute !important;
+  top: 28px !important;
+  left: 28px !important;
+  bottom: auto !important;
+  border: 1px solid var(--premium-line) !important;
+  background: rgba(8, 10, 11, 0.72) !important;
+  backdrop-filter: blur(16px) !important;
+  border-radius: 999px !important;
+  padding: 9px 12px !important;
+  color: #c4d6cc !important;
+  font-size: 11px !important;
+}
+
+.shell :global(.vitoria-voice-orb) {
+  width: 76px !important;
+  height: 76px !important;
+  right: 34px !important;
+  top: 34px !important;
+  left: auto !important;
+  bottom: auto !important;
+  background: rgba(23, 72, 53, 0.95) !important;
+  border: 1px solid rgba(183, 224, 201, 0.28) !important;
+  box-shadow: 0 0 0 10px rgba(92, 176, 132, 0.04), 0 18px 46px rgba(0,0,0,0.24) !important;
+}
+
+.shell :global(.vitoria-visual-actions),
+.shell :global(.vitoria-tools),
+.shell :global(.vitoria-resource-strip) {
+  display: none !important;
+}
+
+.shell :global(.vitoria-conversation) {
+  min-height: 0 !important;
+  height: 100% !important;
+  border: 1px solid var(--premium-line) !important;
+  border-radius: 28px !important;
+  background: rgba(16, 20, 22, 0.92) !important;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.24) !important;
+  overflow: hidden !important;
+  display: grid !important;
+  grid-template-rows: auto minmax(0, 1fr) auto auto auto !important;
+}
+
+.shell :global(.vitoria-conversation-head) {
+  padding: 34px 38px 18px !important;
+  border-bottom: 0 !important;
+}
+
+.shell :global(.vitoria-conversation-head > div:first-child > span) {
+  display: none !important;
+}
+
+.shell :global(.vitoria-conversation-head h2) {
+  margin: 0 !important;
+  font-family: Georgia, "Times New Roman", serif !important;
+  font-size: clamp(32px, 3.4vw, 50px) !important;
+  font-weight: 500 !important;
+  letter-spacing: -0.035em !important;
+  color: var(--premium-text) !important;
+}
+
+.shell :global(.vitoria-badges) {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+}
+
+.shell :global(.vitoria-badges span) {
+  border: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  color: #7f9189 !important;
+  font-size: 11px !important;
+}
+
+.shell :global(.vitoria-badges span:last-child) {
+  display: none !important;
+}
+
+.shell :global(.vitoria-chat-scroll) {
+  padding: 8px 38px 24px !important;
+  overflow-y: auto !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
+}
+
+.shell :global(.vitoria-message) {
+  max-width: 88% !important;
+  margin: 0 0 18px !important;
+  gap: 12px !important;
+}
+
+.shell :global(.vitoria-message.user) {
+  margin-left: auto !important;
+}
+
+.shell :global(.vitoria-message-content) {
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+.shell :global(.vitoria-message.assistant .vitoria-message-content) {
+  background: #1a2023 !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  border-radius: 18px 18px 18px 6px !important;
+  padding: 17px 19px !important;
+}
+
+.shell :global(.vitoria-message.user .vitoria-message-content) {
+  background: #d8c08c !important;
+  color: #171511 !important;
+  border-radius: 18px 18px 6px 18px !important;
+  padding: 15px 18px !important;
+}
+
+.shell :global(.vitoria-message-content p) {
+  font-size: 15px !important;
+  line-height: 1.6 !important;
+}
+
+.shell :global(.vitoria-mini-avatar) {
+  width: 34px !important;
+  height: 34px !important;
+  min-width: 34px !important;
+  border-radius: 50% !important;
+  background: #173d2d !important;
+  border: 1px solid rgba(183,224,201,0.16) !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+.shell :global(.vitoria-mini-avatar img) {
+  display: none !important;
+}
+
+.shell :global(.vitoria-mini-avatar::after) {
+  content: "V";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-family: Georgia, "Times New Roman", serif;
+  color: #e9e2d3;
+  font-size: 17px;
+}
+
+.shell :global(.vitoria-read-aloud) {
+  margin-top: 10px !important;
+  color: #9fb8ab !important;
+  font-size: 11px !important;
+}
+
+.shell :global(.vitoria-quick-replies) {
+  padding: 0 38px 14px !important;
+  display: flex !important;
+  gap: 8px !important;
+  overflow-x: auto !important;
+}
+
+.shell :global(.vitoria-quick-replies button) {
+  border: 1px solid var(--premium-line) !important;
+  background: transparent !important;
+  color: #c9d0cc !important;
+  border-radius: 999px !important;
+  padding: 9px 13px !important;
+  white-space: nowrap !important;
+  font-size: 12px !important;
+}
+
+.shell :global(.vitoria-composer) {
+  margin: 0 30px 8px !important;
+  min-height: 64px !important;
+  border: 1px solid rgba(216,192,140,0.28) !important;
+  background: #0e1214 !important;
+  border-radius: 20px !important;
+  padding: 7px !important;
+  box-shadow: 0 18px 42px rgba(0,0,0,0.18) !important;
+}
+
+.shell :global(.vitoria-composer input) {
+  color: #f4f0e7 !important;
+  font-size: 15px !important;
+}
+
+.shell :global(.vitoria-composer input::placeholder) {
+  color: #69726e !important;
+}
+
+.shell :global(.vitoria-composer-mic),
+.shell :global(.vitoria-send) {
+  width: 48px !important;
+  height: 48px !important;
+  border-radius: 15px !important;
+}
+
+.shell :global(.vitoria-composer-mic) {
+  background: #173d2d !important;
+  color: #cce3d7 !important;
+}
+
+.shell :global(.vitoria-send) {
+  background: #d8c08c !important;
+  color: #15130f !important;
+}
+
+.shell :global(.vitoria-disclosure) {
+  padding: 0 38px 22px !important;
+  color: #626d68 !important;
+  font-size: 10px !important;
+  text-align: left !important;
+}
+
+.shell :global(.vitoria-footer) {
+  max-width: 1540px !important;
+  margin: 14px auto 0 !important;
+  padding: 0 4px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #5d6662 !important;
+}
+
+.shell :global(.vitoria-footer span) {
+  color: #8a938e !important;
+  font-size: 11px !important;
+  letter-spacing: 0.14em !important;
+}
+
+.shell :global(.vitoria-unit-grid) {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+  margin-top: 14px !important;
+}
+
+.shell :global(.vitoria-unit-card),
+.shell :global(.vitoria-doc-card),
+.shell :global(.vitoria-generated-card) {
+  background: #111619 !important;
+  border: 1px solid var(--premium-line) !important;
+  border-radius: 16px !important;
+}
+
+@media (max-width: 900px) {
+  .shell :global(.vitoria-page) {
+    padding: 0 12px 14px !important;
+  }
+
+  .shell :global(.vitoria-header) {
+    min-height: 68px !important;
+    padding: 12px 2px !important;
+  }
+
+  .shell :global(.vitoria-brand img) {
+    width: 116px !important;
+  }
+
+  .shell :global(.vitoria-header-center) {
+    display: none !important;
+  }
+
+  .shell :global(.vitoria-header-actions button em) {
+    display: none !important;
+  }
+
+  .shell :global(.vitoria-header-actions button) {
+    width: 40px !important;
+    padding: 0 !important;
+    display: grid !important;
+    place-items: center !important;
+  }
+
+  .shell :global(.vitoria-stage) {
+    margin-top: 12px !important;
+    display: block !important;
+    min-height: auto !important;
+  }
+
+  .shell :global(.vitoria-visual) {
+    min-height: 210px !important;
+    height: 210px !important;
+    border-radius: 22px 22px 0 0 !important;
+    border-bottom: 0 !important;
+  }
+
+  .shell :global(.vitoria-portrait-wrap) {
+    padding: 24px !important;
+  }
+
+  .shell :global(.vitoria-portrait-wrap::before) {
+    width: 108px;
+    height: 108px;
+    font-size: 50px;
+    left: auto;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .shell :global(.vitoria-identity) {
+    max-width: 62% !important;
+  }
+
+  .shell :global(.vitoria-identity h1) {
+    font-size: clamp(29px, 8vw, 42px) !important;
+    margin: 8px 0 !important;
+  }
+
+  .shell :global(.vitoria-identity p) {
+    display: none !important;
+  }
+
+  .shell :global(.vitoria-live-status) {
+    top: 16px !important;
+    left: 18px !important;
+    padding: 7px 10px !important;
+  }
+
+  .shell :global(.vitoria-voice-orb) {
+    width: 58px !important;
+    height: 58px !important;
+    right: 42px !important;
+    top: auto !important;
+    bottom: 20px !important;
+  }
+
+  .shell :global(.vitoria-conversation) {
+    min-height: calc(100vh - 292px) !important;
+    height: calc(100vh - 292px) !important;
+    border-radius: 0 0 22px 22px !important;
+  }
+
+  .shell :global(.vitoria-conversation-head) {
+    padding: 18px 18px 8px !important;
+  }
+
+  .shell :global(.vitoria-conversation-head h2) {
+    font-size: 28px !important;
+  }
+
+  .shell :global(.vitoria-badges) {
+    display: none !important;
+  }
+
+  .shell :global(.vitoria-chat-scroll) {
+    padding: 8px 16px 18px !important;
+  }
+
+  .shell :global(.vitoria-message) {
+    max-width: 94% !important;
+  }
+
+  .shell :global(.vitoria-quick-replies) {
+    padding: 0 16px 10px !important;
+  }
+
+  .shell :global(.vitoria-composer) {
+    margin: 0 12px 7px !important;
+    min-height: 58px !important;
+  }
+
+  .shell :global(.vitoria-disclosure) {
+    padding: 0 16px 13px !important;
+  }
+
+  .shell :global(.vitoria-footer) {
+    display: none !important;
+  }
+
+  .shell :global(.vitoria-unit-grid) {
+    grid-template-columns: 1fr !important;
+  }
+}

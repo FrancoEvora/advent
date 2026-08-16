@@ -4,9 +4,9 @@ import type { NextRequest } from "next/server";
 
 import type {
   PublicAgentExperience,
+  PublicAgentMessagePayload,
   PublicAgentProfile,
   PublicAgentSessionPayload,
-  PublicAgentStage,
 } from "./types";
 
 type JsonObject = Record<string, unknown>;
@@ -50,37 +50,28 @@ function edgeEndpoint(): URL {
   if (base.protocol !== "https:") {
     throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
-  return new URL("/functions/v1/enterprise-public-agent-gateway", base);
+  return new URL("/functions/v1/enterprise-vitoria-agent-gateway", base);
 }
 
 function publishableKey(): string {
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || DEFAULT_PUBLISHABLE_KEY;
-  if (!/^sb_publishable_[A-Za-z0-9_-]{20,120}$/.test(key)) {
+  if (!key.startsWith("sb_publishable_") || /\s/.test(key)) {
     throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
   return key;
 }
 
 function edgeError(code: string, status: number): PublicAgentServerError {
-  if (status === 401 || code === "PUBLIC_AGENT_AUTH_REQUIRED") {
-    return new PublicAgentServerError("PUBLIC_AGENT_EDGE_AUTH_FAILED", 503);
-  }
-  if (status === 404 || code === "PUBLIC_AGENT_NOT_FOUND") {
-    return new PublicAgentServerError("PUBLIC_AGENT_NOT_FOUND", 404);
-  }
-  if (status === 429 || code.includes("RATE_LIMIT")) {
-    return new PublicAgentServerError("PUBLIC_AGENT_RATE_LIMIT", 429);
-  }
-  if (status === 409 || code.includes("INACTIVE")) {
-    return new PublicAgentServerError("PUBLIC_AGENT_SESSION_INACTIVE", 409);
-  }
-  if (status === 400 || code.includes("INVALID") || code.includes("CONSENT")) {
-    return new PublicAgentServerError(code || "PUBLIC_AGENT_INPUT_INVALID", 400);
-  }
+  if (status === 401) return new PublicAgentServerError("PUBLIC_AGENT_EDGE_AUTH_FAILED", 503);
+  if (status === 404 || code.includes("NOT_FOUND")) return new PublicAgentServerError("PUBLIC_AGENT_NOT_FOUND", 404);
+  if (status === 429 || code.includes("RATE_LIMIT")) return new PublicAgentServerError("PUBLIC_AGENT_RATE_LIMIT", 429);
+  if (status === 409 || code.includes("INACTIVE") || code.includes("CONFLICT")) return new PublicAgentServerError(code, 409);
+  if (status === 413) return new PublicAgentServerError("PUBLIC_AGENT_MEDIA_TOO_LARGE", 413);
+  if (status === 400 || code.includes("INVALID") || code.includes("CONSENT")) return new PublicAgentServerError(code || "PUBLIC_AGENT_INPUT_INVALID", 400);
   return new PublicAgentServerError(code || "PUBLIC_AGENT_EDGE_UNAVAILABLE", 503);
 }
 
-async function edgeRequest<T>(action: string, payload: JsonObject, timeoutMs = 30_000): Promise<T> {
+async function edgeRequest<T>(action: string, payload: JsonObject, timeoutMs = 45_000): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -149,19 +140,8 @@ export function enforcePublicAgentOrigin(request: NextRequest): void {
 export function sanitizeAttribution(value: unknown): JsonObject {
   if (!object(value)) return {};
   const allowed = [
-    "utm_source",
-    "utm_medium",
-    "utm_campaign",
-    "utm_content",
-    "utm_term",
-    "fbclid",
-    "campaign_id",
-    "adset_id",
-    "ad_id",
-    "ad_name",
-    "creative_id",
-    "placement",
-    "publisher_platform",
+    "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid",
+    "campaign_id", "adset_id", "ad_id", "ad_name", "creative_id", "placement", "publisher_platform",
   ];
   const sanitized: JsonObject = {};
   for (const key of allowed) {
@@ -176,9 +156,7 @@ export function sanitizeAttribution(value: unknown): JsonObject {
 export function normalizeBrazilianPhone(value: string): string {
   const digits = value.replace(/\D/g, "");
   const national = digits.startsWith("55") ? digits.slice(2) : digits;
-  if (!/^\d{10,11}$/.test(national)) {
-    throw new PublicAgentServerError("PUBLIC_AGENT_PHONE_INVALID", 400);
-  }
+  if (!/^\d{10,11}$/.test(national)) throw new PublicAgentServerError("PUBLIC_AGENT_PHONE_INVALID", 400);
   return `+55${national}`;
 }
 
@@ -194,40 +172,26 @@ export function sanitizeEmail(value: string | null | undefined): string | null {
 export function sanitizeProfile(value: unknown): PublicAgentProfile {
   if (!object(value)) return {};
   const profile: PublicAgentProfile = {};
-  if (["morar", "investir", "conhecer", "unknown"].includes(String(value.intent))) {
-    profile.intent = value.intent as PublicAgentProfile["intent"];
-  }
-  if (["ate_3_meses", "3_a_6_meses", "6_a_12_meses", "mais_de_12_meses", "unknown"].includes(String(value.purchase_horizon))) {
-    profile.purchase_horizon = value.purchase_horizon as PublicAgentProfile["purchase_horizon"];
-  }
+  if (["morar", "investir", "conhecer", "unknown"].includes(String(value.intent))) profile.intent = value.intent as PublicAgentProfile["intent"];
+  if (["ate_3_meses", "3_a_6_meses", "6_a_12_meses", "mais_de_12_meses", "unknown"].includes(String(value.purchase_horizon))) profile.purchase_horizon = value.purchase_horizon as PublicAgentProfile["purchase_horizon"];
   for (const key of ["budget_min", "budget_max", "preferred_area_min", "preferred_area_max", "payment_capacity"] as const) {
     const raw = value[key];
     if (raw === null) profile[key] = null;
-    else if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0 && raw <= 1_000_000_000) {
-      profile[key] = Math.round(raw * 100) / 100;
-    }
+    else if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0 && raw <= 1_000_000_000) profile[key] = Math.round(raw * 100) / 100;
   }
-  for (const key of ["financing_interest", "visit_interest"] as const) {
+  for (const key of ["financing_interest", "visit_interest", "pool"] as const) {
     const raw = value[key];
-    if (raw === null || typeof raw === "boolean") profile[key] = raw;
+    if (raw === null || typeof raw === "boolean") profile[key] = raw as never;
   }
-  if (typeof value.preferred_city === "string") {
-    profile.preferred_city = value.preferred_city.trim().slice(0, 180) || null;
-  }
-  if (typeof value.lead_score === "number" && Number.isFinite(value.lead_score)) {
-    profile.lead_score = Math.max(0, Math.min(100, Math.round(value.lead_score)));
-  }
-  if (typeof value.summary === "string") {
-    profile.summary = value.summary.trim().slice(0, 1000);
-  }
+  profile.preferred_city = typeof value.preferred_city === "string" ? value.preferred_city.trim().slice(0, 180) || null : undefined;
+  profile.selected_unit_code = typeof value.selected_unit_code === "string" ? value.selected_unit_code.trim().toUpperCase().slice(0, 80) || null : undefined;
+  profile.home_style = typeof value.home_style === "string" ? value.home_style.trim().slice(0, 120) || null : undefined;
+  profile.bedrooms = typeof value.bedrooms === "number" ? Math.max(1, Math.min(10, Math.round(value.bedrooms))) : undefined;
+  profile.storeys = typeof value.storeys === "number" ? Math.max(1, Math.min(4, Math.round(value.storeys))) : undefined;
+  profile.home_notes = typeof value.home_notes === "string" ? value.home_notes.trim().slice(0, 500) || null : undefined;
+  if (typeof value.lead_score === "number" && Number.isFinite(value.lead_score)) profile.lead_score = Math.max(0, Math.min(100, Math.round(value.lead_score)));
+  if (typeof value.summary === "string") profile.summary = value.summary.trim().slice(0, 1000);
   return profile;
-}
-
-export function sanitizeStage(value: unknown): PublicAgentStage {
-  const stage = String(value || "discovery") as PublicAgentStage;
-  return ["welcome", "discovery", "qualification", "contact", "handoff", "completed"].includes(stage)
-    ? stage
-    : "discovery";
 }
 
 export async function getPublicAgentExperience(slug: string): Promise<PublicAgentExperience> {
@@ -259,22 +223,32 @@ export async function respondPublicAgentMessage(input: {
   token: string;
   fingerprint: string;
   message: string;
-}): Promise<{
-  reply: string;
-  stage: PublicAgentStage;
-  profile: PublicAgentProfile;
-  requestContact: boolean;
-  handoffRequested: boolean;
-  quickReplies: string[];
-  converted: boolean;
-  degraded: boolean;
-}> {
-  return edgeRequest("message", {
+}): Promise<PublicAgentMessagePayload> {
+  return edgeRequest<PublicAgentMessagePayload>("message", {
     slug: safeSlug(input.slug),
     tokenHash: hashPublicAgentValue(input.token),
     fingerprintHash: input.fingerprint,
     message: input.message.trim(),
-  }, 60_000);
+  }, 125_000);
+}
+
+export async function transcribePublicAgentAudio(input: {
+  slug: string;
+  token: string;
+  fingerprint: string;
+  mimeType: string;
+  audio: ArrayBuffer;
+}): Promise<{ text: string }> {
+  if (input.audio.byteLength < 200 || input.audio.byteLength > 2_100_000) {
+    throw new PublicAgentServerError("PUBLIC_AGENT_MEDIA_TOO_LARGE", 413);
+  }
+  return edgeRequest<{ text: string }>("transcribe", {
+    slug: safeSlug(input.slug),
+    tokenHash: hashPublicAgentValue(input.token),
+    fingerprintHash: input.fingerprint,
+    mimeType: input.mimeType,
+    audioBase64: Buffer.from(input.audio).toString("base64"),
+  }, 90_000);
 }
 
 export async function convertPublicAgentLead(input: {
@@ -285,17 +259,10 @@ export async function convertPublicAgentLead(input: {
   phone: string;
   email: string | null;
   city: string | null;
+  serviceContactConsent: boolean;
   marketingConsent: boolean;
   profile: PublicAgentProfile;
-}): Promise<{
-  ok: boolean;
-  idempotent: boolean;
-  contactId: string;
-  crmRecordId: string;
-  conversationId?: string;
-  assignmentId?: string;
-  protocol: string;
-}> {
+}): Promise<{ ok: boolean; idempotent: boolean; contactId: string; crmRecordId: string; conversationId?: string; assignmentId?: string; protocol: string }> {
   return edgeRequest("lead", {
     slug: safeSlug(input.slug),
     tokenHash: hashPublicAgentValue(input.token),
@@ -304,6 +271,7 @@ export async function convertPublicAgentLead(input: {
     phone: normalizeBrazilianPhone(input.phone),
     email: sanitizeEmail(input.email),
     city: input.city?.trim().slice(0, 180) || null,
+    serviceContactConsent: input.serviceContactConsent,
     marketingConsent: input.marketingConsent,
     profile: sanitizeProfile(input.profile),
   });

@@ -3,7 +3,11 @@ import { createHash, randomBytes } from "node:crypto";
 import type { NextRequest } from "next/server";
 
 import type {
+  PublicAgentCommercialPayload,
+  PublicAgentContactCapture,
+  PublicAgentDocument,
   PublicAgentExperience,
+  PublicAgentGeneratedAsset,
   PublicAgentProfile,
   PublicAgentSessionPayload,
   PublicAgentStage,
@@ -14,6 +18,7 @@ type EdgeEnvelope<T> = { ok: true; data: T } | { ok: false; error?: string };
 
 const DEFAULT_SUPABASE_URL = "https://qsdffayasuzsmngteika.supabase.co";
 const DEFAULT_PUBLISHABLE_KEY = "sb_publishable_nMCXNDXMvU0EbMSSmnEfQg_0uE_lVOW";
+const BASE64_AUDIO = /^[A-Za-z0-9+/]+={0,2}$/;
 
 export class PublicAgentServerError extends Error {
   readonly code: string;
@@ -71,8 +76,11 @@ function edgeError(code: string, status: number): PublicAgentServerError {
   if (status === 429 || code.includes("RATE_LIMIT")) {
     return new PublicAgentServerError("PUBLIC_AGENT_RATE_LIMIT", 429);
   }
-  if (status === 409 || code.includes("INACTIVE")) {
-    return new PublicAgentServerError("PUBLIC_AGENT_SESSION_INACTIVE", 409);
+  if (status === 409 || code.includes("INACTIVE") || code.includes("CONFLICT")) {
+    return new PublicAgentServerError(code || "PUBLIC_AGENT_SESSION_INACTIVE", 409);
+  }
+  if (status === 413 || code.includes("TOO_LARGE")) {
+    return new PublicAgentServerError("PUBLIC_AGENT_PAYLOAD_TOO_LARGE", 413);
   }
   if (status === 400 || code.includes("INVALID") || code.includes("CONSENT")) {
     return new PublicAgentServerError(code || "PUBLIC_AGENT_INPUT_INVALID", 400);
@@ -214,6 +222,15 @@ export function sanitizeProfile(value: unknown): PublicAgentProfile {
   if (typeof value.preferred_city === "string") {
     profile.preferred_city = value.preferred_city.trim().slice(0, 180) || null;
   }
+  if (typeof value.selected_unit_code === "string" && /^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/i.test(value.selected_unit_code.trim())) {
+    profile.selected_unit_code = value.selected_unit_code.trim().toUpperCase();
+  }
+  if (typeof value.house_style === "string") {
+    profile.house_style = value.house_style.trim().slice(0, 120) || null;
+  }
+  if (typeof value.bedrooms === "number" && Number.isFinite(value.bedrooms)) {
+    profile.bedrooms = Math.max(1, Math.min(12, Math.round(value.bedrooms)));
+  }
   if (typeof value.lead_score === "number" && Number.isFinite(value.lead_score)) {
     profile.lead_score = Math.max(0, Math.min(100, Math.round(value.lead_score)));
   }
@@ -263,10 +280,17 @@ export async function respondPublicAgentMessage(input: {
   reply: string;
   stage: PublicAgentStage;
   profile: PublicAgentProfile;
+  contactCapture?: PublicAgentContactCapture;
+  contactConsented?: boolean;
   requestContact: boolean;
   handoffRequested: boolean;
   quickReplies: string[];
+  commercialAction?: string;
+  commercial?: PublicAgentCommercialPayload | null;
+  documents?: PublicAgentDocument[];
+  imageBrief?: string | null;
   converted: boolean;
+  leadProtocol?: string | null;
   degraded: boolean;
 }> {
   return edgeRequest("message", {
@@ -274,7 +298,76 @@ export async function respondPublicAgentMessage(input: {
     tokenHash: hashPublicAgentValue(input.token),
     fingerprintHash: input.fingerprint,
     message: input.message.trim(),
+  }, 70_000);
+}
+
+export async function listPublicAgentDocuments(input: {
+  slug: string;
+  token: string;
+  fingerprint: string;
+}): Promise<{ documents: PublicAgentDocument[] }> {
+  return edgeRequest("documents", {
+    slug: safeSlug(input.slug),
+    tokenHash: hashPublicAgentValue(input.token),
+    fingerprintHash: input.fingerprint,
+  });
+}
+
+export async function transcribePublicAgentAudio(input: {
+  slug: string;
+  token: string;
+  fingerprint: string;
+  audioBase64: string;
+  mimeType: string;
+}): Promise<{ text: string }> {
+  const audio = input.audioBase64.replace(/^data:[^;]+;base64,/, "").trim();
+  if (!audio || audio.length > 5_600_000 || !BASE64_AUDIO.test(audio)) {
+    throw new PublicAgentServerError("PUBLIC_AGENT_AUDIO_INVALID", 400);
+  }
+  if (!/^audio\/(webm|mp4|mpeg|wav|ogg|m4a|x-m4a)$/i.test(input.mimeType)) {
+    throw new PublicAgentServerError("PUBLIC_AGENT_AUDIO_INVALID", 400);
+  }
+  return edgeRequest("transcribe", {
+    slug: safeSlug(input.slug),
+    tokenHash: hashPublicAgentValue(input.token),
+    fingerprintHash: input.fingerprint,
+    audioBase64: audio,
+    mimeType: input.mimeType.toLowerCase(),
   }, 60_000);
+}
+
+export async function synthesizePublicAgentSpeech(input: {
+  slug: string;
+  token: string;
+  fingerprint: string;
+  text: string;
+}): Promise<{ audioBase64: string; mimeType: string }> {
+  const text = input.text.trim().slice(0, 1200);
+  if (!text) throw new PublicAgentServerError("PUBLIC_AGENT_SPEECH_INVALID", 400);
+  return edgeRequest("speech", {
+    slug: safeSlug(input.slug),
+    tokenHash: hashPublicAgentValue(input.token),
+    fingerprintHash: input.fingerprint,
+    text,
+  }, 60_000);
+}
+
+export async function generatePublicAgentHouseImage(input: {
+  slug: string;
+  token: string;
+  fingerprint: string;
+  brief: string;
+  profile: PublicAgentProfile;
+}): Promise<{ asset: PublicAgentGeneratedAsset }> {
+  const brief = input.brief.trim().slice(0, 1200);
+  if (brief.length < 10) throw new PublicAgentServerError("PUBLIC_AGENT_IMAGE_BRIEF_INVALID", 400);
+  return edgeRequest("generate_image", {
+    slug: safeSlug(input.slug),
+    tokenHash: hashPublicAgentValue(input.token),
+    fingerprintHash: input.fingerprint,
+    brief,
+    profile: sanitizeProfile(input.profile),
+  }, 120_000);
 }
 
 export async function convertPublicAgentLead(input: {
@@ -304,6 +397,7 @@ export async function convertPublicAgentLead(input: {
     phone: normalizeBrazilianPhone(input.phone),
     email: sanitizeEmail(input.email),
     city: input.city?.trim().slice(0, 180) || null,
+    serviceContactConsent: true,
     marketingConsent: input.marketingConsent,
     profile: sanitizeProfile(input.profile),
   });

@@ -22,8 +22,19 @@ export type PublicAgentProfile = {
   financing_interest?: boolean | null;
   payment_capacity?: number | null;
   visit_interest?: boolean | null;
+  selected_unit_code?: string | null;
+  house_style?: string | null;
+  bedrooms?: number | null;
   lead_score?: number;
   summary?: string;
+};
+
+export type PublicAgentContactCapture = {
+  name?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  city?: string | null;
+  collecting?: boolean;
 };
 
 export type PublicAgentTheme = {
@@ -34,6 +45,12 @@ export type PublicAgentTheme = {
   quickReplies?: string[];
   trustItems?: string[];
   privacyNotice?: string;
+  visualMode?: "immersive" | "classic";
+  voice?: string;
+  voiceEnabled?: boolean;
+  autoSpeak?: boolean;
+  avatarMotion?: boolean;
+  capabilities?: string[];
 };
 
 export type PublicAgentExperience = {
@@ -58,36 +75,78 @@ export type PublicAgentSessionPayload = {
   sessionId: string;
   stage: PublicAgentStage;
   profile: PublicAgentProfile;
+  contactCapture?: PublicAgentContactCapture;
+  contactConsented?: boolean;
   converted: boolean;
   leadProtocol: string | null;
   experience: PublicAgentExperience;
   messages: PublicAgentMessage[];
 };
 
-export type PublicAgentContextPayload = {
-  organizationId: string;
-  sessionId: string;
-  stage: PublicAgentStage;
-  profile: PublicAgentProfile;
-  converted: boolean;
-  knowledge: {
-    approvedFacts?: string[];
-    guardrails?: string[];
-    qualificationFields?: string[];
-  };
-  experience: PublicAgentExperience;
-  messages: PublicAgentMessage[];
+export type PublicAgentCommercialUnit = {
+  unitCode: string;
+  blockCode?: string | null;
+  lotNumber?: string | null;
+  area?: number | null;
+  frontage?: number | null;
+  depth?: number | null;
+  corner?: boolean;
+  topography?: string | null;
+  orientation?: string | null;
+  listPrice?: number | null;
+  pricePerSqm?: number | null;
+  updatedAt?: string | null;
+};
+
+export type PublicAgentCommercialPayload = {
+  realTime?: boolean;
+  asOf?: string | null;
+  project?: Record<string, unknown>;
+  summary?: Record<string, unknown>;
+  policy?: Record<string, unknown> | null;
+  units?: PublicAgentCommercialUnit[];
+};
+
+export type PublicAgentDocument = {
+  id: string;
+  title: string;
+  description?: string | null;
+  category: string;
+  sourceType: "text" | "file";
+  mimeType?: string | null;
+  bytes?: number | null;
+  projectId?: string | null;
+  updatedAt?: string | null;
+  url?: string | null;
+};
+
+export type PublicAgentGeneratedAsset = {
+  id: string;
+  kind: "house_simulation" | "document_preview" | "other";
+  url: string;
+  mimeType: string;
+  promptSummary?: string | null;
+  createdAt?: string;
 };
 
 export type PublicAgentReply = {
   reply: string;
   stage: PublicAgentStage;
   profile: PublicAgentProfile;
+  contactCapture?: PublicAgentContactCapture;
+  contactConsented?: boolean;
   requestContact: boolean;
   handoffRequested: boolean;
   quickReplies: string[];
   factsUsed: string[];
   riskFlags: string[];
+  commercialAction?: string;
+  commercial?: PublicAgentCommercialPayload | null;
+  documents?: PublicAgentDocument[];
+  imageBrief?: string | null;
+  generatedAsset?: PublicAgentGeneratedAsset | null;
+  converted?: boolean;
+  leadProtocol?: string | null;
   agentResponseId: string | null;
   supervisorResponseId: string | null;
   supervisorDecision: "approve" | "revise" | "block";

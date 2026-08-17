@@ -2,13 +2,29 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const PUBLIC_KEY = "sb_publishable_nMCXNDXMvU0EbMSSmnEfQg_0uE_lVOW";
 const MAX_BYTES = 96 * 1024;
-const UPSTREAM_TIMEOUT_MS = 70_000;
+const UPSTREAM_TIMEOUT_MS = 75_000;
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-allow-headers": "apikey, content-type, x-client-info",
+  "access-control-max-age": "86400",
+  "vary": "Origin",
+};
 const RESPONSE_HEADERS = {
+  ...CORS_HEADERS,
   "cache-control": "no-store",
   "x-content-type-options": "nosniff",
   "referrer-policy": "no-referrer",
 };
-const ALLOWED_ACTIONS = new Set(["experience", "session", "message", "lead"]);
+const ALLOWED_ACTIONS = new Set([
+  "experience",
+  "session",
+  "message",
+  "inventory",
+  "lead",
+  "hold",
+  "hold_status",
+]);
 
 type Obj = Record<string, unknown>;
 
@@ -46,9 +62,7 @@ function validPublicKey(request: Request): boolean {
 function upstreamUrl(): URL {
   const raw = Deno.env.get("SUPABASE_URL") || "";
   const base = new URL(raw);
-  if (base.protocol !== "https:") {
-    throw new GatewayError("PUBLIC_AGENT_GATEWAY_CONFIG_INVALID");
-  }
+  if (base.protocol !== "https:") throw new GatewayError("PUBLIC_AGENT_GATEWAY_CONFIG_INVALID");
   return new URL("/functions/v1/enterprise-public-agent", base);
 }
 
@@ -68,18 +82,10 @@ async function internalBearer(admin: ReturnType<typeof createClient>) {
 
 Deno.serve(async (request) => {
   try {
-    if (request.method !== "POST") {
-      return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
-    }
-    if (!validPublicKey(request)) {
-      return json({ ok: false, error: "PUBLIC_AGENT_AUTH_REQUIRED" }, 401);
-    }
-    if (
-      !request.headers
-        .get("content-type")
-        ?.toLowerCase()
-        .startsWith("application/json")
-    ) {
+    if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: RESPONSE_HEADERS });
+    if (request.method !== "POST") return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
+    if (!validPublicKey(request)) return json({ ok: false, error: "PUBLIC_AGENT_AUTH_REQUIRED" }, 401);
+    if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) {
       return json({ ok: false, error: "JSON_REQUIRED" }, 415);
     }
 
@@ -99,31 +105,21 @@ Deno.serve(async (request) => {
     let parsed: Obj;
     try {
       const candidate = JSON.parse(new TextDecoder().decode(body));
-      if (!object(candidate)) {
-        return json({ ok: false, error: "INVALID_REQUEST" }, 400);
-      }
+      if (!object(candidate)) return json({ ok: false, error: "INVALID_REQUEST" }, 400);
       parsed = candidate;
     } catch {
       return json({ ok: false, error: "INVALID_JSON" }, 400);
     }
 
     const action = typeof parsed.action === "string" ? parsed.action : "";
-    if (!ALLOWED_ACTIONS.has(action)) {
-      return json({ ok: false, error: "PUBLIC_AGENT_ACTION_INVALID" }, 400);
-    }
+    if (!ALLOWED_ACTIONS.has(action)) return json({ ok: false, error: "PUBLIC_AGENT_ACTION_INVALID" }, 400);
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const serviceRole = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-    if (!supabaseUrl || !serviceRole) {
-      throw new GatewayError("PUBLIC_AGENT_GATEWAY_CONFIG_MISSING");
-    }
+    if (!supabaseUrl || !serviceRole) throw new GatewayError("PUBLIC_AGENT_GATEWAY_CONFIG_MISSING");
 
     const admin = createClient(supabaseUrl, serviceRole, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
     });
     const internalToken = await internalBearer(admin);
     const controller = new AbortController();
@@ -140,14 +136,8 @@ Deno.serve(async (request) => {
       });
       const upstreamBody = await upstream.arrayBuffer();
       const headers = new Headers(RESPONSE_HEADERS);
-      headers.set(
-        "content-type",
-        upstream.headers.get("content-type") || "application/json; charset=utf-8",
-      );
-      return new Response(upstreamBody, {
-        status: upstream.status,
-        headers,
-      });
+      headers.set("content-type", upstream.headers.get("content-type") || "application/json; charset=utf-8");
+      return new Response(upstreamBody, { status: upstream.status, headers });
     } finally {
       clearTimeout(timer);
     }

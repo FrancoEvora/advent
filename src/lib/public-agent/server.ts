@@ -3,17 +3,18 @@ import { createHash, randomBytes } from "node:crypto";
 import type { NextRequest } from "next/server";
 
 import type {
+  PublicAgentAction,
   PublicAgentExperience,
-  PublicAgentProfile,
   PublicAgentSessionPayload,
   PublicAgentStage,
+  PublicAgentTranscriptionResponse,
+  PublicAgentTurnResponse,
 } from "./types";
 
 type JsonObject = Record<string, unknown>;
 type EdgeEnvelope<T> = { ok: true; data: T } | { ok: false; error?: string };
 
-const DEFAULT_SUPABASE_URL = "https://qsdffayasuzsmngteika.supabase.co";
-const DEFAULT_PUBLISHABLE_KEY = "sb_publishable_nMCXNDXMvU0EbMSSmnEfQg_0uE_lVOW";
+const PUBLIC_AGENT_DEVICE_COOKIE = "evora_agent_device";
 
 export class PublicAgentServerError extends Error {
   readonly code: string;
@@ -40,22 +41,32 @@ function safeSlug(value: string): string {
 }
 
 function edgeEndpoint(): URL {
-  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || DEFAULT_SUPABASE_URL;
+  const raw = process.env.EVORA_PUBLIC_AGENT_GATEWAY_URL?.trim();
+  if (!raw) {
+    throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
+  }
   let base: URL;
   try {
     base = new URL(raw);
   } catch {
     throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
-  if (base.protocol !== "https:") {
+  if (
+    base.protocol !== "https:"
+    || base.username
+    || base.password
+    || base.search
+    || base.hash
+    || !base.pathname.endsWith("/functions/v1/enterprise-vitoria-agent-gateway")
+  ) {
     throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
-  return new URL("/functions/v1/enterprise-public-agent-gateway", base);
+  return base;
 }
 
-function publishableKey(): string {
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || DEFAULT_PUBLISHABLE_KEY;
-  if (!/^sb_publishable_[A-Za-z0-9_-]{20,120}$/.test(key)) {
+function ingressKey(): string {
+  const key = process.env.EVORA_PUBLIC_AGENT_INGRESS_KEY?.trim() || "";
+  if (key.length < 32 || key.length > 512 || /\s/.test(key)) {
     throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
   return key;
@@ -71,8 +82,11 @@ function edgeError(code: string, status: number): PublicAgentServerError {
   if (status === 429 || code.includes("RATE_LIMIT")) {
     return new PublicAgentServerError("PUBLIC_AGENT_RATE_LIMIT", 429);
   }
-  if (status === 409 || code.includes("INACTIVE")) {
-    return new PublicAgentServerError("PUBLIC_AGENT_SESSION_INACTIVE", 409);
+  if (status === 410 || code.includes("SESSION_INACTIVE")) {
+    return new PublicAgentServerError("PUBLIC_AGENT_SESSION_INACTIVE", 410);
+  }
+  if (status === 409) {
+    return new PublicAgentServerError(code || "PUBLIC_AGENT_CONFLICT", 409);
   }
   if (status === 400 || code.includes("INVALID") || code.includes("CONSENT")) {
     return new PublicAgentServerError(code || "PUBLIC_AGENT_INPUT_INVALID", 400);
@@ -80,14 +94,14 @@ function edgeError(code: string, status: number): PublicAgentServerError {
   return new PublicAgentServerError(code || "PUBLIC_AGENT_EDGE_UNAVAILABLE", 503);
 }
 
-async function edgeRequest<T>(action: string, payload: JsonObject, timeoutMs = 30_000): Promise<T> {
+async function edgeRequest<T>(action: PublicAgentAction, payload: JsonObject, timeoutMs = 30_000): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(edgeEndpoint(), {
       method: "POST",
       headers: {
-        apikey: publishableKey(),
+        Authorization: `Bearer ${ingressKey()}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ action, ...payload }),
@@ -125,12 +139,16 @@ export function publicAgentCookieName(slug: string): string {
   return `evora_agent_${safeSlug(slug).replace(/-/g, "_")}`;
 }
 
-export function publicAgentFingerprint(request: NextRequest): string {
-  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  const ip = forwarded || request.headers.get("x-real-ip")?.trim() || "unknown";
-  const userAgent = request.headers.get("user-agent")?.slice(0, 500) || "unknown";
-  const language = request.headers.get("accept-language")?.slice(0, 120) || "unknown";
-  return hashPublicAgentValue(`${ip}\n${userAgent}\n${language}`);
+export function publicAgentDeviceCookieName(): string {
+  return PUBLIC_AGENT_DEVICE_COOKIE;
+}
+
+export function publicAgentFingerprint(request: NextRequest, deviceToken?: string): string {
+  const token = deviceToken || request.cookies.get(PUBLIC_AGENT_DEVICE_COOKIE)?.value || "";
+  if (!/^[A-Za-z0-9_-]{40,100}$/.test(token)) {
+    throw new PublicAgentServerError("PUBLIC_AGENT_DEVICE_NOT_FOUND", 401);
+  }
+  return hashPublicAgentValue(token);
 }
 
 export function enforcePublicAgentOrigin(request: NextRequest): void {
@@ -173,56 +191,6 @@ export function sanitizeAttribution(value: unknown): JsonObject {
   return sanitized;
 }
 
-export function normalizeBrazilianPhone(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  const national = digits.startsWith("55") ? digits.slice(2) : digits;
-  if (!/^\d{10,11}$/.test(national)) {
-    throw new PublicAgentServerError("PUBLIC_AGENT_PHONE_INVALID", 400);
-  }
-  return `+55${national}`;
-}
-
-export function sanitizeEmail(value: string | null | undefined): string | null {
-  const email = value?.trim().toLowerCase() || "";
-  if (!email) return null;
-  if (email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-    throw new PublicAgentServerError("PUBLIC_AGENT_EMAIL_INVALID", 400);
-  }
-  return email;
-}
-
-export function sanitizeProfile(value: unknown): PublicAgentProfile {
-  if (!object(value)) return {};
-  const profile: PublicAgentProfile = {};
-  if (["morar", "investir", "conhecer", "unknown"].includes(String(value.intent))) {
-    profile.intent = value.intent as PublicAgentProfile["intent"];
-  }
-  if (["ate_3_meses", "3_a_6_meses", "6_a_12_meses", "mais_de_12_meses", "unknown"].includes(String(value.purchase_horizon))) {
-    profile.purchase_horizon = value.purchase_horizon as PublicAgentProfile["purchase_horizon"];
-  }
-  for (const key of ["budget_min", "budget_max", "preferred_area_min", "preferred_area_max", "payment_capacity"] as const) {
-    const raw = value[key];
-    if (raw === null) profile[key] = null;
-    else if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0 && raw <= 1_000_000_000) {
-      profile[key] = Math.round(raw * 100) / 100;
-    }
-  }
-  for (const key of ["financing_interest", "visit_interest"] as const) {
-    const raw = value[key];
-    if (raw === null || typeof raw === "boolean") profile[key] = raw;
-  }
-  if (typeof value.preferred_city === "string") {
-    profile.preferred_city = value.preferred_city.trim().slice(0, 180) || null;
-  }
-  if (typeof value.lead_score === "number" && Number.isFinite(value.lead_score)) {
-    profile.lead_score = Math.max(0, Math.min(100, Math.round(value.lead_score)));
-  }
-  if (typeof value.summary === "string") {
-    profile.summary = value.summary.trim().slice(0, 1000);
-  }
-  return profile;
-}
-
 export function sanitizeStage(value: unknown): PublicAgentStage {
   const stage = String(value || "discovery") as PublicAgentStage;
   return ["welcome", "discovery", "qualification", "contact", "handoff", "completed"].includes(stage)
@@ -259,52 +227,37 @@ export async function respondPublicAgentMessage(input: {
   token: string;
   fingerprint: string;
   message: string;
-}): Promise<{
-  reply: string;
-  stage: PublicAgentStage;
-  profile: PublicAgentProfile;
-  requestContact: boolean;
-  handoffRequested: boolean;
-  quickReplies: string[];
-  converted: boolean;
-  degraded: boolean;
-}> {
-  return edgeRequest("message", {
+  clientMessageId: string;
+  source: "text" | "audio";
+  transcriptionRequestId?: string | null;
+}): Promise<PublicAgentTurnResponse> {
+  return edgeRequest<PublicAgentTurnResponse>("message", {
     slug: safeSlug(input.slug),
     tokenHash: hashPublicAgentValue(input.token),
     fingerprintHash: input.fingerprint,
     message: input.message.trim(),
-  }, 60_000);
+    clientMessageId: input.clientMessageId,
+    source: input.source,
+    transcriptionRequestId: input.transcriptionRequestId || null,
+  }, 90_000);
 }
 
-export async function convertPublicAgentLead(input: {
+export async function transcribePublicAgentAudio(input: {
   slug: string;
   token: string;
   fingerprint: string;
-  name: string;
-  phone: string;
-  email: string | null;
-  city: string | null;
-  marketingConsent: boolean;
-  profile: PublicAgentProfile;
-}): Promise<{
-  ok: boolean;
-  idempotent: boolean;
-  contactId: string;
-  crmRecordId: string;
-  conversationId?: string;
-  assignmentId?: string;
-  protocol: string;
-}> {
-  return edgeRequest("lead", {
+  clientMessageId: string;
+  mimeType: string;
+  durationSeconds: number;
+  bytes: Uint8Array;
+}): Promise<PublicAgentTranscriptionResponse> {
+  return edgeRequest<PublicAgentTranscriptionResponse>("transcribe", {
     slug: safeSlug(input.slug),
     tokenHash: hashPublicAgentValue(input.token),
     fingerprintHash: input.fingerprint,
-    name: input.name.trim().slice(0, 180),
-    phone: normalizeBrazilianPhone(input.phone),
-    email: sanitizeEmail(input.email),
-    city: input.city?.trim().slice(0, 180) || null,
-    marketingConsent: input.marketingConsent,
-    profile: sanitizeProfile(input.profile),
-  });
+    clientMessageId: input.clientMessageId,
+    mimeType: input.mimeType,
+    durationSeconds: input.durationSeconds,
+    audioBase64: Buffer.from(input.bytes).toString("base64"),
+  }, 65_000);
 }

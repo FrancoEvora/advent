@@ -28,8 +28,13 @@ const {
 
 const {
   asksHoldStatus,
+  asksOtherEnterprises,
   canRestoreHoldSuggestions,
   continuesAfterHold,
+  currentProjectOverviewFocus,
+  currentProjectOverviewQuickReplies,
+  currentProjectOverviewReply,
+  currentProjectOverviewRequested,
   holdConfirmationPrompt,
   leadCaptureRequested,
   removePrematureHoldSuggestions,
@@ -236,6 +241,92 @@ test("continuação contextual reconhece atalhos antigos sem aceitar negativas",
   assert.equal(asksHoldStatus("Não quero consultar o bloqueio"), false);
 });
 
+test("atalhos e perguntas sobre o Solaris preservam o projeto atual em vez de reabrir o portfólio", () => {
+  const projectNames = ["Residencial Solaris Home & Resort", "Solaris Residencial"];
+  for (const message of [
+    "Conhecer a estrutura",
+    "Conhecer o Solaris",
+    "Quero conhecer melhor o Solaris",
+    "O que o Solaris tem de diferente?",
+    "Quais são os diferenciais do Solaris?",
+    "Como é a infraestrutura do empreendimento?",
+  ]) {
+    assert.equal(
+      currentProjectOverviewRequested(message, projectNames),
+      true,
+      message,
+    );
+  }
+
+  for (const message of [
+    "Quais outros empreendimentos a Évora tem?",
+    "Mostre os empreendimentos da Évora",
+    "Não quero conhecer a estrutura",
+    "Não quero saber sobre o Solaris",
+    "O Solaris não tem diferencial nenhum",
+    "Ver lotes disponíveis",
+    "Conhecer as condições",
+    "Ver fotos e materiais",
+    "Qual o valor do Solaris?",
+  ]) {
+    assert.equal(
+      currentProjectOverviewRequested(message, projectNames),
+      false,
+      message,
+    );
+  }
+
+  assert.equal(asksOtherEnterprises("Quais outros empreendimentos a Évora tem?"), true);
+  assert.equal(asksOtherEnterprises("Conhecer o Solaris"), false);
+  assert.equal(currentProjectOverviewFocus("Conhecer a estrutura"), "structure");
+  assert.equal(
+    currentProjectOverviewFocus("O que o Solaris tem de diferente?"),
+    "differentials",
+  );
+});
+
+test("overview determinístico responde com fatos aprovados, uma pergunta e próximos passos úteis", () => {
+  const approvedFacts = [
+    "O Solaris Residencial é um empreendimento fechado inserido no Bairro Parque das Árvores, em Monte Carmelo/MG.",
+    "O conceito combina a experiência de morar próxima à natureza com segurança e conforto urbano.",
+    "O projeto prevê redes subterrâneas, iluminação em LED, represa com deck e pesca, trilhas, academia, yoga, beach tennis, tênis, basquete, campo society, piscina, playground, pet place, bosque e quiosques.",
+    "As obras estão em andamento.",
+  ];
+  const structure = currentProjectOverviewReply({
+    message: "Conhecer a estrutura",
+    projectName: "Residencial Solaris Home & Resort",
+    city: "Monte Carmelo",
+    approvedFacts,
+    buyerIntent: "morar",
+  });
+  const differentials = currentProjectOverviewReply({
+    message: "O que o Solaris tem de diferente?",
+    projectName: "Residencial Solaris Home & Resort",
+    city: "Monte Carmelo",
+    approvedFacts,
+    buyerIntent: "morar",
+  });
+
+  assert.match(structure, /estrutura do Solaris/iu);
+  assert.match(structure, /empreendimento fechado/iu);
+  assert.match(structure, /redes subterrâneas/iu);
+  assert.match(structure, /natureza/iu);
+  assert.match(differentials, /mais diferencia o Solaris/iu);
+  assert.match(differentials, /represa com deck/iu);
+  assert.match(differentials, /obras estão em andamento/iu);
+  assert.match(differentials, /combina mais com a rotina/iu);
+  assert.doesNotMatch(differentials, /o que pesa mais para você/iu);
+  assert.doesNotMatch(structure, /Hoje a Évora tem/iu);
+  assert.doesNotMatch(differentials, /Qual deles chamou mais sua atenção/iu);
+  assert.equal((structure.match(/\?/g) || []).length, 1);
+  assert.equal((differentials.match(/\?/g) || []).length, 1);
+  assert.deepEqual(currentProjectOverviewQuickReplies(), [
+    "Ver fotos e materiais",
+    "Conhecer as condições",
+    "Ver lotes disponíveis",
+  ]);
+});
+
 test("Bia conversa como vendedora sem esconder que é uma agente digital", () => {
   assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /Você é Bia, agente comercial digital/iu);
   assert.match(VITORIA_SUPERVISOR_SYSTEM_PROMPT, /Supervisor de Excelência da Bia/iu);
@@ -256,6 +347,9 @@ test("Bia conversa como vendedora sem esconder que é uma agente digital", () =>
   assert.match(VITORIA_SUPERVISOR_SYSTEM_PROMPT, /Um bloqueio ativo da sessão mantém a unidade como contexto atual/iu);
   assert.match(VITORIA_SUPERVISOR_SYSTEM_PROMPT, /Condições vigentes são informativas e independem de lote/iu);
   assert.match(VITORIA_SUPERVISOR_SYSTEM_PROMPT, /Não sugira reserva na descoberta/iu);
+  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /show_enterprise serve apenas/iu);
+  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /quick reply como uma intenção explícita/iu);
+  assert.match(VITORIA_SUPERVISOR_SYSTEM_PROMPT, /sem repetir a lista de empreendimentos/iu);
 });
 
 test("captação não começa em uma saudação ou depois de uma recusa", () => {
@@ -414,6 +508,30 @@ test("runtime usa a voz humanizada, evita handoff automático e chama os wrapper
   assert.doesNotMatch(runtime, /Falar com especialista/);
   assert.doesNotMatch(runtime, /Sua solicitação .* está com status/);
   assert.doesNotMatch(runtime, /Concluindo (?:seu cadastro|o bloqueio) no Enterprise/);
+});
+
+test("overview do projeto passa pelo handler determinístico antes das duas chamadas OpenAI", () => {
+  const runtime = readFileSync(
+    new URL("../supabase/functions/enterprise-vitoria-agent/index.ts", import.meta.url),
+    "utf8",
+  );
+  const overviewStart = runtime.indexOf(
+    "if (currentProjectOverviewRequested(userMessage, [str(experience.name) || \"\"]))",
+  );
+  const modelStart = runtime.indexOf("let reply: GeneratedReply;", overviewStart);
+  assert.ok(overviewStart >= 0, "handler de overview deve existir");
+  assert.ok(modelStart > overviewStart, "overview deve retornar antes de generateReply");
+
+  const overviewBranch = runtime.slice(overviewStart, modelStart);
+  assert.match(overviewBranch, /get_public_agent_enterprise_context/);
+  assert.match(overviewBranch, /currentEnterpriseProject\(context, enterprise\)/);
+  assert.match(overviewBranch, /approvedFacts: approvedProjectFacts\(context\)/);
+  assert.match(overviewBranch, /currentProjectOverviewQuickReplies\(\)/);
+  assert.match(overviewBranch, /action: "none"/);
+  assert.match(overviewBranch, /return J\(\{ ok: true, data: final \}\)/);
+  assert.doesNotMatch(overviewBranch, /generateReply\(/);
+  assert.doesNotMatch(overviewBranch, /enterpriseReply\(/);
+  assert.doesNotMatch(overviewBranch, /type: "project"/);
 });
 
 test("retomada da conversa preserva as próximas ações contextuais", () => {

@@ -15,6 +15,9 @@ export const VITORIA_AGENT_SYSTEM_PROMPT = [
   "Você nunca promete disponibilidade futura, aprovação, valorização ou rentabilidade. Não solicite CPF, RG, renda detalhada, documento, senha, cartão ou endereço completo.",
   "DADOS E CONSENTIMENTO: extraia nome, telefone, e-mail e cidade naturalmente do que a pessoa disser. Nunca invente dados. service_consent só pode ser true com autorização explícita para o contato da Évora. marketing_consent é separado e só pode ser true com aceite explícito de novidades ou ofertas.",
   "AÇÕES: use show_inventory para estoque, disponibilidade, preço ou lote; show_policy para condições e simulações; show_documents para fotos, vídeos, PDFs e materiais; show_enterprise para outros empreendimentos; request_visit para visita; request_hold para reservar ou bloquear; hold_status para consultar um bloqueio; generate_home_simulation para uma imagem conceitual.",
+  "CONTEXTO DO EMPREENDIMENTO: show_enterprise serve apenas quando a pessoa pedir o portfólio, outros empreendimentos ou uma comparação entre projetos. Se ela pedir para conhecer, entender a estrutura ou saber os diferenciais do empreendimento atual, responda diretamente com os fatos aprovados desse projeto e mantenha action=none. Nunca substitua essa resposta por uma lista que reapresente o mesmo empreendimento.",
+  "ATALHOS DA INTERFACE: trate o texto de cada quick reply como uma intenção explícita dentro da conversa. 'Conhecer a estrutura', 'Conhecer o empreendimento' e 'Conhecer o Solaris' pedem uma apresentação contextual do projeto atual; não são pedidos para listar o portfólio da Évora.",
+  "MEMÓRIA RECENTE: antes de responder, leia as últimas mensagens, preserve o projeto, a unidade e as preferências já escolhidas e avance a conversa. Não repita um cartão, uma pergunta ou uma apresentação que acabou de aparecer; em uma pergunta de seguimento, aprofunde o ponto solicitado.",
   "Para generate_home_simulation, capte ao menos estilo e número de quartos, uma informação por vez. Em qualquer outra situação, avance com o que já existe no contexto em vez de criar um interrogatório.",
   "Responda em português brasileiro natural, com calor humano e precisão comercial.",
 ].join("\n");
@@ -27,12 +30,205 @@ export const VITORIA_SUPERVISOR_SYSTEM_PROMPT = [
   "Não introduza espontaneamente a Bia como assistente virtual. Se a pessoa perguntar, preserve a transparência: ela é a agente digital da Évora e nunca deve afirmar ou insinuar que é humana.",
   "Não transforme cadastro, visita, simulação ou bloqueio em handoff. handoff_requested só é válido quando o cliente pedir alguém da equipe ou quando houver uma limitação real e explícita.",
   "Preserve a ação que resolve o pedido. Use show_inventory para estoque, preço e lote; show_policy para condições; show_documents para materiais; request_visit para visita; request_hold para reservar ou bloquear; hold_status para consultar bloqueio.",
+  "Use show_enterprise somente para portfólio, outros empreendimentos ou comparação entre projetos. Perguntas sobre estrutura, conceito ou diferenciais do empreendimento atual ficam em action=none e devem ser respondidas com os fatos aprovados desse projeto, sem repetir a lista de empreendimentos.",
+  "Quick replies são mensagens com intenção explícita e fazem parte do histórico. Preserve essa intenção, o projeto atual e as escolhas recentes; não devolva o usuário ao mesmo menu nem repita uma pergunta já respondida.",
   "Condições vigentes são informativas e independem de lote, cadastro ou reserva. Uma simulação exata pode usar uma unidade apenas como referência de preço, sem bloqueá-la. Rejeite request_hold quando o visitante não tiver pedido claramente reserva, bloqueio ou avanço da compra de uma unidade específica.",
   "Não sugira reserva na descoberta ou na primeira apresentação do lote. Só preserve uma opção de reserva depois de simulação/negociação relevante ou quando houver intenção de compra explícita.",
   "Um bloqueio ativo da sessão mantém a unidade como contexto atual, ainda que ela não esteja no inventário disponível. Não a declare perdida ou indisponível apenas por essa ausência, não ofereça outro bloqueio para a mesma unidade e não substitua o contexto por um menu genérico depois da transação.",
   "service_consent exige autorização explícita do visitante; um 'sim' ambíguo não basta. Marketing permanece separado. Nunca autorize promessa de valorização, disponibilidade inventada, dado sensível ou pressão comercial.",
   "Ao bloquear, deixe final_reply vazio para o runtime seguro concluir a operação. Nos demais casos, entregue uma resposta final útil em português brasileiro.",
 ].join("\n");
+
+export type CurrentProjectOverviewFocus = "overview" | "structure" | "differentials";
+
+const GENERIC_PROJECT_NAME_WORDS = new Set([
+  "bairro",
+  "condominio",
+  "empreendimento",
+  "home",
+  "loteamento",
+  "parque",
+  "project",
+  "projeto",
+  "residencial",
+  "residence",
+  "resort",
+]);
+
+function currentProjectAliases(projectNames: string[]): string[] {
+  const aliases = new Set<string>();
+  for (const name of projectNames) {
+    const normalized = normalizeShortIntent(name);
+    if (!normalized) continue;
+    aliases.add(normalized);
+    for (const word of normalized.split(" ")) {
+      if (word.length >= 5 && !GENERIC_PROJECT_NAME_WORDS.has(word)) aliases.add(word);
+    }
+  }
+  return [...aliases].sort((a, b) => b.length - a.length);
+}
+
+export function asksOtherEnterprises(message: string): boolean {
+  const normalized = normalizeShortIntent(message);
+  if (!normalized || /\b(?:nao|nunca)\b/u.test(normalized)) return false;
+  return /\b(?:outros?|outras?|demais|todos?)\s+(?:os\s+|as\s+)?(?:empreendimentos?|projetos?|loteamentos?|residenciais?)\b/u.test(normalized)
+    || /\b(?:portfolio|portifolio)\b/u.test(normalized)
+    || /\bquais\s+(?:sao\s+)?(?:os\s+)?(?:empreendimentos?|projetos?)\s+(?:da|d[ao])\s+evora\b/u.test(normalized)
+    || /\b(?:mostre|liste|listar|conhecer)\b.{0,40}\b(?:empreendimentos?|projetos?)\b.{0,32}\b(?:da\s+)?evora\b/u.test(normalized);
+}
+
+/**
+ * Recognizes a request about the project already selected by the public
+ * experience. This is intentionally separate from the portfolio intent:
+ * interface labels arrive as plain messages and must not be reinterpreted as
+ * a request to list the same project again.
+ */
+export function currentProjectOverviewRequested(
+  message: string,
+  projectNames: string[] = [],
+): boolean {
+  const normalized = normalizeShortIntent(message);
+  if (!normalized || asksOtherEnterprises(message)) return false;
+  if (
+    /\bnao\s+(?:quero|desejo|preciso|pretendo|tenho|vou|gostaria|tem|vejo|acho|enxergo)\b/u.test(normalized)
+    || /\bnenhum[ao]?\s+(?:diferencial|vantagem|interesse)\b/u.test(normalized)
+    || /\bsem\s+interesse\b/u.test(normalized)
+  ) return false;
+  if (
+    /\b(?:preco|valor|lotes?|terrenos?|disponiv|pagamento|condic|parcelas?|entrada|prazo|simul|reserv|bloque|fotos?|videos?|pdf|materiais?)\b/u.test(
+      normalized,
+    )
+  ) return false;
+
+  if (
+    new Set([
+      "conhecer a estrutura",
+      "conhecer o empreendimento",
+      "conhecer o residencial",
+      "ver a estrutura",
+      "ver o empreendimento",
+    ]).has(normalized)
+  ) return true;
+
+  const aliases = currentProjectAliases(projectNames);
+  const namesCurrentProject = aliases.some((alias) =>
+    normalized === `conhecer o ${alias}`
+    || normalized === `conhecer ${alias}`
+    || normalized.includes(` ${alias} `)
+    || normalized.endsWith(` ${alias}`)
+    || normalized.startsWith(`${alias} `)
+  );
+  const hasOverviewFocus = /\b(?:estrutura|infraestrutura|conceito|diferenciais?|diferenc[a-z]*|diferent[a-z]*|destaques?|vantagens?|lazer|amenidades?|como\s+e|como\s+funciona|o\s+que\s+tem|me\s+conte|me\s+fale|quero\s+conhecer|conhecer\s+melhor)\b/u.test(
+    normalized,
+  );
+
+  return (namesCurrentProject && (
+    hasOverviewFocus
+    || /\b(?:conhecer|saiba|saber|sobre)\b/u.test(normalized)
+  ))
+    || (/\b(?:estrutura|infraestrutura|conceito|diferenciais?|amenidades?)\b/u.test(normalized)
+      && /\b(?:conhecer|ver|qual|quais|como|o\s+que|mostrar|mostre|explicar|explique)\b/u.test(normalized));
+}
+
+export function currentProjectOverviewFocus(message: string): CurrentProjectOverviewFocus {
+  const normalized = normalizeShortIntent(message);
+  if (/\b(?:diferenciais?|diferenc[a-z]*|diferent[a-z]*|destaques?|vantagens?)\b/u.test(normalized)) {
+    return "differentials";
+  }
+  if (/\b(?:estrutura|infraestrutura|lazer|amenidades?|o\s+que\s+tem)\b/u.test(normalized)) {
+    return "structure";
+  }
+  return "overview";
+}
+
+export function isGenericEnterpriseMenuReply(message: string): boolean {
+  const normalized = normalizeShortIntent(message);
+  return /\bevora\s+tem\s+\d+\s+empreendimentos?\s+disponiv/u.test(normalized)
+    || (/\bempreendimentos?\s+disponiv/u.test(normalized) && /\bqual\s+deles\b/u.test(normalized));
+}
+
+function conversationalProjectName(projectName: string): string {
+  const match = projectName.match(/\bSolaris\b/iu);
+  if (match) return match[0];
+  return projectName
+    .replace(/^Residencial\s+/iu, "")
+    .replace(/\s+(?:Home\s*&\s*Resort|Residencial)$/iu, "")
+    .trim() || projectName;
+}
+
+function safeApprovedFacts(value: string[]): string[] {
+  return [...new Set(value
+    .map((fact) => fact.trim().replace(/\s+/g, " ").slice(0, 520))
+    .filter((fact) => fact.length >= 12))];
+}
+
+function firstMatchingFact(facts: string[], pattern: RegExp): string | null {
+  return facts.find((fact) => pattern.test(normalizeShortIntent(fact))) || null;
+}
+
+export function currentProjectOverviewReply(input: {
+  message: string;
+  projectName: string;
+  city?: string | null;
+  approvedFacts: string[];
+  buyerIntent?: string | null;
+  fallbackReply?: string | null;
+}): string {
+  const focus = currentProjectOverviewFocus(input.message);
+  const projectName = conversationalProjectName(input.projectName);
+  const aliases = currentProjectAliases([input.projectName, projectName]);
+  const facts = safeApprovedFacts(input.approvedFacts);
+  const projectFacts = facts.filter((fact) => {
+    const normalized = normalizeShortIntent(fact);
+    return aliases.some((alias) => normalized.includes(alias));
+  });
+  const identity = firstMatchingFact(
+    projectFacts,
+    /\b(?:empreendimento\s+fechado|residencial|integra|inserido)\b/u,
+  );
+  const concept = firstMatchingFact(
+    facts,
+    /\b(?:conceito|natureza)\b.{0,96}\b(?:seguranca|conforto)\b/u,
+  );
+  const amenities = firstMatchingFact(
+    facts,
+    /\b(?:projeto\s+preve|redes\s+subterraneas|represa\s+com\s+deck|beach\s+tennis|campo\s+society)\b/u,
+  );
+  const progress = firstMatchingFact(facts, /\bobras?\s+(?:estao|esta)\s+em\s+andamento\b/u);
+  const minimumArea = firstMatchingFact(facts, /\bterrenos?\s+(?:comecam|a\s+partir)\b.{0,40}\bm2\b/u);
+
+  const orderedFacts = focus === "differentials"
+    ? [concept, amenities, progress]
+    : focus === "structure"
+    ? [identity, amenities, concept]
+    : [identity, concept, amenities, minimumArea, progress];
+  const usefulFacts = [...new Set(orderedFacts.filter((fact): fact is string => Boolean(fact)))];
+
+  if (!usefulFacts.length) {
+    const fallback = input.fallbackReply?.trim();
+    if (fallback && !isGenericEnterpriseMenuReply(fallback)) return fallback;
+    const location = input.city ? ` em ${input.city}` : "";
+    return `Claro. O ${projectName} é o empreendimento que estamos conhecendo${location}. Posso te explicar o conceito, a estrutura ou os diferenciais — por qual ponto você quer começar?`;
+  }
+
+  const opening = focus === "differentials"
+    ? `O que mais diferencia o ${projectName} é o conjunto — natureza, infraestrutura e lazer conversam entre si.`
+    : focus === "structure"
+    ? `Claro. A estrutura do ${projectName} foi pensada para a experiência de morar, não só para a compra do lote.`
+    : `Claro. Vale conhecer o ${projectName} pelo conjunto, não só pelos lotes.`;
+  const closing = focus === "differentials"
+    ? "Qual desses diferenciais combina mais com a rotina que você imagina?"
+    : input.buyerIntent === "morar"
+    ? "Pensando em morar, o que pesa mais para você: natureza, lazer ou segurança?"
+    : input.buyerIntent === "investir"
+    ? "Para investir, o que você quer comparar primeiro: produto, localização ou condição de pagamento?"
+    : "Quer que eu aprofunde a área de lazer, a localização ou as condições de pagamento?";
+  return [opening, usefulFacts.join(" "), closing].join("\n\n");
+}
+
+export function currentProjectOverviewQuickReplies(): string[] {
+  return ["Ver fotos e materiais", "Conhecer as condições", "Ver lotes disponíveis"];
+}
 
 export function leadCaptureRequested(message: string): boolean {
   const text = message.trim();

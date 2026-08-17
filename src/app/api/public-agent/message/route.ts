@@ -10,7 +10,7 @@ import {
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 120;
 
 const HEADERS = {
   "Cache-Control": "no-store",
@@ -19,6 +19,8 @@ const HEADERS = {
 };
 
 type JsonObject = Record<string, unknown>;
+const CLIENT_MESSAGE_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function object(value: unknown): value is JsonObject {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -32,7 +34,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json().catch(() => null);
-    if (!object(body) || typeof body.slug !== "string" || typeof body.message !== "string") {
+    if (
+      !object(body)
+      || typeof body.slug !== "string"
+      || typeof body.message !== "string"
+      || typeof body.clientMessageId !== "string"
+      || !CLIENT_MESSAGE_ID.test(body.clientMessageId)
+      || (
+        body.source === "audio"
+        && (
+          typeof body.transcriptionRequestId !== "string"
+          || !CLIENT_MESSAGE_ID.test(body.transcriptionRequestId)
+        )
+      )
+    ) {
       throw new PublicAgentServerError("PUBLIC_AGENT_INPUT_INVALID", 400);
     }
     const message = body.message.trim();
@@ -50,9 +65,17 @@ export async function POST(request: NextRequest) {
       token,
       fingerprint: publicAgentFingerprint(request),
       message,
+      clientMessageId: body.clientMessageId,
+      source: body.source === "audio" ? "audio" : "text",
+      transcriptionRequestId: body.source === "audio"
+        ? String(body.transcriptionRequestId)
+        : null,
     });
 
-    return NextResponse.json({ ok: true, ...result }, { headers: HEADERS });
+    return NextResponse.json(
+      { ok: true, ...result },
+      { status: result.status === "processing" ? 202 : 200, headers: HEADERS },
+    );
   } catch (error) {
     const status = error instanceof PublicAgentServerError ? error.status : 503;
     const code = error instanceof PublicAgentServerError

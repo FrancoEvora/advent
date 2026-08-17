@@ -17,9 +17,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+          cache: npm
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - run: npm ci --no-audit --no-fund
       - run: >-
           node --test
           tests/crm-ai-runtime-hardening.test.mjs
           tests/crm-ai-supervised-review.test.mjs
           tests/crm-ai-all-new-leads.test.mjs
           tests/crm-whatsapp-cloud-contract.test.mjs
+          tests/vitoria-runtime-v4.test.mts
+      - name: Validate Vitória Edge Functions
+        run: >-
+          deno check
+          supabase/functions/enterprise-vitoria-agent/index.ts
+          supabase/functions/enterprise-vitoria-agent-gateway/index.ts

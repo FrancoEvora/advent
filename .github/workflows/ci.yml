@@ -31,6 +31,7 @@ jobs:
           tests/vitoria-contextual-post-hold-migration.test.mjs
           tests/vitoria-profile-avatar.test.mjs
           tests/bia-profile-migration.test.mjs
+          tests/public-agent-mobile-viewport.test.mjs
       - name: Validate CRM conversation and archival contracts
         run: >-
           node --test

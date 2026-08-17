@@ -74,7 +74,7 @@ Não existem defaults nem identificadores de projeto embutidos no código. O gat
 ### Ordem de release
 
 1. Confirmar que as migrations remotas reconciliadas existem no Git com os mesmos timestamps.
-2. Aplicar `20260816223000`, `20260816224500` e `20260816230000` no ambiente de homologação.
+2. Aplicar `20260817031140`, `20260817031143` e `20260817031147` no ambiente de homologação.
 3. Publicar `enterprise-vitoria-agent` e depois `enterprise-vitoria-agent-gateway` com os secrets daquele ambiente.
 4. Publicar o Next.js apontando exclusivamente para o gateway de homologação.
 5. Executar os smoke tests abaixo; só então repetir a ordem em produção.

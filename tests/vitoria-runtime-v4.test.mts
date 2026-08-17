@@ -118,7 +118,7 @@ test("condições comerciais só extraem entrada explícita e balões completos"
 
 test("contrato v4 contém fencing, serialização e commit atômico", () => {
   const sql = readFileSync(
-    new URL("../supabase/migrations/20260816223000_vitoria_public_runtime_v4.sql", import.meta.url),
+    new URL("../supabase/migrations/20260817031140_vitoria_public_runtime_v4.sql", import.meta.url),
     "utf8",
   );
   assert.match(sql, /lease_token uuid not null/);
@@ -147,7 +147,7 @@ test("contrato v4 contém fencing, serialização e commit atômico", () => {
 
 test("simulação v4 usa política, estoque e fórmula canônicos do Enterprise", () => {
   const sql = readFileSync(
-    new URL("../supabase/migrations/20260816224500_vitoria_payment_simulation_v4.sql", import.meta.url),
+    new URL("../supabase/migrations/20260817031143_vitoria_payment_simulation_v4.sql", import.meta.url),
     "utf8",
   );
   assert.match(sql, /crm_negotiation_parameters/);
@@ -166,7 +166,7 @@ test("simulação v4 usa política, estoque e fórmula canônicos do Enterprise"
 test("runtime OpenAI entrega o vector store somente ao service role", () => {
   const sql = readFileSync(
     new URL(
-      "../supabase/migrations/20260816230000_vitoria_runtime_credentials_vector_store_v4.sql",
+      "../supabase/migrations/20260817031147_vitoria_runtime_credentials_vector_store_v4.sql",
       import.meta.url,
     ),
     "utf8",

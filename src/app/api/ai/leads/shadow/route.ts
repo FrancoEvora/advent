@@ -125,7 +125,7 @@ async function authContext(
   });
   if (permission.error || permission.data !== true) {
     throw new ApiError(
-      "Seu perfil não pode consultar a Vitória.",
+      "Seu perfil não pode consultar a Bia.",
       403,
       "COPILOT_PERMISSION_REQUIRED",
     );
@@ -204,7 +204,7 @@ export async function POST(request: NextRequest) {
     });
     if (readiness.error) {
       throw new ApiError(
-        "Estado da Vitória indisponível.",
+        "Estado da Bia indisponível.",
         503,
         "AI_RUNTIME_READINESS_FAILED",
       );
@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
     ]);
     if (conversations.error || jobs.error) {
       throw new ApiError(
-        "A leitura da Vitória está indisponível.",
+        "A leitura da Bia está indisponível.",
         503,
         "AI_CONVERSATION_READ_FAILED",
       );
@@ -277,7 +277,7 @@ export async function POST(request: NextRequest) {
       : { data: [], error: null };
     if (messages.error) {
       throw new ApiError(
-        "Os rascunhos da Vitória estão indisponíveis.",
+        "Os rascunhos da Bia estão indisponíveis.",
         503,
         "AI_MESSAGE_READ_FAILED",
       );

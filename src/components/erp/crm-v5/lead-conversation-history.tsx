@@ -87,7 +87,7 @@ function dayLabel(value: string) {
 function channelLabel(channel: string) {
   switch (channel) {
     case "site":
-      return "Site · Vitória";
+      return "Site · Bia";
     case "whatsapp":
       return "WhatsApp";
     case "instagram":
@@ -104,7 +104,7 @@ function channelLabel(channel: string) {
 function statusLabel(status: string) {
   switch (status) {
     case "ai_active":
-      return "Vitória atendendo";
+      return "Bia atendendo";
     case "waiting_lead":
       return "Aguardando cliente";
     case "human_required":
@@ -124,7 +124,7 @@ function statusLabel(status: string) {
 
 function senderLabel(message: CrmConversationMessage) {
   if (message.actorType === "lead") return "Cliente";
-  if (message.actorType === "ai") return "Vitória";
+  if (message.actorType === "ai") return "Bia";
   if (message.actorType === "human") return "Equipe Évora";
   return "Sistema";
 }
@@ -513,7 +513,7 @@ export function LeadConversationHistory({
               <strong>{leadName}</strong>
               <p>
                 Conversas registradas no CRM, em ordem cronológica, incluindo
-                Vitória e atendimento humano.
+                Bia e atendimento humano.
               </p>
             </div>
             {loaded && (
@@ -557,7 +557,7 @@ export function LeadConversationHistory({
             <div className={styles.empty}>
               <strong>Nenhuma conversa vinculada a este lead</strong>
               <span>
-                Quando um atendimento da Vitória ou de outro canal for associado a
+                Quando um atendimento da Bia ou de outro canal for associado a
                 este cadastro, as mensagens aparecerão aqui.
               </span>
             </div>

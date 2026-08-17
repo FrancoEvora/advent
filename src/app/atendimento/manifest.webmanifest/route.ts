@@ -3,8 +3,8 @@ import type { MetadataRoute } from "next";
 export const dynamic = "force-static";
 
 const manifest: MetadataRoute.Manifest = {
-  name: "Vitória — Atendimento Évora",
-  short_name: "Vitória Évora",
+  name: "Bia — Atendimento Évora",
+  short_name: "Bia Évora",
   description: "Atendimento comercial digital da Évora Urbanismo.",
   start_url: "/atendimento/solaris",
   scope: "/atendimento/",

@@ -1,6 +1,6 @@
-# Vitória — runtime nativo do Évora Enterprise
+# Bia — runtime nativo do Évora Enterprise
 
-A Vitória possui dois contextos separados no mesmo Enterprise:
+A Bia possui dois contextos separados no mesmo Enterprise:
 
 - **assistência interna em modo sombra**, que continua produzindo somente rascunhos;
 - **atendimento público**, isolado do shell administrativo, autorizado a consultar dados comerciais públicos, captar prospect com consentimento e solicitar bloqueio temporário de unidade.

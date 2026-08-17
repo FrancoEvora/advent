@@ -38,13 +38,13 @@ const reasoningOptions = [
 
 function errorMessage(code?: string) {
   const messages: Record<string, string> = {
-    AI_RUNTIME_PERMISSION_REQUIRED: "Seu perfil não possui permissão para alterar a Vitória.",
+    AI_RUNTIME_PERMISSION_REQUIRED: "Seu perfil não possui permissão para alterar a Bia.",
     INVALID_OPENAI_KEY: "A chave OpenAI informada não é válida.",
-    AI_WORKER_RUNTIME_UNAVAILABLE: "O worker seguro da Vitória ainda não está disponível.",
+    AI_WORKER_RUNTIME_UNAVAILABLE: "O worker seguro da Bia ainda não está disponível.",
     AI_RUNTIME_CONFIG_FAILED: "A configuração não pôde ser salva. Revise a chave e tente novamente.",
     AI_RUNTIME_REVOKE_FAILED: "A chave não pôde ser revogada.",
   };
-  return messages[code || ""] || "Não foi possível concluir a operação da Vitória.";
+  return messages[code || ""] || "Não foi possível concluir a operação da Bia.";
 }
 
 export function AiRuntimeSettings({
@@ -129,27 +129,27 @@ export function AiRuntimeSettings({
         supervisorModel: "gpt-5.6-sol",
         supervisorReasoning,
       },
-      apiKey ? "Chave e parâmetros da Vitória salvos no Vault." : "Parâmetros da Vitória atualizados.",
+      apiKey ? "Chave e parâmetros da Bia salvos no Vault." : "Parâmetros da Bia atualizados.",
     );
   }
 
   async function toggleEnabled() {
     const next = !runtime?.enabled;
     if (next && !runtime?.api_key?.configured) {
-      setError("Cadastre a chave OpenAI antes de ativar a Vitória.");
+      setError("Cadastre a chave OpenAI antes de ativar a Bia.");
       return;
     }
     await update(
       { enabled: next },
       next
-        ? "Vitória ativada em modo sombra. Nenhuma mensagem é enviada ao cliente."
-        : "Vitória desativada. Novos leads não serão enfileirados para IA.",
+        ? "Bia ativada em modo sombra. Nenhuma mensagem é enviada ao cliente."
+        : "Bia desativada. Novos leads não serão enfileirados para IA.",
     );
   }
 
   async function revoke() {
     if (!token || !canManage || !runtime?.api_key?.configured) return;
-    if (!window.confirm("Revogar a chave OpenAI e desativar a Vitória?")) return;
+    if (!window.confirm("Revogar a chave OpenAI e desativar a Bia?")) return;
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -162,7 +162,7 @@ export function AiRuntimeSettings({
       if (!response.ok || !body.runtime) throw new Error(body.error || "AI_RUNTIME_REVOKE_FAILED");
       setRuntime(body.runtime);
       setApiKey("");
-      setMessage("Chave OpenAI revogada e Vitória desativada.");
+      setMessage("Chave OpenAI revogada e Bia desativada.");
     } catch (reason) {
       setError(errorMessage(reason instanceof Error ? reason.message : undefined));
     } finally {
@@ -180,9 +180,9 @@ export function AiRuntimeSettings({
       <header>
         <div>
           <small>INTELIGÊNCIA COMERCIAL</small>
-          <h3>Vitória · Agente Comercial IA</h3>
+          <h3>Bia · Agente Comercial IA</h3>
           <p>
-            Atendimento supervisionado integrado ao CRM. Nesta etapa a Vitória opera somente em modo sombra:
+            Atendimento supervisionado integrado ao CRM. Nesta etapa a Bia opera somente em modo sombra:
             analisa o lead e prepara rascunhos internos, sem enviar mensagens ao cliente.
           </p>
         </div>
@@ -198,7 +198,7 @@ export function AiRuntimeSettings({
         </article>
         <article>
           <strong>GPT-5.6 Sol</strong>
-          <span>Modelo da Vitória</span>
+          <span>Modelo da Bia</span>
         </article>
         <article>
           <strong>{agentReasoning === "high" ? "Alto" : agentReasoning === "low" ? "Baixo" : agentReasoning === "xhigh" ? "Muito alto" : "Médio"}</strong>
@@ -223,7 +223,7 @@ export function AiRuntimeSettings({
           />
         </label>
         <label>
-          <span>Raciocínio da Vitória</span>
+          <span>Raciocínio da Bia</span>
           <select value={agentReasoning} disabled={busy} onChange={(event) => setAgentReasoning(event.target.value)}>
             {reasoningOptions.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
@@ -241,7 +241,7 @@ export function AiRuntimeSettings({
           {busy ? "Salvando..." : configured ? "Salvar parâmetros" : "Salvar chave no Vault"}
         </button>
         <button disabled={busy || !configured} onClick={toggleEnabled}>
-          {enabled ? "Desativar Vitória" : "Ativar modo sombra"}
+          {enabled ? "Desativar Bia" : "Ativar modo sombra"}
         </button>
         <button disabled={busy || !configured} onClick={revoke}>
           Revogar chave

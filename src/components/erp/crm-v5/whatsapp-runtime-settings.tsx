@@ -103,7 +103,7 @@ export function WhatsAppRuntimeSettings({ data, canManage }: { data: ErpData; ca
   }
 
   return <section className="crm5-panel" id="whatsapp-cloud-setup">
-    <header><div><small>WHATSAPP CLOUD API</small><h3>Atendimento bidirecional supervisionado</h3><p>Recebe mensagens pelo webhook oficial da Meta, registra a conversa no CRM e permite enviar respostas aprovadas pela Vitória e pelo Supervisor.</p></div></header>
+    <header><div><small>WHATSAPP CLOUD API</small><h3>Atendimento bidirecional supervisionado</h3><p>Recebe mensagens pelo webhook oficial da Meta, registra a conversa no CRM e permite enviar respostas aprovadas pela Bia e pelo Supervisor.</p></div></header>
     <div className="crm5-policy-grid">
       <article><strong>{status.ready ? "Pronto" : "Pendente"}</strong><span>Runtime WhatsApp</span></article>
       <article><strong>{status.enabled ? "Ativo" : "Desativado"}</strong><span>Canal bidirecional</span></article>

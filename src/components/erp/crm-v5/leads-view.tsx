@@ -167,13 +167,13 @@ function aiStatusLabel(value: AiShadowLead | undefined) {
   if (value.status === "paused") return "IA pausada";
   if (value.draft) return "Rascunho pronto";
   if (value.status === "failed") return "Falha na análise";
-  return "Vitória em análise";
+  return "Bia em análise";
 }
 
 function preparationError(code: string | undefined) {
   switch (code) {
     case "COPILOT_APPROVAL_PERMISSION_REQUIRED":
-      return "Seu perfil não pode aprovar mensagens da Vitória.";
+      return "Seu perfil não pode aprovar mensagens da Bia.";
     case "AI_DRAFT_PREPARE_FORBIDDEN":
       return "A preparação foi bloqueada pelas regras de comunicação.";
     case "AI_DRAFT_PREPARE_REJECTED":
@@ -798,7 +798,7 @@ export function LeadsView({
                     ) : (
                       <>
                         <strong>Sem análise</strong>
-                        <small>Vitória ainda não processou</small>
+                        <small>Bia ainda não processou</small>
                       </>
                     )}
                   </div>
@@ -881,7 +881,7 @@ export function LeadsView({
             <header>
               <div>
                 <small>REVISÃO HUMANA OBRIGATÓRIA</small>
-                <h3 id="vitoria-review-title">Mensagem da Vitória</h3>
+                <h3 id="vitoria-review-title">Mensagem da Bia</h3>
                 <p>
                   {reviewLead.person_name} ·{" "}
                   {(reviewLead.project_id &&

@@ -28,7 +28,7 @@ export function SettingsView({ data, crm, reload, can = () => false }: { data: E
       const description = provider === "meta"
         ? "Mesmo conector do Campaign Control · ativos Meta + formulários + leads → CRM"
         : provider === "whatsapp"
-          ? "WhatsApp Business Platform · Cloud API · Vitória + Supervisor"
+          ? "WhatsApp Business Platform · Cloud API · Bia + Supervisor"
           : current?.last_sync_at ? `Sincronizado em ${new Date(current.last_sync_at).toLocaleString("pt-BR")}` : "Credenciais externas necessárias";
       return <article key={provider}><div className="crm5-integration-icon">{providerIcon(provider)}</div><div><strong>{providerLabel(provider)}</strong><small>{description}</small></div><Status tone={provider === "meta" && metaActive ? "success" : status === "conectado" ? "success" : "neutral"}>{status}</Status><button disabled={!canManage} onClick={() => provider === "meta" ? document.getElementById("meta-campaign-control-setup")?.scrollIntoView({ behavior: "smooth", block: "start" }) : provider === "whatsapp" ? document.getElementById("whatsapp-cloud-setup")?.scrollIntoView({ behavior: "smooth", block: "start" }) : save(provider, current?.status === "conectado" ? "desconectado" : "configuracao_pendente")}>{provider === "meta" ? "Configurar Meta Leads" : provider === "whatsapp" ? "Configurar WhatsApp" : "Configurar"}</button></article>;
     })}</section>

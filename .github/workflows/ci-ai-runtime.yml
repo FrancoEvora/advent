@@ -29,7 +29,10 @@ jobs:
           tests/crm-ai-all-new-leads.test.mjs
           tests/crm-whatsapp-cloud-contract.test.mjs
           tests/vitoria-runtime-v4.test.mts
-      - name: Validate Vitória Edge Functions
+          tests/vitoria-contextual-post-hold-migration.test.mjs
+          tests/vitoria-profile-avatar.test.mjs
+          tests/bia-profile-migration.test.mjs
+      - name: Validate Bia Edge Functions
         run: >-
           deno check
           supabase/functions/enterprise-vitoria-agent/index.ts

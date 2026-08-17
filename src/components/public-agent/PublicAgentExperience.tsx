@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
@@ -26,6 +27,7 @@ type SessionResponse = {
   profile?: PublicAgentProfile;
   converted?: boolean;
   leadProtocol?: string | null;
+  quickReplies?: string[];
   messages?: PublicAgentMessage[];
 };
 
@@ -117,6 +119,9 @@ const TRANSCRIPTION_RECOVERY_WINDOW_MS = 170_000;
 const TRANSCRIPTION_FETCH_TIMEOUT_MS = 70_000;
 const MAX_AUDIO_BYTES = 2_100_000;
 const MAX_RECORDING_SECONDS = 90;
+const PUBLIC_AGENT_DISPLAY_NAME = "Bia";
+const DEFAULT_VITORIA_AVATAR = "/vitoria/vitoria-avatar.webp";
+const LEGACY_VITORIA_AVATAR = "/vitoria/vitoria-portrait.svg";
 const AUDIO_MIME_CANDIDATES = [
   "audio/webm;codecs=opus",
   "audio/mp4;codecs=mp4a.40.2",
@@ -164,6 +169,31 @@ function analytics(event: string, slug: string, extra: Record<string, unknown> =
   target.fbq?.("trackCustom", event, { agent_experience: slug, ...extra });
 }
 
+function safeSameOriginAsset(value: string | null | undefined) {
+  const source = value?.trim();
+  if (!source || !source.startsWith("/") || source.startsWith("//")) return null;
+  return source === LEGACY_VITORIA_AVATAR ? DEFAULT_VITORIA_AVATAR : source;
+}
+
+function avatarSources(experience: PublicAgentExperience) {
+  return Array.from(new Set([
+    safeSameOriginAsset(experience.avatar?.imageUrl),
+    safeSameOriginAsset(experience.heroImageUrl),
+    DEFAULT_VITORIA_AVATAR,
+  ].filter((source): source is string => Boolean(source))));
+}
+
+function publicAgentName(value: string | null | undefined) {
+  const configured = value?.normalize("NFC").trim();
+  return !configured || /^vit[oó]ria$/iu.test(configured)
+    ? PUBLIC_AGENT_DISPLAY_NAME
+    : configured;
+}
+
+function currentAgentCopy(value: string) {
+  return value.replace(/Vit[oó]ria/giu, PUBLIC_AGENT_DISPLAY_NAME);
+}
+
 function initialGreeting(experience: PublicAgentExperience) {
   const configured = experience.greetingText?.normalize("NFC").trim();
   if (
@@ -171,13 +201,13 @@ function initialGreeting(experience: PublicAgentExperience) {
     configured.length <= 600 &&
     !/assistente\s+virtual|chatbot/iu.test(configured)
   ) {
-    return configured;
+    return currentAgentCopy(configured);
   }
   const project = experience.name?.normalize("NFC").trim();
   const destination = project && project !== "Évora Urbanismo"
     ? ` ou ainda conhecendo o ${project}`
     : " ou ainda conhecendo as opções da Évora";
-  return `Oi! Tudo bem? Sou a ${experience.agentName}, da Évora. Me conta: você está procurando um lote para morar, investir${destination}?`;
+  return `Oi! Tudo bem? Sou a ${publicAgentName(experience.agentName)}, da Évora. Me conta: você está procurando um lote para morar, investir${destination}?`;
 }
 
 function attributionFromLocation() {
@@ -328,11 +358,11 @@ function AudioMessageView({
 function CommercialUnitsView({
   commercial,
   disabled,
-  onReserve,
+  onSimulate,
 }: {
   commercial: PublicAgentCommercialContext;
   disabled: boolean;
-  onReserve: (unit: PublicAgentCommercialUnit) => void;
+  onSimulate: (unit: PublicAgentCommercialUnit) => void;
 }) {
   const units = commercial.units || [];
   if (!units.length) return null;
@@ -356,11 +386,11 @@ function CommercialUnitsView({
             {typeof unit.pricePerSqm === "number" && <small>{currency.format(unit.pricePerSqm)}/m²</small>}
             <button
               type="button"
-              onClick={() => onReserve(unit)}
+              onClick={() => onSimulate(unit)}
               disabled={disabled}
-              aria-label={`Quero reservar o lote ${unit.unitCode}`}
+              aria-label={`Simular condições do lote ${unit.unitCode}`}
             >
-              Quero reservar
+              Simular condições
             </button>
           </article>
         ))}
@@ -435,6 +465,8 @@ function AttachmentView({ attachment }: { attachment: PublicAgentAttachment }) {
 
 export function PublicAgentExperience({ slug, experience }: Props) {
   const theme = experience.theme || {};
+  const agentName = publicAgentName(experience.agentName);
+  const availableAvatarSources = useMemo(() => avatarSources(experience), [experience]);
   const initialQuickRepliesRef = useRef(theme.quickReplies || []);
   const [messages, setMessages] = useState<UiMessage[]>([]);
   const [stage, setStage] = useState<PublicAgentStage>("welcome");
@@ -448,7 +480,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [audioDraft, setAudioDraft] = useState<AudioDraft | null>(null);
   const [audioBusy, setAudioBusy] = useState(false);
-  const [avatarUnavailable, setAvatarUnavailable] = useState(false);
+  const [failedAvatarSources, setFailedAvatarSources] = useState<ReadonlySet<string>>(() => new Set());
   const endRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const startedRef = useRef(false);
@@ -466,6 +498,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
     if (messages.length) return messages;
     return [{ id: "welcome", direction: "assistant" as const, content: initialGreeting(experience) }];
   }, [messages, experience]);
+
+  const activeAvatarSource = availableAvatarSources.find((source) => !failedAvatarSources.has(source));
 
   useEffect(() => {
     let active = true;
@@ -488,7 +522,13 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         setMessages(restoredMessages);
         setStage(payload.stage || "welcome");
         setConverted(Boolean(payload.converted));
-        setQuickReplies(restoredMessages.length ? [] : initialQuickRepliesRef.current);
+        setQuickReplies(
+          payload.quickReplies?.length
+            ? payload.quickReplies
+            : restoredMessages.length
+            ? []
+            : initialQuickRepliesRef.current,
+        );
         if (!startedRef.current) {
           startedRef.current = true;
           analytics("AgentStarted", slug, { resumed: Boolean(payload.messages?.length) });
@@ -950,23 +990,25 @@ export function PublicAgentExperience({ slug, experience }: Props) {
 
   return (
     <main id="conteudo-principal" className="public-agent-page" style={style}>
-      <h1 className="public-agent-sr-only">Conversa com a Vitória, atendimento digital da Évora Urbanismo</h1>
+      <h1 className="public-agent-sr-only">Conversa com a {agentName}, atendimento digital da Évora Urbanismo</h1>
       <section className="public-agent-shell">
-        <section className="public-agent-chat-card" aria-label="Conversa com a Vitória" aria-busy={initializing || sending || audioBusy}>
+        <section className="public-agent-chat-card" aria-label={`Conversa com a ${agentName}`} aria-busy={initializing || sending || audioBusy}>
           <div className="public-agent-chat-head">
             <div className="public-agent-avatar" aria-hidden="true">
-              {experience.heroImageUrl && !avatarUnavailable ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
+              {activeAvatarSource ? (
+                <Image
                   alt=""
-                  referrerPolicy="no-referrer"
-                  src={experience.heroImageUrl}
-                  onError={() => setAvatarUnavailable(true)}
+                  height={44}
+                  priority
+                  src={activeAvatarSource}
+                  unoptimized
+                  width={44}
+                  onError={() => setFailedAvatarSources((current) => new Set(current).add(activeAvatarSource))}
                 />
-              ) : "V"}
+              ) : "B"}
             </div>
             <div>
-              <strong>{experience.agentName}</strong>
+              <strong>{agentName}</strong>
               <span>Atendimento digital · Évora Urbanismo</span>
             </div>
             {converted && <em className="public-agent-captured">Atendimento registrado</em>}
@@ -990,7 +1032,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
                     <CommercialUnitsView
                       commercial={message.commercial}
                       disabled={initializing || sending || audioBusy || isRecording || Boolean(audioDraft)}
-                      onReserve={(unit) => void sendMessage(`Quero reservar o lote ${unit.unitCode}`)}
+                      onSimulate={(unit) => void sendMessage(`Simular condições do lote ${unit.unitCode}`)}
                     />
                   )}
                   {message.attachments?.map((attachment, index) => (
@@ -1021,7 +1063,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
               </article>
             ))}
             {sending && (
-              <div className="public-agent-message assistant public-agent-typing" aria-label="Vitória está digitando">
+              <div className="public-agent-message assistant public-agent-typing" aria-label={`${agentName} está digitando`}>
                 <span /><span /><span />
               </div>
             )}
@@ -1029,7 +1071,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
           </div>
           <p className="public-agent-live" role="status" aria-live="polite">
             {sending
-              ? "Vitória está preparando uma resposta."
+              ? `${agentName} está preparando uma resposta.`
               : messages.at(-1)?.direction === "assistant"
               ? messages.at(-1)?.content
               : ""}
@@ -1113,7 +1155,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
                 onKeyDown={handleKeyDown}
                 placeholder={initializing ? "Iniciando atendimento..." : converted ? "Continue a conversa, se precisar" : "Mensagem"}
                 disabled={initializing || audioBusy}
-                aria-label="Mensagem para a Vitória"
+                aria-label={`Mensagem para a ${agentName}`}
                 maxLength={800}
                 rows={1}
               />

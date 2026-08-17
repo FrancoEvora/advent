@@ -36,6 +36,15 @@ export type PublicAgentTheme = {
   privacyNotice?: string;
 };
 
+export type PublicAgentAvatar = {
+  mode?: string;
+  displayName?: string;
+  subtitle?: string;
+  voice?: string;
+  imageUrl?: string | null;
+  videoUrl?: string | null;
+};
+
 export type PublicAgentExperience = {
   slug: string;
   name: string;
@@ -45,6 +54,7 @@ export type PublicAgentExperience = {
   subtitle: string;
   eyebrow: string;
   heroImageUrl: string | null;
+  avatar?: PublicAgentAvatar | null;
   theme: PublicAgentTheme;
 };
 
@@ -68,6 +78,7 @@ export type PublicAgentSessionPayload = {
   converted: boolean;
   leadProtocol: string | null;
   experience: PublicAgentExperience;
+  quickReplies?: string[];
   messages: PublicAgentMessage[];
 };
 

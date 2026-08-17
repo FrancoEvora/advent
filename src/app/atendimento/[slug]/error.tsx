@@ -4,7 +4,7 @@ export default function PublicAgentError({ reset }: { error: Error & { digest?: 
   return (
     <main id="conteudo-principal" className="public-agent-page public-agent-state-page">
       <section className="public-agent-state-card" role="alert">
-        <div className="public-agent-state-avatar" aria-hidden="true">V</div>
+        <div className="public-agent-state-avatar" aria-hidden="true">B</div>
         <div>
           <span>Évora Urbanismo</span>
           <h1>O atendimento está se reconectando</h1>

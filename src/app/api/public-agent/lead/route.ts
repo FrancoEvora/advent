@@ -14,7 +14,7 @@ export async function POST() {
     {
       ok: false,
       error: "PUBLIC_AGENT_CONVERSATIONAL_CAPTURE_REQUIRED",
-      message: "O cadastro é concluído diretamente na conversa com a Vitória.",
+      message: "O cadastro é concluído diretamente na conversa com a Bia.",
     },
     { status: 410, headers: HEADERS },
   );

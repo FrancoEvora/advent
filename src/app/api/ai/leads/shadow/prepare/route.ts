@@ -133,7 +133,7 @@ async function authContext(
   });
   if (permission.error || permission.data !== true) {
     throw new ApiError(
-      "Seu perfil não pode preparar mensagens da Vitória.",
+      "Seu perfil não pode preparar mensagens da Bia.",
       403,
       "COPILOT_APPROVAL_PERMISSION_REQUIRED",
     );

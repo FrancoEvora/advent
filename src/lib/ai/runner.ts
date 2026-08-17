@@ -56,7 +56,7 @@ function safeFailure(error: unknown): SafeFailure {
   if (error instanceof CrmAiRuntimeStoreError) {
     return {
       code: error.code,
-      message: "O runtime tenant da Vitória não pôde ser validado.",
+      message: "O runtime tenant da Bia não pôde ser validado.",
       retryable: error.retryable,
     };
   }

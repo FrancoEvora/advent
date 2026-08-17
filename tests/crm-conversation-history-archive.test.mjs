@@ -11,6 +11,7 @@ const [
   archiveGuard,
   greetingMigration,
   vitoriaRuntime,
+  legacyPublicRuntime,
   publicSessionRoute,
 ] =
   await Promise.all([
@@ -31,6 +32,7 @@ const [
       "utf8",
     ),
     readFile("supabase/functions/enterprise-vitoria-agent/index.ts", "utf8"),
+    readFile("supabase/functions/enterprise-public-agent/index.ts", "utf8"),
     readFile("src/app/api/public-agent/session/route.ts", "utf8"),
   ]);
 
@@ -55,16 +57,25 @@ test("exclusão administrativa arquiva sem apagar o histórico", () => {
   assert.match(archiveGuard, /set search_path = ''/);
 });
 
-test("Vitória conversa naturalmente sem esconder o uso de IA", () => {
+test("Bia conversa naturalmente sem esconder o uso de IA", () => {
   assert.match(
     publicExperience,
-    /Oi! Tudo bem\? Sou a \$\{experience\.agentName\}, da Évora/,
+    /Oi! Tudo bem\? Sou a \$\{publicAgentName\(experience\.agentName\)\}, da Évora/,
   );
+  assert.match(publicExperience, /PUBLIC_AGENT_DISPLAY_NAME = "Bia"/);
   assert.doesNotMatch(
     publicExperience,
     /assistente virtual da Évora Urbanismo\. Posso te ajudar/,
   );
   assert.match(publicExperience, /Atendimento comercial com IA/);
+  assert.match(
+    legacyPublicRuntime,
+    /Não se apresente espontaneamente como assistente virtual/,
+  );
+  assert.doesNotMatch(
+    legacyPublicRuntime,
+    /Apresente-se naturalmente como assistente virtual/,
+  );
   assert.match(publicExperience, /dados enviados[\s\S]*ficam registrados/);
   assert.match(publicExperience, /relacionamento@evoraurbanismo\.com\.br/);
   assert.match(publicSessionRoute, /PUBLIC_CONVERSATION_MAX_AGE/);

@@ -57,13 +57,13 @@ export const permissionGroups:PermissionGroup[]=[
    },
    {
     key:"crm.copilot.use",
-    label:"Usar a Vitória em modo copiloto",
+    label:"Usar a Bia em modo copiloto",
     description:"Permite solicitar análises e rascunhos com base no contexto autorizado do lead.",
     requires:["crm.view"],
    },
    {
     key:"crm.copilot.approve_send",
-    label:"Aprovar e enviar respostas da Vitória",
+    label:"Aprovar e enviar respostas da Bia",
     description:"Autoriza a revisão humana final antes do envio e do registro no histórico.",
     requires:["crm.view","crm.copilot.use"],
    },

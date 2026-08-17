@@ -7,7 +7,7 @@ const migration = readFileSync(
   'utf8',
 );
 
-test('Vitória is triggered from canonical crm_records inserts', () => {
+test('Bia is triggered from canonical crm_records inserts', () => {
   assert.match(migration, /after insert on public\.crm_records/i);
   assert.match(migration, /'lead_created'/);
   assert.match(migration, /'lead-created:' \|\| new\.id::text/);

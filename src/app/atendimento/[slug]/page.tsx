@@ -42,7 +42,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
   return {
-    title: `${experience.name} — Atendimento com a Vitória`,
+    title: `${experience.name} — Atendimento com a Bia`,
     description: experience.subtitle,
     applicationName: "Atendimento Inteligente Évora",
     manifest: "/atendimento/manifest.webmanifest",

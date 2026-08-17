@@ -223,7 +223,7 @@ test("settings UI never displays a stored OpenAI key", async () => {
   assert.doesNotMatch(view, /runtime\?\.api_key\?\.(value|key|secret)/i);
 });
 
-test("lead portfolio only surfaces Vitória when tenant runtime is enabled", async () => {
+test("lead portfolio only surfaces Bia when tenant runtime is enabled", async () => {
   const view = await source("src/components/erp/crm-v5/leads-view.tsx");
 
   assert.match(view, /aiEnabled && <span>Atendimento IA<\/span>/);

@@ -127,7 +127,7 @@ async function configureWorkerRuntime() {
   });
   if (result.error) {
     throw new ApiError(
-      "Worker da Vitória não pôde ser preparado.",
+      "Worker da Bia não pôde ser preparado.",
       503,
       "AI_WORKER_RUNTIME_UNAVAILABLE",
     );
@@ -184,8 +184,8 @@ export async function GET(request: NextRequest) {
       const forbidden = result.error.code === "42501";
       throw new ApiError(
         forbidden
-          ? "Seu perfil não pode gerenciar a Vitória."
-          : "Status da Vitória indisponível.",
+          ? "Seu perfil não pode gerenciar a Bia."
+          : "Status da Bia indisponível.",
         forbidden ? 403 : 503,
         forbidden ? "AI_RUNTIME_PERMISSION_REQUIRED" : "AI_RUNTIME_STATUS_FAILED",
       );
@@ -246,8 +246,8 @@ export async function PUT(request: NextRequest) {
       const forbidden = result.error.code === "42501";
       throw new ApiError(
         forbidden
-          ? "Seu perfil não pode gerenciar a Vitória."
-          : "Configuração da Vitória não pôde ser salva.",
+          ? "Seu perfil não pode gerenciar a Bia."
+          : "Configuração da Bia não pôde ser salva.",
         forbidden ? 403 : 400,
         forbidden ? "AI_RUNTIME_PERMISSION_REQUIRED" : "AI_RUNTIME_CONFIG_FAILED",
       );
@@ -277,8 +277,8 @@ export async function DELETE(request: NextRequest) {
       const forbidden = result.error.code === "42501";
       throw new ApiError(
         forbidden
-          ? "Seu perfil não pode gerenciar a Vitória."
-          : "A chave da Vitória não pôde ser revogada.",
+          ? "Seu perfil não pode gerenciar a Bia."
+          : "A chave da Bia não pôde ser revogada.",
         forbidden ? 403 : 503,
         forbidden ? "AI_RUNTIME_PERMISSION_REQUIRED" : "AI_RUNTIME_REVOKE_FAILED",
       );

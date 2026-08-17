@@ -28,13 +28,16 @@ jobs:
           tests/crm-ai-shadow-contract.test.mjs
           tests/crm-ai-supervised-review.test.mjs
           tests/vitoria-runtime-v4.test.mts
+          tests/vitoria-contextual-post-hold-migration.test.mjs
+          tests/vitoria-profile-avatar.test.mjs
+          tests/bia-profile-migration.test.mjs
       - name: Validate CRM conversation and archival contracts
         run: >-
           node --test
           tests/crm-conversation-history-archive.test.mjs
           tests/crm-conversation-history-hardening.test.mjs
           tests/crm-lead-archive-integrity.test.mjs
-      - name: Validate Vitória Edge Functions
+      - name: Validate Bia Edge Functions
         run: >-
           deno check
           supabase/functions/enterprise-vitoria-agent/index.ts

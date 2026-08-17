@@ -1,4 +1,4 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient as createSupabaseClient } from "npm:@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import {
   cityFromMessage,
@@ -18,6 +18,25 @@ import {
 } from "../_shared/vitoria-commercial.ts";
 
 type Obj = Record<string, unknown>;
+type EdgeDatabase = {
+  public: {
+    Tables: Record<string, never>;
+    Views: Record<string, never>;
+    Functions: Record<string, {
+      Args: Obj;
+      Returns: unknown;
+    }>;
+  };
+};
+
+function createClient(
+  supabaseUrl: string,
+  supabaseKey: string,
+  options?: Parameters<typeof createSupabaseClient<EdgeDatabase>>[2],
+) {
+  return createSupabaseClient<EdgeDatabase>(supabaseUrl, supabaseKey, options);
+}
+type AdminClient = ReturnType<typeof createClient>;
 type Reasoning = "none" | "low" | "medium" | "high" | "xhigh" | "max";
 type Stage = "welcome" | "discovery" | "qualification" | "contact" | "handoff" | "completed";
 type Action =
@@ -470,7 +489,7 @@ async function structured<T>(input:{apiKey:string;model:string;reasoning:Reasoni
   }catch(error){if(error instanceof EdgeError)throw error;if(error instanceof Error&&error.name==="AbortError")throw new EdgeError("PUBLIC_AGENT_OPENAI_TIMEOUT",503);throw new EdgeError("PUBLIC_AGENT_OPENAI_NETWORK_FAILURE",503);}finally{clearTimeout(timer);}
 }
 
-async function rpc(admin: ReturnType<typeof createClient>,name:string,params:Obj={}) {
+async function rpc(admin: AdminClient,name:string,params:Obj={}) {
   const result=await admin.rpc(name,params);
   if(result.error){const message=String(result.error.message||"").toUpperCase();if(message.includes("IDEMPOTENCY_CONFLICT"))throw new EdgeError("PUBLIC_AGENT_IDEMPOTENCY_CONFLICT",409);if(message.includes("REQUEST_IN_PROGRESS")||message.includes("ACTION_IN_PROGRESS")||message.includes("STALE_LEASE"))throw new EdgeError("PUBLIC_AGENT_REQUEST_IN_PROGRESS",409);if(message.includes("RETRY_LIMIT")||message.includes("RATE_LIMIT"))throw new EdgeError("PUBLIC_AGENT_RATE_LIMIT",429);if(message.includes("SESSION_INACTIVE"))throw new EdgeError("PUBLIC_AGENT_SESSION_INACTIVE",410);if(message.includes("UNIT_UNAVAILABLE"))throw new EdgeError("PUBLIC_AGENT_UNIT_UNAVAILABLE",409);if(message.includes("NOT_FOUND"))throw new EdgeError("PUBLIC_AGENT_NOT_FOUND",404);if(message.includes("CONTACT_REQUIRED"))throw new EdgeError("PUBLIC_AGENT_CONTACT_REQUIRED",409);if(message.includes("CONSENT_REQUIRED"))throw new EdgeError("PUBLIC_AGENT_CONSENT_REQUIRED",400);if(message.includes("INVALID"))throw new EdgeError("PUBLIC_AGENT_INPUT_INVALID",400);if(message.includes("INACTIVE")||message.includes("UNAVAILABLE"))throw new EdgeError("PUBLIC_AGENT_CONFLICT",409);throw new EdgeError("PUBLIC_AGENT_DATABASE_UNAVAILABLE",503);}return result.data;
 }

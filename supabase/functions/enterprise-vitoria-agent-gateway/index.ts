@@ -1,4 +1,24 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient as createSupabaseClient } from "npm:@supabase/supabase-js@2";
+
+type GatewayDatabase = {
+  public: {
+    Tables: Record<string, never>;
+    Views: Record<string, never>;
+    Functions: Record<string, {
+      Args: Record<string, unknown>;
+      Returns: unknown;
+    }>;
+  };
+};
+
+function createClient(
+  supabaseUrl: string,
+  supabaseKey: string,
+  options?: Parameters<typeof createSupabaseClient<GatewayDatabase>>[2],
+) {
+  return createSupabaseClient<GatewayDatabase>(supabaseUrl, supabaseKey, options);
+}
+type AdminClient = ReturnType<typeof createClient>;
 
 const MAX_BYTES = 3_500_000;
 const TIMEOUT_MS = 125_000;
@@ -23,7 +43,7 @@ function upstreamUrl() {
   if (base.protocol !== "https:") throw new GatewayError("VITORIA_GATEWAY_CONFIG_INVALID");
   return new URL("/functions/v1/enterprise-vitoria-agent", base);
 }
-async function internalBearer(admin: ReturnType<typeof createClient>) {
+async function internalBearer(admin: AdminClient) {
   const result = await admin.rpc("get_public_agent_internal_bearer");
   if (result.error || typeof result.data !== "string" || result.data.length < 32 || result.data.length > 512 || /\s/.test(result.data)) {
     throw new GatewayError("VITORIA_INTERNAL_BEARER_UNAVAILABLE");

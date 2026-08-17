@@ -190,10 +190,17 @@ test("BFF e gateway falham fechados e a OpenAI permanece server-side", () => {
     new URL("../supabase/functions/enterprise-vitoria-agent/index.ts", import.meta.url),
     "utf8",
   );
-  assert.match(server, /EVORA_PUBLIC_AGENT_GATEWAY_URL/);
-  assert.match(server, /EVORA_PUBLIC_AGENT_INGRESS_KEY/);
+  assert.match(server, /NEXT_PUBLIC_SUPABASE_URL/);
+  assert.match(server, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
+  assert.match(server, /apikey: publishableKey\(\)/);
+  assert.doesNotMatch(server, /EVORA_PUBLIC_AGENT_/);
   assert.doesNotMatch(server, /DEFAULT_SUPABASE_URL|DEFAULT_PUBLISHABLE_KEY/);
-  assert.match(gateway, /VITORIA_PUBLIC_AGENT_INGRESS_KEY/);
+  assert.match(gateway, /SUPABASE_PUBLISHABLE_KEYS/);
+  assert.match(gateway, /request\.headers\.get\("apikey"\)/);
+  assert.match(gateway, /constantTimeEqual\(configured, candidate\)/);
+  assert.match(gateway, /JSON\.parse\(raw\)/);
+  assert.doesNotMatch(gateway, /SUPABASE_ANON_KEY/);
+  assert.doesNotMatch(gateway, /VITORIA_PUBLIC_AGENT_INGRESS_KEY/);
   assert.doesNotMatch(gateway, /sb_publishable_/);
   assert.match(runtime, /https:\/\/api\.openai\.com\/v1\/responses/);
   assert.match(runtime, /text:\{format:\{type:"json_schema"/);

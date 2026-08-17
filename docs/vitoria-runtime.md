@@ -31,7 +31,7 @@ O visitante não recebe usuário, cookie administrativo, JWT do Supabase nem `se
 ## Integração com a OpenAI
 
 - O navegador nunca chama a OpenAI. Ele fala somente com `/api/public-agent/*` no Next.js.
-- O BFF chama `enterprise-vitoria-agent-gateway` usando `EVORA_PUBLIC_AGENT_INGRESS_KEY`; o gateway valida o mesmo valor em `VITORIA_PUBLIC_AGENT_INGRESS_KEY` e obtém o bearer interno pelo Vault.
+- O BFF deriva `enterprise-vitoria-agent-gateway` de `NEXT_PUBLIC_SUPABASE_URL` e envia `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` no header `apikey`. O gateway compara esse valor em tempo constante com as chaves válidas de `SUPABASE_PUBLISHABLE_KEYS` e obtém pelo Vault um bearer separado para chamar o runtime interno.
 - O runtime usa `POST /v1/responses`, `store: false` e Structured Outputs estrito. A OpenAI interpreta linguagem e devolve intenção estruturada; cadastro, consentimento, simulação e bloqueio são validados e executados pelo Enterprise.
 - A chave OpenAI é tenant-scoped em `crm_private.ai_runtime_settings` e permanece no Supabase Vault. O frontend recebe somente estado de disponibilidade, nunca o segredo.
 - Áudio gravado é enviado ao BFF, transcrito server-side por `/v1/audio/transcriptions`, persistido em bucket privado e associado ao mesmo turno da conversa.
@@ -39,18 +39,17 @@ O visitante não recebe usuário, cookie administrativo, JWT do Supabase nem `se
 
 ## Configuração por ambiente
 
-Vercel/Next.js, somente no servidor:
+Vercel/Next.js, reutilizando a configuração já exigida pelo ERP:
 
-- `EVORA_PUBLIC_AGENT_GATEWAY_URL`: URL HTTPS exata da função `enterprise-vitoria-agent-gateway` do ambiente.
-- `EVORA_PUBLIC_AGENT_INGRESS_KEY`: segredo aleatório de no mínimo 32 caracteres, exclusivo daquele ambiente.
+- `NEXT_PUBLIC_SUPABASE_URL`: URL HTTPS raiz do projeto Supabase daquele ambiente.
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: chave publicável correspondente ao mesmo projeto, enviada como `apikey` pelo BFF.
 
 Supabase Edge Functions:
 
-- `VITORIA_PUBLIC_AGENT_INGRESS_KEY`: o mesmo segredo configurado no BFF.
-- `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`: secrets gerenciados pelo ambiente Supabase.
+- `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEYS` e `SUPABASE_SERVICE_ROLE_KEY`: variáveis gerenciadas pelo ambiente Supabase.
 - bearer interno e chave OpenAI: bindings do Vault já administrados pelo Enterprise.
 
-Não existem defaults para o projeto real. Preview, homologação e produção precisam de URLs e segredos próprios; configuração ausente falha fechada antes de criar sessão ou chamar a OpenAI.
+Não existem defaults nem identificadores de projeto embutidos no código. O gateway só é derivado da URL configurada, exige que a chave esteja entre as chaves publicáveis do mesmo ambiente e mantém o bearer Edge→runtime separado no Vault. Configuração ausente ou divergente falha fechada antes de criar sessão ou chamar a OpenAI. Como `apikey` é publicável, quotas, limites e idempotência permanecem como as barreiras contra abuso; ela não substitui o bearer interno.
 
 ## Garantias
 

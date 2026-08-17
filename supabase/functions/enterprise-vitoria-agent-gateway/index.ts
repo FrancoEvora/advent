@@ -51,23 +51,45 @@ async function internalBearer(admin: AdminClient) {
   return result.data;
 }
 
-function ingressAuthorized(request: Request) {
-  const configured = Deno.env.get("VITORIA_PUBLIC_AGENT_INGRESS_KEY")?.trim() || "";
-  const authorization = request.headers.get("authorization") || "";
-  const candidate = authorization.startsWith("Bearer ")
-    ? authorization.slice("Bearer ".length).trim()
-    : "";
-  if (
-    configured.length < 32
-    || configured.length > 512
-    || /\s/.test(configured)
-    || candidate.length !== configured.length
-  ) return false;
-  let difference = 0;
-  for (let index = 0; index < configured.length; index += 1) {
-    difference |= configured.charCodeAt(index) ^ candidate.charCodeAt(index);
+function constantTimeEqual(left: string, right: string) {
+  let difference = left.length ^ right.length;
+  for (let index = 0; index < 512; index += 1) {
+    const leftCode = index < left.length ? left.charCodeAt(index) : 0;
+    const rightCode = index < right.length ? right.charCodeAt(index) : 0;
+    difference |= leftCode ^ rightCode;
   }
   return difference === 0;
+}
+
+function configuredPublishableKeys() {
+  const raw = Deno.env.get("SUPABASE_PUBLISHABLE_KEYS") || "";
+  if (!raw || raw.length > 65_536) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return [];
+    return Object.values(parsed).filter((value): value is string => (
+      typeof value === "string"
+      && value.length >= 32
+      && value.length <= 512
+      && !/\s/.test(value)
+    )).slice(0, 64);
+  } catch {
+    return [];
+  }
+}
+
+function ingressAuthorized(request: Request) {
+  const candidate = request.headers.get("apikey") || "";
+  if (
+    candidate.length < 32
+    || candidate.length > 512
+    || /\s/.test(candidate)
+  ) return false;
+  let authorized = 0;
+  for (const configured of configuredPublishableKeys()) {
+    authorized |= Number(constantTimeEqual(configured, candidate));
+  }
+  return authorized === 1;
 }
 
 Deno.serve(async (request: Request) => {

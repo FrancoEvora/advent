@@ -41,7 +41,7 @@ function safeSlug(value: string): string {
 }
 
 function edgeEndpoint(): URL {
-  const raw = process.env.EVORA_PUBLIC_AGENT_GATEWAY_URL?.trim();
+  const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   if (!raw) {
     throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
@@ -57,15 +57,15 @@ function edgeEndpoint(): URL {
     || base.password
     || base.search
     || base.hash
-    || !base.pathname.endsWith("/functions/v1/enterprise-vitoria-agent-gateway")
+    || (base.pathname !== "/" && base.pathname !== "")
   ) {
     throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
-  return base;
+  return new URL("/functions/v1/enterprise-vitoria-agent-gateway", base);
 }
 
-function ingressKey(): string {
-  const key = process.env.EVORA_PUBLIC_AGENT_INGRESS_KEY?.trim() || "";
+function publishableKey(): string {
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || "";
   if (key.length < 32 || key.length > 512 || /\s/.test(key)) {
     throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
@@ -101,7 +101,7 @@ async function edgeRequest<T>(action: PublicAgentAction, payload: JsonObject, ti
     const response = await fetch(edgeEndpoint(), {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${ingressKey()}`,
+        apikey: publishableKey(),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ action, ...payload }),

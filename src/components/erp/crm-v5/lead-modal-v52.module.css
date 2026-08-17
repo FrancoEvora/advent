@@ -1,0 +1,30 @@
+.editableFields {
+  display: contents;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.editableFields:disabled {
+  opacity: .72;
+}
+
+.archivedNotice {
+  display: grid;
+  gap: 4px;
+  padding: 13px 15px;
+  border: 1px solid color-mix(in srgb, var(--brand) 24%, var(--line));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--brand) 6%, var(--surface));
+}
+
+.archivedNotice strong {
+  color: var(--ink);
+}
+
+.archivedNotice span {
+  color: var(--muted);
+  font-size: .86rem;
+  line-height: 1.45;
+}

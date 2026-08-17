@@ -25,6 +25,21 @@ const {
   import.meta.url,
 ).href);
 
+const {
+  holdConfirmationPrompt,
+  leadCaptureRequested,
+  selectedUnitPurchaseRequested,
+  serviceConsentPrompt,
+  socialReply,
+  socialTurn,
+  teamHandoffRequested,
+  VITORIA_AGENT_SYSTEM_PROMPT,
+  VITORIA_SUPERVISOR_SYSTEM_PROMPT,
+} = await import(new URL(
+  "../supabase/functions/_shared/vitoria-language.ts",
+  import.meta.url,
+).href);
+
 test("consentimento de serviço rejeita negativas antes de qualquer positivo", () => {
   assert.equal(serviceConsentDecision("Não autorizo contato, mas autorizo marketing", true), false);
   assert.equal(serviceConsentDecision("Não autorizo contato e não quero marketing", true), false);
@@ -113,6 +128,196 @@ test("condições comerciais só extraem entrada explícita e balões completos"
   assert.deepEqual(
     parseBalloonPlan("Simular sem balões"),
     { requested: true, count: 0, amount: 0 },
+  );
+});
+
+test("Vitória conversa como vendedora sem esconder que é uma agente digital", () => {
+  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /não abra a conversa com apresentação técnica/iu);
+  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /Nunca afirme nem insinue que é humana/iu);
+  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /Qualquer visitante pode consultar informações/iu);
+  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /sem cadastro no ERP/iu);
+  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /handoff_requested só pode ser true/iu);
+  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /não transforme toda conversa em captação de lead/iu);
+  assert.match(VITORIA_SUPERVISOR_SYSTEM_PROMPT, /soar burocrático, repetitivo ou como chatbot/iu);
+  assert.match(VITORIA_SUPERVISOR_SYSTEM_PROMPT, /nunca deve afirmar ou insinuar que é humana/iu);
+  assert.match(VITORIA_SUPERVISOR_SYSTEM_PROMPT, /Não transforme cadastro, visita, simulação ou bloqueio em handoff/iu);
+});
+
+test("captação não começa em uma saudação ou depois de uma recusa", () => {
+  assert.equal(leadCaptureRequested("Olá, bom dia"), false);
+  assert.equal(leadCaptureRequested("Este é um teste; não faça cadastro nem reserva"), false);
+  assert.equal(leadCaptureRequested("Quero comprar o lote SOL-C-04"), false);
+  assert.equal(leadCaptureRequested("Cadastre meus dados por aqui"), true);
+  assert.equal(leadCaptureRequested("Quero falar com alguém da equipe"), true);
+  assert.equal(leadCaptureRequested("Pode me ligar"), true);
+});
+
+test("intenção de compra usa o lote selecionado sem executar bloqueio ambíguo", () => {
+  const unit = "SOL-C-04";
+  assert.equal(selectedUnitPurchaseRequested("Quero comprar ar", unit), true);
+  assert.equal(selectedUnitPurchaseRequested("Fico com esse", unit), true);
+  assert.equal(selectedUnitPurchaseRequested("Podemos seguir com este", unit), true);
+  assert.equal(selectedUnitPurchaseRequested("Não quero comprar agora", unit), false);
+  assert.equal(selectedUnitPurchaseRequested("Quero comprar, mas não agora", unit), false);
+  assert.equal(selectedUnitPurchaseRequested("Talvez eu compre depois", unit), false);
+  assert.equal(selectedUnitPurchaseRequested("Quero comprar o SOL-B-12", unit), false);
+});
+
+test("pedido de equipe é reconhecido sem reabrir cadastro convertido", () => {
+  assert.equal(teamHandoffRequested("Falar com especialista"), true);
+  assert.equal(teamHandoffRequested("Quero falar com um especialista"), true);
+  assert.equal(teamHandoffRequested("Prefiro conversar com a equipe"), true);
+  assert.equal(teamHandoffRequested("Não quero falar com consultor"), false);
+  assert.equal(teamHandoffRequested("Quero ver as condições"), false);
+});
+
+test("confirmação, consentimento e despedida preservam fluidez e segurança", () => {
+  const confirmation = holdConfirmationPrompt("SOL-C-04");
+  assert.match(confirmation, /SOL-C-04/);
+  assert.match(confirmation, /não bloquear o lote errado/iu);
+  assert.doesNotMatch(confirmation, /sujeit[oa] à aprovação administrativa/iu);
+
+  const consent = serviceConsentPrompt("hold");
+  assert.match(consent, /autorização de contato/iu);
+  assert.match(consent, /não ativa mensagens de marketing/iu);
+
+  assert.equal(socialTurn("Muito obrigado. Boa tarde"), "farewell");
+  assert.equal(socialTurn("Obrigado!"), "thanks");
+  assert.equal(socialTurn("Boa tarde"), null);
+  assert.equal(socialTurn("Obrigado, quero ver outro lote"), null);
+  assert.match(socialReply("farewell"), /Foi um prazer te ajudar/iu);
+});
+
+test("runtime usa a voz humanizada, evita handoff automático e chama os wrappers de mídia", () => {
+  const runtime = readFileSync(
+    new URL("../supabase/functions/enterprise-vitoria-agent/index.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(runtime, /content:system/);
+  assert.match(runtime, /VITORIA_AGENT_SYSTEM_PROMPT/);
+  assert.match(runtime, /VITORIA_SUPERVISOR_SYSTEM_PROMPT/);
+  assert.match(runtime, /finalize_public_agent_message_v5/);
+  assert.match(runtime, /finalize_public_agent_handoff_v1/);
+  assert.match(runtime, /commit_public_agent_action_message_v6/);
+  assert.match(runtime, /commit_public_agent_lead_handoff_message_v1/);
+  assert.match(runtime, /handoff: currentPending\.handoffRequested === true/);
+  assert.match(runtime, /p_media_refs: serverMediaRefs/);
+  assert.match(runtime, /browserSafeResponse\(input\.response\)/);
+  assert.match(runtime, /PRIVATE_MEDIA_RESPONSE_KEYS/);
+  assert.match(runtime, /contextWithFreshMedia/);
+  assert.match(runtime, /createSignedUrls\(\[\.\.\.paths\], 600\)/);
+  assert.match(runtime, /delete metadata\.server_media_refs/);
+  assert.match(runtime, /bucket: "erp-documents"/);
+  assert.match(runtime, /storageBucket:\s*"vitoria-generated"/);
+  assert.match(runtime, /handoffRequested: false/);
+  assert.doesNotMatch(runtime, /Falar com especialista/);
+  assert.doesNotMatch(runtime, /Sua solicitação .* está com status/);
+  assert.doesNotMatch(runtime, /Concluindo (?:seu cadastro|o bloqueio) no Enterprise/);
+});
+
+test("experiência preserva configuração visual e persiste uma saudação natural", () => {
+  const sql = readFileSync(
+    new URL(
+      "../supabase/migrations/20260817154400_vitoria_persist_initial_greeting.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(sql, /'greetingText', experience_row\.greeting_text/);
+  assert.match(sql, /'avatar', experience_row\.avatar/);
+  assert.match(sql, /'capabilities', experience_row\.capabilities/);
+  assert.match(sql, /'initial_greeting'/);
+  assert.match(sql, /'reconstructed_from_ui', true/);
+  assert.match(sql, /insert into public\.crm_messages/);
+  assert.match(sql, /record\.record_status = 'arquivada'/);
+  assert.doesNotMatch(sql, /Sou a Vitória, assistente virtual/);
+});
+
+test("mídia estável permanece server-side e vinculada ao par correto", () => {
+  const sql = readFileSync(
+    new URL(
+      "../supabase/migrations/20260817154600_vitoria_stable_media_history.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(sql, /public_agent_server_media_refs/);
+  assert.match(
+    sql,
+    /'erp-documents', 'vitoria-generated', 'vitoria-knowledge'/,
+  );
+  assert.match(sql, /storage_path_value ~ '\(\^\|\/\)\\\.\{1,2\}\(\/\|\$\)'/);
+  assert.match(sql, /server_media_refs/);
+  assert.match(sql, /public_audio_value/);
+  assert.match(sql, /PUBLIC_AGENT_MEDIA_SCOPE_INVALID/);
+  assert.match(sql, /session_row\.organization_id::text/);
+  assert.match(sql, /session_row\.id::text/);
+  assert.match(sql, /crm_private\.vitoria_knowledge_sources/);
+  assert.match(sql, /source\.public_document/);
+  assert.match(sql, /public\.crm_marketing_assets/);
+  assert.match(sql, /'vitoria-public' = any\(asset\.tags\)/);
+  assert.match(sql, /message\.direction = 'inbound'/);
+  assert.match(sql, /message\.occurred_at = assistant_crm_row\.occurred_at - interval '1 millisecond'/);
+  assert.match(sql, /public\.finalize_public_agent_message_v4/);
+  assert.match(sql, /public\.commit_public_agent_action_message_v5/);
+  assert.match(sql, /PUBLIC_AGENT_MEDIA_RESPONSE_INVALID/);
+  assert.match(sql, /PUBLIC_AGENT_MEDIA_IDEMPOTENCY_CONFLICT/);
+  assert.match(
+    sql,
+    /grant execute on function public\.finalize_public_agent_message_v5[\s\S]+?to service_role/,
+  );
+  assert.match(
+    sql,
+    /grant execute on function public\.commit_public_agent_action_message_v6[\s\S]+?to service_role/,
+  );
+  assert.doesNotMatch(
+    sql,
+    /grant execute on function crm_private\.attach_public_agent_message_media_v5/,
+  );
+});
+
+test("pedido de especialista cria handoff real e idempotente no CRM", () => {
+  const sql = readFileSync(
+    new URL(
+      "../supabase/migrations/20260817154800_vitoria_real_handoff.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(sql, /public\.finalize_public_agent_message_v5/);
+  assert.match(sql, /status = 'human_required'/);
+  assert.doesNotMatch(sql, /ai_enabled = false/);
+  assert.match(sql, /insert into public\.crm_actions/);
+  assert.match(sql, /insert into public\.crm_alerts/);
+  assert.match(sql, /'handoff\.requested'/);
+  assert.match(sql, /on conflict \(organization_id, idempotency_key\)/);
+  assert.match(
+    sql,
+    /grant execute on function public\.finalize_public_agent_handoff_v1[\s\S]+?to service_role/,
+  );
+  assert.doesNotMatch(sql, /to anon|to authenticated/);
+});
+
+test("pedido humano sobrevive à captura e converte com handoff atômico", () => {
+  const sql = readFileSync(
+    new URL(
+      "../supabase/migrations/20260817155000_vitoria_handoff_capture_continuity.sql",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(sql, /'handoffRequested'/);
+  assert.match(sql, /public_agent_pending_transition_is_valid/);
+  assert.match(sql, /commit_public_agent_lead_handoff_message_v1/);
+  assert.match(sql, /commit_public_agent_action_message_v6/);
+  assert.match(sql, /status = 'human_required'/);
+  assert.doesNotMatch(sql, /ai_enabled = false/);
+  assert.match(sql, /'handoff\.requested'/);
+  assert.match(sql, /'action', 'human_handoff'/);
+  assert.match(sql, /set response = result_value/);
+  assert.match(
+    sql,
+    /grant execute on function public\.commit_public_agent_lead_handoff_message_v1[\s\S]+?to service_role/,
   );
 });
 

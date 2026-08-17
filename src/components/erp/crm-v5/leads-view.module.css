@@ -72,6 +72,41 @@
   font-weight: 800;
 }
 
+.archiveButton {
+  border-color: color-mix(in srgb, #b42318 34%, var(--line));
+  color: #a31b12;
+}
+
+.archiveButton:hover {
+  border-color: #b42318;
+  background: color-mix(in srgb, #b42318 8%, var(--surface));
+}
+
+.archiveFeedback {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 15px;
+  border: 1px solid color-mix(in srgb, #218653 28%, var(--line));
+  border-radius: 13px;
+  background: color-mix(in srgb, #218653 8%, var(--surface));
+  color: #17643e;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.archiveFeedback > button {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font-size: 1.2rem;
+}
+
 .reviewBackdrop {
   position: fixed;
   z-index: 1200;
@@ -81,6 +116,207 @@
   padding: 24px;
   background: rgba(13, 29, 39, .68);
   backdrop-filter: blur(5px);
+}
+
+.archiveBackdrop {
+  position: fixed;
+  z-index: 1250;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(31, 18, 17, .72);
+  backdrop-filter: blur(5px);
+}
+
+.archiveDialog {
+  width: min(680px, 100%);
+  max-height: min(880px, calc(100vh - 48px));
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, #b42318 24%, var(--line));
+  border-radius: 22px;
+  background: var(--surface);
+  box-shadow: 0 24px 80px rgba(34, 15, 13, .38);
+}
+
+.archiveDialog > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 24px 26px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.archiveDialog > header small {
+  color: #a31b12;
+  font-size: .72rem;
+  font-weight: 900;
+  letter-spacing: .09em;
+}
+
+.archiveDialog > header h3 {
+  margin: 5px 0 3px;
+  color: var(--ink);
+  font-size: 1.34rem;
+}
+
+.archiveDialog > header p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.archiveDialog > header > button {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border-radius: 50%;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.archiveBody {
+  display: grid;
+  gap: 16px;
+  padding: 20px 26px 4px;
+}
+
+.archiveSafety {
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, #b42318 30%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, #b42318 7%, var(--surface));
+}
+
+.archiveSafety strong {
+  color: #86160f;
+}
+
+.archiveSafety p {
+  margin: 5px 0 0;
+  color: #6f342f;
+  font-size: .87rem;
+  line-height: 1.5;
+}
+
+.archiveLoading {
+  margin: 0;
+  padding: 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--brand) 7%, var(--surface));
+  color: var(--muted);
+}
+
+.archiveDependencies {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.archiveDependencies span {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: .82rem;
+}
+
+.archiveDependencies strong {
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.archivePreservation {
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, #218653 24%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, #218653 6%, var(--surface));
+}
+
+.archivePreservation > strong {
+  color: #17643e;
+}
+
+.archivePreservation ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  color: var(--muted);
+  font-size: .86rem;
+  line-height: 1.55;
+}
+
+.archiveBlocked {
+  padding: 14px 16px;
+  border: 1px solid color-mix(in srgb, #b42318 34%, var(--line));
+  border-radius: 14px;
+  background: color-mix(in srgb, #b42318 8%, var(--surface));
+}
+
+.archiveBlocked strong {
+  color: #86160f;
+}
+
+.archiveBlocked p {
+  margin: 7px 0 0;
+  color: #6f342f;
+  font-size: .86rem;
+  line-height: 1.5;
+}
+
+.archiveConfirmation {
+  display: grid;
+  gap: 8px;
+  color: var(--ink);
+  font-size: .86rem;
+  font-weight: 700;
+}
+
+.archiveConfirmation input {
+  width: 100%;
+  padding: 12px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  letter-spacing: .06em;
+}
+
+.archiveConfirmation input:focus {
+  outline: 3px solid color-mix(in srgb, #b42318 16%, transparent);
+  border-color: #b42318;
+}
+
+.archiveError {
+  margin: 0;
+  padding: 11px 13px;
+  border-radius: 11px;
+  background: color-mix(in srgb, #b42318 10%, var(--surface));
+  color: #9e2020;
+  font-weight: 700;
+}
+
+.archiveDialog > footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 20px 26px 24px;
+}
+
+.archiveConfirmButton {
+  border-color: #a31b12;
+  background: #a31b12;
+  color: #fff;
+}
+
+.archiveConfirmButton:hover:not(:disabled) {
+  border-color: #86160f;
+  background: #86160f;
 }
 
 .reviewDialog {
@@ -263,6 +499,25 @@
     padding: 0;
   }
 
+  .archiveBackdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .archiveDialog {
+    width: 100%;
+    max-height: 94vh;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .archiveDialog > footer {
+    flex-direction: column-reverse;
+  }
+
+  .archiveDialog > footer button {
+    width: 100%;
+  }
+
   .reviewDialog {
     width: 100%;
     max-height: 92vh;
@@ -307,5 +562,16 @@
   .reviewDialog > footer {
     padding-left: 18px;
     padding-right: 18px;
+  }
+
+  .archiveDialog > header,
+  .archiveBody,
+  .archiveDialog > footer {
+    padding-left: 18px;
+    padding-right: 18px;
+  }
+
+  .archiveDependencies {
+    grid-template-columns: 1fr;
   }
 }

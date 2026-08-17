@@ -44,6 +44,41 @@ type AiPrepareResponse = {
   error?: string;
 };
 
+type LeadArchiveDependencies = {
+  activities: number;
+  activeContracts: number;
+  activeProposals: number;
+  activeReservations: number;
+  aiJobs: number;
+  alerts: number;
+  assignments: number;
+  attributions: number;
+  contracts: number;
+  conversations: number;
+  messages: number;
+  opportunityEvents: number;
+  proposals: number;
+  reservations: number;
+};
+
+type LeadArchiveResponse = {
+  ok?: boolean;
+  action?: "preview" | "archive";
+  archived?: boolean;
+  alreadyArchived?: boolean;
+  recordStatus?: string;
+  contactLinked?: boolean;
+  dependencies?: LeadArchiveDependencies;
+  archiveAllowed?: boolean;
+  blockingReasons?: string[];
+  closedConversations?: number;
+  closedSessions?: number;
+  message?: string;
+  error?: string;
+  code?: string;
+  correlationId?: string;
+};
+
 const leadCollator = new Intl.Collator("pt-BR", {
   sensitivity: "base",
   numeric: true,
@@ -155,12 +190,16 @@ export function LeadsView({
   crm,
   openLead,
   openActivity,
+  reload,
+  onArchived,
   focusId = null,
 }: {
   data: ErpData;
   crm: CrmEnterpriseData;
   openLead: (lead?: CrmRecord) => void;
   openActivity: (lead?: CrmRecord) => void;
+  reload: () => Promise<void>;
+  onArchived: (recordId: string) => void;
   focusId?: string | null;
 }) {
   const [q, setQ] = useState("");
@@ -173,6 +212,14 @@ export function LeadsView({
   const [reviewContent, setReviewContent] = useState("");
   const [reviewError, setReviewError] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
+  const [archiveLeadId, setArchiveLeadId] = useState<string | null>(null);
+  const [archiveConfirmation, setArchiveConfirmation] = useState("");
+  const [archivePreview, setArchivePreview] =
+    useState<LeadArchiveResponse | null>(null);
+  const [archiveError, setArchiveError] = useState("");
+  const [archiveBusy, setArchiveBusy] = useState(false);
+  const [archiveFeedback, setArchiveFeedback] = useState("");
+  const canArchiveLead = data.membership.role === "admin";
 
   const projectById = useMemo(
     () => new Map(data.projects.map((project) => [project.id, project.name])),
@@ -180,7 +227,11 @@ export function LeadsView({
   );
 
   const aiRecordIds = useMemo(
-    () => crm.records.map((record) => record.id).sort(),
+    () =>
+      crm.records
+        .filter((record) => record.record_status !== "arquivada")
+        .map((record) => record.id)
+        .sort(),
     [crm.records],
   );
 
@@ -189,6 +240,10 @@ export function LeadsView({
     [crm.records, reviewLeadId],
   );
   const reviewAi = reviewLeadId ? aiByLead[reviewLeadId] : undefined;
+  const archiveLead = useMemo(
+    () => crm.records.find((record) => record.id === archiveLeadId) || null,
+    [archiveLeadId, crm.records],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -272,6 +327,20 @@ export function LeadsView({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [reviewBusy, reviewLeadId]);
 
+  useEffect(() => {
+    if (!archiveLeadId) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !archiveBusy) {
+        setArchiveLeadId(null);
+        setArchiveConfirmation("");
+        setArchivePreview(null);
+        setArchiveError("");
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [archiveBusy, archiveLeadId]);
+
   function openAiReview(lead: CrmRecord, ai: AiShadowLead) {
     if (!ai.draft || !ai.messageId) return;
     setReviewLeadId(lead.id);
@@ -284,6 +353,109 @@ export function LeadsView({
     setReviewLeadId(null);
     setReviewContent("");
     setReviewError("");
+  }
+
+  function closeArchiveDialog(force = false) {
+    if (archiveBusy && !force) return;
+    setArchiveLeadId(null);
+    setArchiveConfirmation("");
+    setArchivePreview(null);
+    setArchiveError("");
+  }
+
+  async function archiveRequest(
+    lead: CrmRecord,
+    action: "preview" | "archive",
+  ) {
+    const response = await fetch("/api/crm/leads/archive", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${data.session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        action,
+        organizationId: data.organization.id,
+        crmRecordId: lead.id,
+        ...(action === "archive"
+          ? { confirmation: archiveConfirmation }
+          : {}),
+      }),
+      cache: "no-store",
+    });
+    let payload: LeadArchiveResponse = {};
+    try {
+      payload = (await response.json()) as LeadArchiveResponse;
+    } catch {
+      // A mensagem segura abaixo substitui respostas que não sejam JSON.
+    }
+    if (!response.ok || payload.ok !== true) {
+      const reference = payload.correlationId
+        ? ` Referência: ${payload.correlationId}.`
+        : "";
+      throw new Error(
+        `${payload.error || "Não foi possível concluir a operação."}${reference}`,
+      );
+    }
+    return payload;
+  }
+
+  async function openArchiveDialog(lead: CrmRecord) {
+    if (!canArchiveLead || lead.record_status === "arquivada") return;
+    setArchiveLeadId(lead.id);
+    setArchiveConfirmation("");
+    setArchivePreview(null);
+    setArchiveError("");
+    setArchiveBusy(true);
+    try {
+      const preview = await archiveRequest(lead, "preview");
+      setArchivePreview(preview);
+    } catch (error) {
+      setArchiveError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível verificar os vínculos do lead.",
+      );
+    } finally {
+      setArchiveBusy(false);
+    }
+  }
+
+  async function confirmArchiveLead() {
+    if (
+      !archiveLead ||
+      !canArchiveLead ||
+      archiveConfirmation !== "EXCLUIR" ||
+      !archivePreview?.dependencies ||
+      archivePreview.archiveAllowed !== true
+    ) {
+      return;
+    }
+    setArchiveBusy(true);
+    setArchiveError("");
+    try {
+      const result = await archiveRequest(archiveLead, "archive");
+      if (!result.archived) {
+        throw new Error("O CRM não confirmou o arquivamento do lead.");
+      }
+      onArchived(archiveLead.id);
+      setArchiveFeedback(
+        result.alreadyArchived
+          ? "O lead já estava arquivado. Nenhum dado foi apagado."
+          : "Lead excluído da operação ativa. Os canais de atendimento foram encerrados e todo o histórico permaneceu preservado para auditoria.",
+      );
+      closeArchiveDialog(true);
+      setStatus("aberta");
+      void reload();
+    } catch (error) {
+      setArchiveError(
+        error instanceof Error
+          ? error.message
+          : "Não foi possível arquivar o lead.",
+      );
+    } finally {
+      setArchiveBusy(false);
+    }
   }
 
   async function prepareAndOpenWhatsApp() {
@@ -360,6 +532,7 @@ export function LeadsView({
   const rows = useMemo(() => {
     const query = q.trim().toLocaleLowerCase("pt-BR");
     const filtered = crm.records.filter((item) => {
+      if (status === "todos" && item.record_status === "arquivada") return false;
       if (status !== "todos" && item.record_status !== status) return false;
       if (temperature !== "todos" && item.temperature !== temperature) {
         return false;
@@ -464,6 +637,19 @@ export function LeadsView({
         }
       />
 
+      {archiveFeedback && (
+        <div className={styles.archiveFeedback} role="status">
+          <span>{archiveFeedback}</span>
+          <button
+            type="button"
+            aria-label="Fechar confirmação"
+            onClick={() => setArchiveFeedback("")}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       <section className={`crm5-toolbar ${styles.toolbar}`}>
         <input
           value={q}
@@ -477,7 +663,8 @@ export function LeadsView({
           <option value="aberta">Em aberto</option>
           <option value="ganha">Ganhos</option>
           <option value="perdida">Perdidos</option>
-          <option value="todos">Todos</option>
+          <option value="arquivada">Arquivados</option>
+          <option value="todos">Todos ativos</option>
         </select>
         <select
           value={temperature}
@@ -646,8 +833,23 @@ export function LeadsView({
                 </div>
 
                 <div>
-                  <button onClick={() => openActivity(lead)}>Atividade</button>
-                  <button onClick={() => openLead(lead)}>Editar</button>
+                  {lead.record_status !== "arquivada" && (
+                    <button onClick={() => openActivity(lead)}>Atividade</button>
+                  )}
+                  <button onClick={() => openLead(lead)}>
+                    {lead.record_status === "arquivada" ? "Visualizar" : "Editar"}
+                  </button>
+                  {canArchiveLead && lead.record_status !== "arquivada" ? (
+                    <button
+                      type="button"
+                      className={styles.archiveButton}
+                      onClick={() => void openArchiveDialog(lead)}
+                    >
+                      Excluir
+                    </button>
+                  ) : lead.record_status === "arquivada" ? (
+                    <Status tone="neutral">Arquivado</Status>
+                  ) : null}
                 </div>
               </article>
             );
@@ -766,6 +968,168 @@ export function LeadsView({
                 onClick={() => void prepareAndOpenWhatsApp()}
               >
                 {reviewBusy ? "Registrando revisão..." : "Aprovar e abrir WhatsApp"}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
+
+      {archiveLead && (
+        <div
+          className={styles.archiveBackdrop}
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeArchiveDialog();
+          }}
+        >
+          <section
+            className={styles.archiveDialog}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="lead-archive-title"
+            aria-describedby="lead-archive-description"
+          >
+            <header>
+              <div>
+                <small>EXCLUSÃO ADMINISTRATIVA</small>
+                <h3 id="lead-archive-title">Excluir lead da operação?</h3>
+                <p>{archiveLead.person_name}</p>
+              </div>
+              <button
+                type="button"
+                aria-label="Fechar exclusão"
+                disabled={archiveBusy}
+                onClick={() => closeArchiveDialog()}
+              >
+                ×
+              </button>
+            </header>
+
+            <div className={styles.archiveBody}>
+              <div className={styles.archiveSafety}>
+                <strong>O lead será arquivado, não apagado fisicamente.</strong>
+                <p id="lead-archive-description">
+                  Ele sairá da carteira ativa, do funil e das filas comerciais.
+                  O histórico necessário à auditoria e à continuidade comercial
+                  permanecerá no ERP.
+                </p>
+              </div>
+
+              {archiveBusy && !archivePreview ? (
+                <p className={styles.archiveLoading} role="status">
+                  Verificando conversas, atividades e negociações vinculadas...
+                </p>
+              ) : archivePreview?.dependencies ? (
+                <div className={styles.archiveDependencies}>
+                  <span>
+                    Conversas e mensagens
+                    <strong>
+                      {archivePreview.dependencies.conversations +
+                        archivePreview.dependencies.messages}
+                    </strong>
+                  </span>
+                  <span>
+                    Atividades e alertas
+                    <strong>
+                      {archivePreview.dependencies.activities +
+                        archivePreview.dependencies.alerts}
+                    </strong>
+                  </span>
+                  <span>
+                    Atribuições, IA e eventos
+                    <strong>
+                      {archivePreview.dependencies.assignments +
+                        archivePreview.dependencies.aiJobs +
+                        archivePreview.dependencies.opportunityEvents +
+                        archivePreview.dependencies.attributions}
+                    </strong>
+                  </span>
+                  <span>
+                    Propostas, reservas e contratos
+                    <strong>
+                      {archivePreview.dependencies.proposals +
+                        archivePreview.dependencies.reservations +
+                        archivePreview.dependencies.contracts}
+                    </strong>
+                  </span>
+                </div>
+              ) : null}
+
+              {archivePreview?.archiveAllowed === false && (
+                <div className={styles.archiveBlocked} role="alert">
+                  <strong>Exclusão bloqueada por segurança comercial</strong>
+                  {(archivePreview.blockingReasons || []).map((reason) => (
+                    <p key={reason}>{reason}</p>
+                  ))}
+                </div>
+              )}
+
+              <div className={styles.archivePreservation}>
+                <strong>Será preservado</strong>
+                <ul>
+                  <li>todo o histórico de conversa e de atividades;</li>
+                  <li>atribuições, origem, eventos e trilha de auditoria;</li>
+                  <li>
+                    propostas, reservas e contratos encerrados, sem alteração
+                    automática;
+                  </li>
+                  <li>
+                    canais de atendimento, que serão fechados para impedir novas
+                    mensagens e tarefas no lead arquivado;
+                  </li>
+                  <li>
+                    {archivePreview?.contactLinked
+                      ? "o cadastro do contato vinculado."
+                      : "os demais cadastros e documentos da organização."}
+                  </li>
+                </ul>
+              </div>
+
+              {archivePreview?.archiveAllowed !== false && (
+                <label className={styles.archiveConfirmation}>
+                  Para confirmar, digite <strong>EXCLUIR</strong>
+                  <input
+                    autoFocus={!archiveBusy}
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={archiveConfirmation}
+                    disabled={archiveBusy || !archivePreview?.dependencies}
+                    onChange={(event) => {
+                      setArchiveConfirmation(event.target.value.toUpperCase());
+                      setArchiveError("");
+                    }}
+                    placeholder="EXCLUIR"
+                  />
+                </label>
+              )}
+
+              {archiveError && (
+                <p className={styles.archiveError} role="alert">
+                  {archiveError}
+                </p>
+              )}
+            </div>
+
+            <footer>
+              <button
+                type="button"
+                disabled={archiveBusy}
+                onClick={() => closeArchiveDialog()}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className={styles.archiveConfirmButton}
+                disabled={
+                  archiveBusy ||
+                  archiveConfirmation !== "EXCLUIR" ||
+                  !archivePreview?.dependencies ||
+                  archivePreview.archiveAllowed !== true
+                }
+                onClick={() => void confirmArchiveLead()}
+              >
+                {archiveBusy ? "Arquivando..." : "Excluir e arquivar lead"}
               </button>
             </footer>
           </section>

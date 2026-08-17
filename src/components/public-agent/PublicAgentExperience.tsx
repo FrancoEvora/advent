@@ -109,7 +109,7 @@ const ERROR_TEXT: Record<string, string> = {
   PUBLIC_AGENT_TRANSCRIPTION_FAILED: "Não consegui transcrever este áudio agora. Você pode tentar novamente.",
   PUBLIC_AGENT_TRANSCRIPTION_UNAVAILABLE: "Não consegui transcrever este áudio agora. Você pode tentar novamente.",
   PUBLIC_AGENT_NETWORK_UNAVAILABLE: "A conexão oscilou antes de concluir o envio. Sua mensagem ficou disponível para tentar novamente.",
-  PUBLIC_AGENT_RESPONSE_TIMEOUT: "A resposta demorou além do esperado. Tente novamente: o Enterprise impedirá qualquer duplicidade.",
+  PUBLIC_AGENT_RESPONSE_TIMEOUT: "A resposta demorou além do esperado. Pode tentar novamente; nada será duplicado.",
 };
 const CHAT_RECOVERY_WINDOW_MS = 245_000;
 const CHAT_FETCH_TIMEOUT_MS = 85_000;
@@ -164,8 +164,20 @@ function analytics(event: string, slug: string, extra: Record<string, unknown> =
   target.fbq?.("trackCustom", event, { agent_experience: slug, ...extra });
 }
 
-function initialGreeting(agentName: string) {
-  return `Olá, sou a ${agentName}, assistente virtual da Évora Urbanismo. Posso te ajudar a conhecer o Solaris e encontrar uma opção adequada para morar ou investir. O que você procura?`;
+function initialGreeting(experience: PublicAgentExperience) {
+  const configured = experience.greetingText?.normalize("NFC").trim();
+  if (
+    configured &&
+    configured.length <= 600 &&
+    !/assistente\s+virtual|chatbot/iu.test(configured)
+  ) {
+    return configured;
+  }
+  const project = experience.name?.normalize("NFC").trim();
+  const destination = project && project !== "Évora Urbanismo"
+    ? ` ou ainda conhecendo o ${project}`
+    : " ou ainda conhecendo as opções da Évora";
+  return `Oi! Tudo bem? Sou a ${experience.agentName}, da Évora. Me conta: você está procurando um lote para morar, investir${destination}?`;
 }
 
 function attributionFromLocation() {
@@ -432,7 +444,6 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   const [sending, setSending] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [converted, setConverted] = useState(false);
-  const [protocol, setProtocol] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [audioDraft, setAudioDraft] = useState<AudioDraft | null>(null);
@@ -453,8 +464,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
 
   const visibleMessages = useMemo(() => {
     if (messages.length) return messages;
-    return [{ id: "welcome", direction: "assistant" as const, content: initialGreeting(experience.agentName) }];
-  }, [messages, experience.agentName]);
+    return [{ id: "welcome", direction: "assistant" as const, content: initialGreeting(experience) }];
+  }, [messages, experience]);
 
   useEffect(() => {
     let active = true;
@@ -477,7 +488,6 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         setMessages(restoredMessages);
         setStage(payload.stage || "welcome");
         setConverted(Boolean(payload.converted));
-        setProtocol(payload.leadProtocol || null);
         setQuickReplies(restoredMessages.length ? [] : initialQuickRepliesRef.current);
         if (!startedRef.current) {
           startedRef.current = true;
@@ -653,7 +663,6 @@ export function PublicAgentExperience({ slug, experience }: Props) {
       setStage(payload.stage || "discovery");
       setQuickReplies(payload.quickReplies || []);
       setConverted(Boolean(payload.converted));
-      if (payload.leadProtocol) setProtocol(payload.leadProtocol);
       analytics("AgentReplyReceived", slug, {
         stage: payload.stage,
         contact_requested: Boolean(payload.requestContact),
@@ -941,7 +950,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
 
   return (
     <main id="conteudo-principal" className="public-agent-page" style={style}>
-      <h1 className="public-agent-sr-only">Atendimento com a Vitória, assistente virtual da Évora Urbanismo</h1>
+      <h1 className="public-agent-sr-only">Conversa com a Vitória, atendimento digital da Évora Urbanismo</h1>
       <section className="public-agent-shell">
         <section className="public-agent-chat-card" aria-label="Conversa com a Vitória" aria-busy={initializing || sending || audioBusy}>
           <div className="public-agent-chat-head">
@@ -996,7 +1005,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
                         <time dateTime={message.createdAt}>{formatClock(message.createdAt)}</time>
                       )}
                       {message.direction === "user" && message.deliveryState === "sending" && <span>Enviando…</span>}
-                      {message.direction === "user" && message.deliveryState === "sent" && <span aria-label="Enviada ao Enterprise">✓</span>}
+                      {message.direction === "user" && message.deliveryState === "sent" && <span aria-label="Mensagem enviada">✓</span>}
                       {message.direction === "user" && message.deliveryState === "failed" && (
                         <button
                           type="button"
@@ -1119,16 +1128,19 @@ export function PublicAgentExperience({ slug, experience }: Props) {
             </div>
           )}
           <p className="public-agent-disclosure">
-            A Vitória é uma assistente virtual. Informações comerciais finais são confirmadas pela equipe da Évora.
+            Atendimento comercial com IA. Esta conversa e os dados enviados
+            ficam registrados para atendimento, segurança e histórico
+            comercial. Valores e disponibilidade são consultados na plataforma
+            da Évora.{" "}
+            <a
+              href="mailto:relacionamento@evoraurbanismo.com.br?subject=Privacidade%20-%20Atendimento%20Vit%C3%B3ria"
+            >
+              Falar sobre privacidade
+            </a>
+            .
           </p>
         </section>
       </section>
-
-      {converted && protocol && (
-        <div className="public-agent-protocol" title="Protocolo do atendimento">
-          Protocolo <strong>{protocol}</strong>
-        </div>
-      )}
     </main>
   );
 }

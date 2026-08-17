@@ -34,6 +34,8 @@
 .public-agent-composer textarea:focus{border:0;box-shadow:0 0 0 2px rgba(13,105,91,.2)}
 .public-agent-composer button,.public-agent-audio-action{width:46px;height:46px;border-radius:50%;background:#0d695b;box-shadow:none}
 .public-agent-disclosure{padding:0 14px 9px;background:#f0f2f1;color:#6f7d78;font-size:10px}
+.public-agent-disclosure a{color:#315f54;font-weight:700;text-underline-offset:2px}
+.public-agent-disclosure a:focus-visible{border-radius:3px;outline:2px solid #0d695b;outline-offset:2px}
 .public-agent-audio-bubble{border-radius:9px;border-bottom-right-radius:3px;background:#d8f3dc;color:#183029;box-shadow:0 1px 1px rgba(21,43,35,.1)}
 .public-agent-audio-meta{color:#5f776d}.public-agent-audio-transcript{border-color:rgba(24,48,41,.12)}.public-agent-audio-transcript span{color:#667b72}.public-agent-audio-bubble>button{border-color:rgba(13,105,91,.24);background:rgba(255,255,255,.5);color:#0d695b}
 .public-agent-unit-card>button{min-height:44px;background:#0d695b}.public-agent-document-card{border-color:rgba(13,105,91,.18)}

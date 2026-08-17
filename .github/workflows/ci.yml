@@ -28,6 +28,12 @@ jobs:
           tests/crm-ai-shadow-contract.test.mjs
           tests/crm-ai-supervised-review.test.mjs
           tests/vitoria-runtime-v4.test.mts
+      - name: Validate CRM conversation and archival contracts
+        run: >-
+          node --test
+          tests/crm-conversation-history-archive.test.mjs
+          tests/crm-conversation-history-hardening.test.mjs
+          tests/crm-lead-archive-integrity.test.mjs
       - name: Validate Vitória Edge Functions
         run: >-
           deno check

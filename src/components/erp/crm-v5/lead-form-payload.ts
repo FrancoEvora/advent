@@ -58,6 +58,11 @@ export function buildLeadPayload(
   const score = lead ? Number(lead.lead_score ?? calculatedScore) : calculatedScore;
   const now = new Date();
   const stageChanged = !lead || stage?.id !== lead.stage_id;
+  const stageRecordStatus = stage?.is_won
+    ? "ganha"
+    : stage?.is_lost
+      ? "perdida"
+      : "aberta";
 
   return {
     score,
@@ -73,7 +78,10 @@ export function buildLeadPayload(
       pipeline_id: pipeline?.id || null,
       stage_id: stage?.id || null,
       stage: stage?.code || "novo",
-      record_status: stage?.is_won ? "ganha" : stage?.is_lost ? "perdida" : "aberta",
+      record_status:
+        lead?.record_status === "arquivada"
+          ? "arquivada"
+          : stageRecordStatus,
       source: String(form.get("source") || "") || null,
       source_channel: String(form.get("source_channel") || "") || null,
       campaign_id: campaignId,

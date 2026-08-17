@@ -34,7 +34,7 @@ export async function loadOperationalData(organizationId: string) {
     client.from("hr_payroll_runs").select("*").eq("organization_id", organizationId).order("reference_month", { ascending: false }),
     client.from("hr_payroll_items").select("*"),
     client.from("revenue_centers").select("*").eq("organization_id", organizationId).order("code"),
-    client.from("crm_records").select("*").eq("organization_id", organizationId).order("updated_at", { ascending: false }),
+    client.from("crm_records").select("*").eq("organization_id", organizationId).neq("record_status", "arquivada").order("updated_at", { ascending: false }),
     client.from("crm_actions").select("*").eq("organization_id", organizationId).order("scheduled_at", { ascending: true }),
     client.from("construction_work_packages").select("*").eq("organization_id", organizationId).order("sort_order"),
     client.from("construction_eap_templates").select("*").eq("active", true).order("sort_order"),
@@ -72,10 +72,13 @@ export async function loadOperationalData(organizationId: string) {
     contractMeasurementItems,
   ].find(result => result.error);
   if (failed?.error) throw failed.error;
+  const activeCrmRecordIds = new Set(
+    (crmRecords.data ?? []).map((record) => record.id),
+  );
   return {
     documents: documents.data ?? [], purchaseRequests: purchaseRequests.data ?? [], purchaseItems: purchaseItems.data ?? [],
     hrEmployees: hrEmployees.data ?? [], hrEvents: hrEvents.data ?? [], hrPayrollRuns: hrPayrollRuns.data ?? [], hrPayrollItems: hrPayrollItems.data ?? [],
-    revenueCenters: revenueCenters.data ?? [], crmRecords: crmRecords.data ?? [], crmActions: crmActions.data ?? [],
+    revenueCenters: revenueCenters.data ?? [], crmRecords: crmRecords.data ?? [], crmActions: (crmActions.data ?? []).filter((action) => !action.crm_record_id || activeCrmRecordIds.has(action.crm_record_id)),
     constructionWorkPackages: constructionWorkPackages.data ?? [],
     constructionEapTemplates: constructionEapTemplates.data ?? [],
     constructionEapTemplateItems: constructionEapTemplateItems.data ?? [],

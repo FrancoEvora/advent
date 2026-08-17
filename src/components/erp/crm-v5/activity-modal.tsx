@@ -47,6 +47,12 @@ export function ActivityModal({
         form.get("crm_record_id") || lead?.id || "",
       );
       if (!leadId) throw new Error("Selecione um lead.");
+      const selectedLead = crm.records.find((item) => item.id === leadId);
+      if (!selectedLead || selectedLead.record_status === "arquivada") {
+        throw new Error(
+          "O lead está arquivado e não pode receber novas atividades.",
+        );
+      }
       const completed = form.get("complete_now") === "on";
       const now = new Date().toISOString();
       const subject = String(form.get("subject") || "").trim();
@@ -175,12 +181,14 @@ export function ActivityModal({
                   required
                 >
                   <option value="">Selecione</option>
-                  {crm.records.map((item) => (
+                  {crm.records
+                    .filter((item) => item.record_status !== "arquivada")
+                    .map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.person_name} ·{" "}
                       {item.company_name || item.phone || "Sem empresa"}
                     </option>
-                  ))}
+                    ))}
                 </select>
               </label>
               <label>

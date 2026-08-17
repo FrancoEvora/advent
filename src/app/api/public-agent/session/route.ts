@@ -20,6 +20,7 @@ const HEADERS = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "strict-origin-when-cross-origin",
 };
+const PUBLIC_CONVERSATION_MAX_AGE = 60 * 60 * 24 * 14;
 
 type JsonObject = Record<string, unknown>;
 
@@ -78,14 +79,14 @@ export async function POST(request: NextRequest) {
       secure: request.nextUrl.protocol === "https:",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 14,
+      maxAge: PUBLIC_CONVERSATION_MAX_AGE,
     });
     response.cookies.set(publicAgentDeviceCookieName(), deviceToken, {
       httpOnly: true,
       secure: request.nextUrl.protocol === "https:",
       sameSite: "lax",
       path: "/",
-      maxAge: 60 * 60 * 24 * 365,
+      maxAge: PUBLIC_CONVERSATION_MAX_AGE,
     });
     return response;
   } catch (error) {

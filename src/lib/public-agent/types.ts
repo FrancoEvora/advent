@@ -40,6 +40,7 @@ export type PublicAgentExperience = {
   slug: string;
   name: string;
   agentName: string;
+  greetingText?: string | null;
   title: string;
   subtitle: string;
   eyebrow: string;

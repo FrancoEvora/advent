@@ -481,7 +481,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   const [audioDraft, setAudioDraft] = useState<AudioDraft | null>(null);
   const [audioBusy, setAudioBusy] = useState(false);
   const [failedAvatarSources, setFailedAvatarSources] = useState<ReadonlySet<string>>(() => new Set());
-  const endRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const startedRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -548,10 +548,28 @@ export function PublicAgentExperience({ slug, experience }: Props) {
 
   useEffect(() => {
     const viewport = window.visualViewport;
+    const root = document.documentElement;
+    const body = document.body;
+    const scrollPosition = { x: window.scrollX, y: window.scrollY };
+    let animationFrame = 0;
+
     const syncHeight = () => {
-      const height = Math.round(viewport?.height || window.innerHeight);
-      document.documentElement.style.setProperty("--public-agent-viewport-height", `${height}px`);
+      window.cancelAnimationFrame(animationFrame);
+      animationFrame = window.requestAnimationFrame(() => {
+        const height = Math.round(viewport?.height || window.innerHeight);
+        const width = Math.round(viewport?.width || window.innerWidth);
+        const top = Math.max(0, Math.round(viewport?.offsetTop || 0));
+        const left = Math.max(0, Math.round(viewport?.offsetLeft || 0));
+
+        root.style.setProperty("--public-agent-viewport-height", `${height}px`);
+        root.style.setProperty("--public-agent-viewport-width", `${width}px`);
+        root.style.setProperty("--public-agent-viewport-top", `${top}px`);
+        root.style.setProperty("--public-agent-viewport-left", `${left}px`);
+      });
     };
+
+    root.classList.add("public-agent-active");
+    body.classList.add("public-agent-active");
     syncHeight();
     viewport?.addEventListener("resize", syncHeight);
     viewport?.addEventListener("scroll", syncHeight, { passive: true });
@@ -560,12 +578,24 @@ export function PublicAgentExperience({ slug, experience }: Props) {
       viewport?.removeEventListener("resize", syncHeight);
       viewport?.removeEventListener("scroll", syncHeight);
       window.removeEventListener("resize", syncHeight);
-      document.documentElement.style.removeProperty("--public-agent-viewport-height");
+      window.cancelAnimationFrame(animationFrame);
+      root.classList.remove("public-agent-active");
+      body.classList.remove("public-agent-active");
+      root.style.removeProperty("--public-agent-viewport-height");
+      root.style.removeProperty("--public-agent-viewport-width");
+      root.style.removeProperty("--public-agent-viewport-top");
+      root.style.removeProperty("--public-agent-viewport-left");
+      window.scrollTo(scrollPosition.x, scrollPosition.y);
     };
   }, []);
 
   useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    const frame = window.requestAnimationFrame(() => {
+      const messagesPane = messagesRef.current;
+      if (!messagesPane) return;
+      messagesPane.scrollTo({ top: messagesPane.scrollHeight, behavior: "smooth" });
+    });
+    return () => window.cancelAnimationFrame(frame);
   }, [messages, sending, audioBusy]);
 
   useEffect(() => {
@@ -1014,7 +1044,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
             {converted && <em className="public-agent-captured">Atendimento registrado</em>}
           </div>
 
-          <div className="public-agent-messages" role="log" aria-label="Histórico da conversa" aria-live="off">
+          <div ref={messagesRef} className="public-agent-messages" role="log" aria-label="Histórico da conversa" aria-live="off">
             {visibleMessages.map((message) => (
               <article key={message.id} className={`public-agent-message ${message.direction}`}>
                 <div className="public-agent-message-content">
@@ -1067,7 +1097,6 @@ export function PublicAgentExperience({ slug, experience }: Props) {
                 <span /><span /><span />
               </div>
             )}
-            <div ref={endRef} />
           </div>
           <p className="public-agent-live" role="status" aria-live="polite">
             {sending

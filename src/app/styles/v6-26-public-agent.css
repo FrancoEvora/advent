@@ -9,8 +9,10 @@
 .public-agent-page textarea{font:inherit}.public-agent-composer{align-items:end}.public-agent-composer textarea{box-sizing:border-box;width:100%;height:47px;min-height:47px;max-height:112px;padding:12px 15px;border:1px solid #dce5df;border-radius:15px;outline:0;resize:none;overflow-y:auto;background:#f8faf8;color:#21352f;font-size:14px;line-height:21px;box-shadow:none}.public-agent-composer textarea:focus{border-color:var(--pa-accent);box-shadow:0 0 0 3px rgba(47,109,79,.11)}.public-agent-composer textarea:disabled{opacity:.68}@media (max-width:680px){.public-agent-composer textarea{max-height:96px}}
 
 /* Bia: canal público conversacional, inspirado em mensageiros e com identidade Évora. */
-.public-agent-page{display:grid;height:var(--public-agent-viewport-height,100dvh);min-height:0;place-items:center;padding:24px;overflow:hidden;background:radial-gradient(circle at 15% 0,rgba(184,138,78,.12),transparent 28%),linear-gradient(145deg,#ddd8cf,#efede8);color:#172521}
-.public-agent-shell{display:block;width:min(840px,100%);min-height:0;margin:0;padding:0}
+html.public-agent-active,body.public-agent-active{width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
+body.public-agent-active{position:fixed;inset:0}
+.public-agent-page{position:fixed;top:var(--public-agent-viewport-top,0);left:var(--public-agent-viewport-left,0);display:grid;width:var(--public-agent-viewport-width,100vw);height:var(--public-agent-viewport-height,100dvh);min-width:0;min-height:0;place-items:center;padding:24px;overflow:hidden;overscroll-behavior:none;background:radial-gradient(circle at 15% 0,rgba(184,138,78,.12),transparent 28%),linear-gradient(145deg,#ddd8cf,#efede8);color:#172521}
+.public-agent-shell{display:block;width:min(840px,100%);min-width:0;min-height:0;margin:0;padding:0;overflow:hidden}
 .public-agent-chat-card{width:100%;height:min(900px,calc(var(--public-agent-viewport-height,100dvh) - 48px));min-height:0;max-height:none;grid-template-rows:auto minmax(0,1fr) auto auto auto auto;border:1px solid rgba(14,67,57,.18);border-radius:20px;background:#efeae2;box-shadow:0 28px 80px rgba(24,45,39,.22);backdrop-filter:none}
 .public-agent-chat-card:before{display:none}
 .public-agent-chat-head{min-height:68px;padding:12px 16px;border:0;background:linear-gradient(135deg,#0d695b,#09584e);color:#fff}
@@ -19,13 +21,14 @@
 .public-agent-chat-head strong{color:#fff;font-size:16px}
 .public-agent-chat-head span{color:rgba(255,255,255,.76);font-size:11px}
 .public-agent-captured{border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.12);color:#fff}
-.public-agent-messages{padding:18px 18px 12px;background-color:#efeae2;background-image:radial-gradient(rgba(64,84,75,.045) 1px,transparent 1px);background-size:18px 18px}
+.public-agent-messages{min-width:0;min-height:0;padding:18px 18px 12px;overflow-x:hidden;overflow-y:auto;overscroll-behavior-y:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;background-color:#efeae2;background-image:radial-gradient(rgba(64,84,75,.045) 1px,transparent 1px);background-size:18px 18px}
 .public-agent-message{margin-bottom:7px}
 .public-agent-message p{padding:9px 11px;border-radius:9px;font-size:14.5px;line-height:1.48;box-shadow:0 1px 1px rgba(21,43,35,.1)}
 .public-agent-message.assistant p{border:0;border-bottom-left-radius:3px;background:#fff;color:#202c29}
 .public-agent-message.user p{border-bottom-right-radius:3px;background:#d8f3dc;color:#183029;box-shadow:0 1px 1px rgba(21,43,35,.1)}
 .public-agent-typing{border:0;border-radius:9px;border-bottom-left-radius:3px;background:#fff;box-shadow:0 1px 1px rgba(21,43,35,.1)}
-.public-agent-quick-replies{padding:7px 12px 9px;background:#efeae2}
+.public-agent-quick-replies{min-width:0;max-width:100%;padding:7px 12px 9px;overscroll-behavior-x:contain;touch-action:pan-x;background:#efeae2}
+.public-agent-unit-list{overscroll-behavior-x:contain;touch-action:pan-x}
 .public-agent-quick-replies button{min-height:44px;padding:8px 14px;border-color:rgba(13,105,91,.25);background:rgba(255,255,255,.92);font-size:12px}
 .public-agent-alert{margin:0;padding:9px 14px;border-width:1px 0;border-radius:0}
 .public-agent-composer,.public-agent-recording-composer,.public-agent-audio-draft{padding:9px 11px;border-top:1px solid #d9dedb;background:#f0f2f1}
@@ -45,7 +48,7 @@
 .public-agent-state-page{padding:24px}.public-agent-state-card{display:grid;width:min(560px,100%);grid-template-columns:auto minmax(0,1fr);gap:16px;padding:24px;border:1px solid rgba(13,105,91,.18);border-radius:20px;background:#fff;box-shadow:0 24px 70px rgba(24,45,39,.18)}.public-agent-state-avatar{display:grid;width:48px;height:48px;place-items:center;border-radius:50%;background:#0d695b;color:#fff;font-size:22px;font-weight:800}.public-agent-state-card>div:nth-child(2){display:grid;gap:7px}.public-agent-state-card span{color:#8a6a38;font-size:10px;font-weight:850;letter-spacing:.1em;text-transform:uppercase}.public-agent-state-card h1{margin:0;color:#173f3a;font-size:24px;line-height:1.15}.public-agent-state-card p{margin:0;color:#63736d;font-size:14px;line-height:1.5}.public-agent-state-card button{grid-column:2;justify-self:start;min-height:44px;padding:0 16px;border:0;border-radius:999px;background:#0d695b;color:#fff;font-weight:780}.public-agent-state-progress{grid-column:2;display:block;width:100%;height:3px;overflow:hidden;border-radius:99px;background:#e5ece8}.public-agent-state-progress:after{display:block;width:38%;height:100%;border-radius:inherit;background:#0d695b;content:"";animation:public-agent-state-progress 1.2s ease-in-out infinite}@keyframes public-agent-state-progress{50%{transform:translateX(165%)}}
 
 @media (max-width:680px){
-  .public-agent-page{display:block;width:100%;height:var(--public-agent-viewport-height,100dvh);padding:0;background:#efeae2}
+  .public-agent-page{display:block;width:var(--public-agent-viewport-width,100vw);height:var(--public-agent-viewport-height,100dvh);padding:0;background:#efeae2}
   .public-agent-shell{width:100%;height:100%;padding:0;gap:0}
   .public-agent-chat-card{width:100%;height:100%;min-height:0;border:0;border-radius:0;box-shadow:none}
   .public-agent-chat-head{min-height:58px;padding:calc(9px + env(safe-area-inset-top)) 12px 9px}
@@ -53,7 +56,7 @@
   .public-agent-messages{padding:12px 10px 8px}
   .public-agent-message-content{max-width:88%}
   .public-agent-message p{max-width:100%;font-size:15px}
-  .public-agent-composer,.public-agent-recording-composer,.public-agent-audio-draft{padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
+  .public-agent-composer,.public-agent-recording-composer,.public-agent-audio-draft{padding:8px}
   .public-agent-disclosure{display:block;padding:0 12px calc(7px + env(safe-area-inset-bottom));font-size:9px;line-height:1.3}
   .public-agent-protocol{right:8px;bottom:calc(68px + env(safe-area-inset-bottom))}
   .public-agent-state-page{display:grid;padding:16px}.public-agent-state-card{grid-template-columns:42px minmax(0,1fr);gap:12px;padding:20px 17px}.public-agent-state-avatar{width:42px;height:42px}.public-agent-state-card h1{font-size:21px}.public-agent-state-card button,.public-agent-state-progress{grid-column:1/-1}

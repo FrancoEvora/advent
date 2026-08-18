@@ -4,11 +4,11 @@ import test from "node:test";
 
 const server = fs.readFileSync("src/lib/public-agent/server.ts", "utf8");
 
-test("public agent retries transient edge throttling idempotently", () => {
-  assert.match(server, /EDGE_MAX_ATTEMPTS\s*=\s*4/u);
-  assert.match(server, /EDGE_RETRYABLE_STATUS\s*=\s*new Set\(\[429, 500, 502, 503, 504\]\)/u);
-  assert.match(server, /retry-after/u);
-  assert.match(server, /Public agent edge transient failure/u);
+test("public agent never multiplies an upstream 429", () => {
+  assert.match(server, /EDGE_MAX_ATTEMPTS\s*=\s*3/u);
+  assert.match(server, /EDGE_RETRYABLE_STATUS\s*=\s*new Set\(\[500, 502, 503, 504\]\)/u);
+  assert.doesNotMatch(server, /EDGE_RETRYABLE_STATUS\s*=.*429/u);
+  assert.match(server, /status === 429/u);
   assert.match(server, /clientMessageId:\s*input\.clientMessageId/u);
 });
 

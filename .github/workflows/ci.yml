@@ -28,6 +28,7 @@ jobs:
           tests/crm-ai-shadow-contract.test.mjs
           tests/crm-ai-supervised-review.test.mjs
           tests/vitoria-runtime-v4.test.mts
+          tests/bia-commercial-presentation.test.mjs
       - name: Validate CRM conversation and archival contracts
         run: >-
           node --test

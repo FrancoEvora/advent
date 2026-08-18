@@ -15,6 +15,8 @@ type JsonObject = Record<string, unknown>;
 type EdgeEnvelope<T> = { ok: true; data: T } | { ok: false; error?: string };
 
 const PUBLIC_AGENT_DEVICE_COOKIE = "evora_agent_device";
+const EDGE_MAX_ATTEMPTS = 4;
+const EDGE_RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
 export class PublicAgentServerError extends Error {
   readonly code: string;
@@ -42,9 +44,7 @@ function safeSlug(value: string): string {
 
 function edgeEndpoint(): URL {
   const raw = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  if (!raw) {
-    throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
-  }
+  if (!raw) throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   let base: URL;
   try {
     base = new URL(raw);
@@ -85,46 +85,104 @@ function edgeError(code: string, status: number): PublicAgentServerError {
   if (status === 410 || code.includes("SESSION_INACTIVE")) {
     return new PublicAgentServerError("PUBLIC_AGENT_SESSION_INACTIVE", 410);
   }
-  if (status === 409) {
-    return new PublicAgentServerError(code || "PUBLIC_AGENT_CONFLICT", 409);
-  }
+  if (status === 409) return new PublicAgentServerError(code || "PUBLIC_AGENT_CONFLICT", 409);
   if (status === 400 || code.includes("INVALID") || code.includes("CONSENT")) {
     return new PublicAgentServerError(code || "PUBLIC_AGENT_INPUT_INVALID", 400);
   }
   return new PublicAgentServerError(code || "PUBLIC_AGENT_EDGE_UNAVAILABLE", 503);
 }
 
+function retryDelayMs(response: Response | null, attempt: number) {
+  const retryAfter = response?.headers.get("retry-after")?.trim();
+  if (retryAfter && /^\d+$/.test(retryAfter)) {
+    return Math.min(2_500, Math.max(250, Number(retryAfter) * 1_000));
+  }
+  return Math.min(2_000, 300 * 2 ** Math.max(0, attempt - 1));
+}
+
+async function wait(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function edgeRequest<T>(action: PublicAgentAction, payload: JsonObject, timeoutMs = 30_000): Promise<T> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const response = await fetch(edgeEndpoint(), {
-      method: "POST",
-      headers: {
-        apikey: publishableKey(),
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ action, ...payload }),
-      cache: "no-store",
-      signal: controller.signal,
-    });
-    const body = (await response.json().catch(() => null)) as EdgeEnvelope<T> | null;
-    if (!body || !response.ok || body.ok !== true) {
+  const startedAt = Date.now();
+  let lastError: PublicAgentServerError | null = null;
+
+  for (let attempt = 1; attempt <= EDGE_MAX_ATTEMPTS; attempt += 1) {
+    const elapsed = Date.now() - startedAt;
+    const remaining = timeoutMs - elapsed;
+    if (remaining <= 750) break;
+
+    const controller = new AbortController();
+    const attemptTimeout = Math.min(remaining, action === "message" ? 30_000 : 20_000);
+    const timer = setTimeout(() => controller.abort(), attemptTimeout);
+    let response: Response | null = null;
+
+    try {
+      response = await fetch(edgeEndpoint(), {
+        method: "POST",
+        headers: {
+          apikey: publishableKey(),
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ action, ...payload }),
+        cache: "no-store",
+        signal: controller.signal,
+      });
+
+      const body = (await response.json().catch(() => null)) as EdgeEnvelope<T> | null;
+      if (body && response.ok && body.ok === true) return body.data;
+
       const code = body && body.ok === false && typeof body.error === "string"
         ? body.error
         : `PUBLIC_AGENT_EDGE_HTTP_${response.status}`;
-      throw edgeError(code, response.status);
+      const mapped = edgeError(code, response.status);
+      lastError = mapped;
+
+      if (!EDGE_RETRYABLE_STATUS.has(response.status) || attempt >= EDGE_MAX_ATTEMPTS) {
+        throw mapped;
+      }
+
+      console.warn("Public agent edge transient failure", {
+        action,
+        attempt,
+        status: response.status,
+        code: mapped.code,
+      });
+    } catch (error) {
+      if (error instanceof PublicAgentServerError) {
+        if (!EDGE_RETRYABLE_STATUS.has(error.status) || attempt >= EDGE_MAX_ATTEMPTS) throw error;
+        lastError = error;
+      } else if (error instanceof Error && error.name === "AbortError") {
+        lastError = new PublicAgentServerError("PUBLIC_AGENT_EDGE_TIMEOUT", 503);
+        if (attempt >= EDGE_MAX_ATTEMPTS) throw lastError;
+        console.warn("Public agent edge transient failure", {
+          action,
+          attempt,
+          status: 503,
+          code: lastError.code,
+        });
+      } else {
+        lastError = new PublicAgentServerError("PUBLIC_AGENT_EDGE_NETWORK_FAILURE", 503);
+        if (attempt >= EDGE_MAX_ATTEMPTS) throw lastError;
+        console.warn("Public agent edge transient failure", {
+          action,
+          attempt,
+          status: 503,
+          code: lastError.code,
+        });
+      }
+    } finally {
+      clearTimeout(timer);
     }
-    return body.data;
-  } catch (error) {
-    if (error instanceof PublicAgentServerError) throw error;
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_TIMEOUT", 503);
-    }
-    throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NETWORK_FAILURE", 503);
-  } finally {
-    clearTimeout(timer);
+
+    const remainingAfterAttempt = timeoutMs - (Date.now() - startedAt);
+    const delay = retryDelayMs(response, attempt);
+    if (remainingAfterAttempt <= delay + 500) break;
+    await wait(delay);
   }
+
+  throw lastError || new PublicAgentServerError("PUBLIC_AGENT_EDGE_UNAVAILABLE", 503);
 }
 
 export function hashPublicAgentValue(value: string): string {
@@ -156,9 +214,7 @@ export function enforcePublicAgentOrigin(request: NextRequest): void {
   if (!origin) return;
   try {
     const parsed = new URL(origin);
-    if (parsed.host !== request.nextUrl.host || parsed.protocol !== request.nextUrl.protocol) {
-      throw new Error("origin mismatch");
-    }
+    if (parsed.host !== request.nextUrl.host || parsed.protocol !== request.nextUrl.protocol) throw new Error("origin mismatch");
   } catch {
     throw new PublicAgentServerError("PUBLIC_AGENT_ORIGIN_REJECTED", 403);
   }
@@ -167,19 +223,8 @@ export function enforcePublicAgentOrigin(request: NextRequest): void {
 export function sanitizeAttribution(value: unknown): JsonObject {
   if (!object(value)) return {};
   const allowed = [
-    "utm_source",
-    "utm_medium",
-    "utm_campaign",
-    "utm_content",
-    "utm_term",
-    "fbclid",
-    "campaign_id",
-    "adset_id",
-    "ad_id",
-    "ad_name",
-    "creative_id",
-    "placement",
-    "publisher_platform",
+    "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid",
+    "campaign_id", "adset_id", "ad_id", "ad_name", "creative_id", "placement", "publisher_platform",
   ];
   const sanitized: JsonObject = {};
   for (const key of allowed) {

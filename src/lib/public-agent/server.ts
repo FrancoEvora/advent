@@ -15,8 +15,8 @@ type JsonObject = Record<string, unknown>;
 type EdgeEnvelope<T> = { ok: true; data: T } | { ok: false; error?: string };
 
 const PUBLIC_AGENT_DEVICE_COOKIE = "evora_agent_device";
-const EDGE_MAX_ATTEMPTS = 4;
-const EDGE_RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
+const EDGE_MAX_ATTEMPTS = 3;
+const EDGE_RETRYABLE_STATUS = new Set([500, 502, 503, 504]);
 
 export class PublicAgentServerError extends Error {
   readonly code: string;
@@ -139,6 +139,8 @@ async function edgeRequest<T>(action: PublicAgentAction, payload: JsonObject, ti
       const mapped = edgeError(code, response.status);
       lastError = mapped;
 
+      // 429 is an upstream model quota/rate signal. Retrying it here multiplies the
+      // same user turn and can worsen the limit. Return it immediately.
       if (!EDGE_RETRYABLE_STATUS.has(response.status) || attempt >= EDGE_MAX_ATTEMPTS) {
         throw mapped;
       }

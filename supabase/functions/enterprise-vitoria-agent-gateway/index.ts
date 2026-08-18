@@ -676,7 +676,7 @@ async function proxyUpstream(admin: AdminClient, bytes: Uint8Array) {
     const upstream = await fetch(upstreamUrl(), {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: bytes,
+      body: new TextDecoder().decode(bytes),
       signal: controller.signal,
     });
     const responseBody = await upstream.arrayBuffer();

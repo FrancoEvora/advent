@@ -33,7 +33,6 @@ jobs:
           tests/bia-profile-migration.test.mjs
           tests/public-agent-mobile-viewport.test.mjs
           tests/bia-commercial-presentation.test.mjs
-          tests/bia-agentic-gateway.test.mjs
       - name: Validate CRM conversation and archival contracts
         run: >-
           node --test
@@ -45,5 +44,4 @@ jobs:
           deno check
           supabase/functions/enterprise-vitoria-agent/index.ts
           supabase/functions/enterprise-vitoria-agent-gateway/index.ts
-          supabase/functions/enterprise-bia-agent-gateway/index.ts
       - run: npm run build

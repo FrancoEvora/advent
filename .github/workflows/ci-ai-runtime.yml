@@ -32,6 +32,7 @@ jobs:
           tests/vitoria-contextual-post-hold-migration.test.mjs
           tests/vitoria-profile-avatar.test.mjs
           tests/bia-profile-migration.test.mjs
+          tests/bia-language-visit-scheduling.test.mjs
       - name: Validate Bia Edge Functions
         run: >-
           deno check

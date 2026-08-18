@@ -10,9 +10,10 @@ test("public agent uses the agentic gateway", () => {
 });
 
 test("every valid text turn reaches the model before an ERP tool", () => {
+  assert.match(gateway, /Toda mensagem do cliente chega primeiro a você/u);
   assert.match(gateway, /runAgentTurn/u);
-  assert.match(gateway, /Every valid text conversation turn reaches the model first/u);
-  assert.match(gateway, /const decision = await runAgentTurn/u);
+  assert.match(gateway, /const contextForModel = modelContext/u);
+  assert.match(gateway, /let decision = await runAgentTurn/u);
   assert.match(gateway, /const tool = text\(decision\.tool\) \|\| "none"/u);
   assert.match(gateway, /if \(tool !== "none"\)/u);
 });
@@ -20,7 +21,7 @@ test("every valid text turn reaches the model before an ERP tool", () => {
 test("qualitative investment conversation stays with the model", () => {
   assert.match(gateway, /'Quero investir' => tool=none/u);
   assert.match(gateway, /comprar para vender daqui alguns anos/u);
-  assert.match(gateway, /Nunca escolha uma ferramenta apenas porque o assunto é imóvel, investimento ou Solaris/u);
+  assert.match(gateway, /NÃO use ferramenta para opinião, conversa, intenção/u);
   assert.match(gateway, /não um chatbot de menus/u);
 });
 
@@ -40,4 +41,11 @@ test("ordinary conversation is persisted without forcing buttons or actions", ()
   assert.match(gateway, /quickReplies:\s*\[\]/u);
   assert.match(gateway, /requestContact:\s*false/u);
   assert.match(gateway, /handoffRequested:\s*false/u);
+});
+
+test("empty conversational reply is recovered by the model instead of returning 503 immediately", () => {
+  assert.match(gateway, /recoverConversationalReply/u);
+  assert.match(gateway, /bia-agent-empty-reply/u);
+  assert.match(gateway, /RECOVERY_SCHEMA/u);
+  assert.match(gateway, /BIA_AGENT_REPLY_RECOVERY_FAILED/u);
 });

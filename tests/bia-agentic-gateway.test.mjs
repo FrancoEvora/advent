@@ -21,12 +21,12 @@ test("canonical and transactional requests stay behind the proven gateway", () =
   assert.match(gateway, /enterprise-vitoria-agent-gateway/u);
   assert.match(gateway, /get_public_agent_gateway_context_v1/u);
   assert.match(gateway, /visitState/u);
-  assert.match(gateway, /return await delegate\(request,bytes\)/u);
+  assert.match(gateway, /return await delegate\(request,\s*bytes\)/u);
 });
 
 test("ordinary conversation is persisted without forcing buttons or actions", () => {
   assert.match(gateway, /commit_public_agent_gateway_turn_v1/u);
-  assert.match(gateway, /action:"none"/u);
-  assert.match(gateway, /requestContact:false/u);
-  assert.match(gateway, /handoffRequested:false/u);
+  assert.match(gateway, /action:\s*"none"/u);
+  assert.match(gateway, /requestContact:\s*false/u);
+  assert.match(gateway, /handoffRequested:\s*false/u);
 });

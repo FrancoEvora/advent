@@ -1,6 +1,23 @@
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { createClient as createSupabaseClient } from "npm:@supabase/supabase-js@2";
 
 type JsonObject = Record<string, unknown>;
+type Database = {
+  public: {
+    Tables: Record<string, never>;
+    Views: Record<string, never>;
+    Functions: Record<string, { Args: Record<string, unknown>; Returns: unknown }>;
+  };
+};
+
+function createClient(
+  supabaseUrl: string,
+  supabaseKey: string,
+  options?: Parameters<typeof createSupabaseClient<Database>>[2],
+) {
+  return createSupabaseClient<Database>(supabaseUrl, supabaseKey, options);
+}
+
+type AdminClient = ReturnType<typeof createClient>;
 
 const MAX_BYTES = 3_500_000;
 const MODEL_TIMEOUT_MS = 42_000;
@@ -96,7 +113,7 @@ function ingressAuthorized(request: Request) {
   return authorized === 1;
 }
 
-async function rpc(admin: ReturnType<typeof createClient>, name: string, args: JsonObject = {}) {
+async function rpc(admin: AdminClient, name: string, args: JsonObject = {}) {
   const result = await admin.rpc(name, args);
   if (result.error) {
     console.error("bia-agentic-rpc", { name, code: result.error.code, message: result.error.message });
@@ -321,7 +338,7 @@ function mergeProfile(current: unknown, decision: JsonObject) {
 }
 
 async function commitConversation(
-  admin: ReturnType<typeof createClient>,
+  admin: AdminClient,
   body: JsonObject,
   context: JsonObject,
   gatewayContext: JsonObject,

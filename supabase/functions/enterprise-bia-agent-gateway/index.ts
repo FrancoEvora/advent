@@ -20,7 +20,7 @@ type AdminClient = ReturnType<typeof createClient>;
 type Runtime = { apiKey: string; model: string; reasoning: "none"|"low"|"medium"|"high"|"xhigh" };
 
 const MAX_BYTES = 3_500_000;
-const MODEL_TIMEOUT_MS = 48_000;
+const MODEL_TIMEOUT_MS = 18_000;
 const DELEGATE_TIMEOUT_MS = 125_000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH = /^[a-f0-9]{64}$/i;
@@ -213,7 +213,7 @@ function statusDetails(payload: unknown) {
 async function sleep(ms: number) { await new Promise(resolve => setTimeout(resolve, ms)); }
 
 async function callModel(runtime: Runtime, context: Obj, allowTools: boolean, forceLowReasoning = false) {
-  const attempts = [0, 350, 900];
+  const attempts = [0, 350];
   let last: { code: string; status: number } | null = null;
   for (let attempt = 0; attempt < attempts.length; attempt += 1) {
     if (attempts[attempt]) await sleep(attempts[attempt]);
@@ -370,8 +370,10 @@ Deno.serve(async (request: Request) => {
       if (!recovered.reply) throw new GatewayError("BIA_AGENT_EMPTY_OUTPUT", 503);
       result = recovered;
     }
+    const finalReply = result.reply;
+    if (!finalReply) throw new GatewayError("BIA_AGENT_EMPTY_OUTPUT", 503);
 
-    const committed = await commitConversation(admin, parsed, context, gatewayContext, result.reply);
+    const committed = await commitConversation(admin, parsed, context, gatewayContext, finalReply);
     return json({ ok: true, data: committed });
   } catch (error) {
     const code = error instanceof GatewayError ? error.code : "BIA_AGENT_GATEWAY_UNAVAILABLE";

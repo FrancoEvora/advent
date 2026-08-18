@@ -333,8 +333,8 @@ begin
     raise exception 'PUBLIC_AGENT_VISIT_INPUT_INVALID';
   end if;
 
-  select session.*, experience.*
-    into session_row, experience_row
+  select session.*
+    into session_row
   from crm_private.public_agent_sessions session
   join crm_private.public_agent_experiences experience
     on experience.id = session.experience_id
@@ -346,6 +346,16 @@ begin
 
   if not found then
     raise exception 'PUBLIC_AGENT_SESSION_NOT_FOUND';
+  end if;
+
+  select experience.*
+    into experience_row
+  from crm_private.public_agent_experiences experience
+  where experience.id = session_row.experience_id
+    and experience.active;
+
+  if not found then
+    raise exception 'PUBLIC_AGENT_EXPERIENCE_NOT_FOUND';
   end if;
 
   if session_row.crm_record_id is null then

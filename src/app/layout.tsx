@@ -28,6 +28,7 @@ import "./styles/v6-11-finance-landowners.css";
 import "./styles/v6-23-quality-audit.css";
 import "./styles/v6-24-crm-communications.css";
 import "./styles/v6-26-public-agent.css";
+import "./styles/v6-26-bia-commercial-presentation.css";
 import {ServiceWorkerRegister} from "@/components/ServiceWorkerRegister";
 import {GlobalModuleNav} from "@/components/GlobalModuleNav";
 import {GlobalLogoutButton} from "@/components/GlobalLogoutButton";

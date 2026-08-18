@@ -61,7 +61,7 @@ function edgeEndpoint(): URL {
   ) {
     throw new PublicAgentServerError("PUBLIC_AGENT_EDGE_NOT_CONFIGURED", 503);
   }
-  return new URL("/functions/v1/enterprise-vitoria-agent-gateway", base);
+  return new URL("/functions/v1/enterprise-bia-agent-gateway", base);
 }
 
 function publishableKey(): string {

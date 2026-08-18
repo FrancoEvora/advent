@@ -21,7 +21,7 @@ test("quick reply de lotes disponíveis usa estoque real", () => {
 
 test("pedido de visita não é devolvido ao hold status", () => {
   assert.match(gateway, /function wantsVisit\(/u);
-  assert.match(gateway, /Agendar visita/u);
+  assert.match(gateway, /agendar\|marcar\|combinar\|organizar/u);
   assert.match(gateway, /visitState/u);
   assert.match(gateway, /phase: "when"/u);
 });

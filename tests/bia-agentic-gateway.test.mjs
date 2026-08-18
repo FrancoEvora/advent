@@ -5,47 +5,52 @@ import test from "node:test";
 const gateway = fs.readFileSync("supabase/functions/enterprise-bia-agent-gateway/index.ts", "utf8");
 const server = fs.readFileSync("src/lib/public-agent/server.ts", "utf8");
 
-test("public agent uses the agentic gateway", () => {
+test("public agent uses the Bia gateway", () => {
   assert.match(server, /enterprise-bia-agent-gateway/u);
 });
 
-test("every valid text turn reaches the model before an ERP tool", () => {
-  assert.match(gateway, /Toda mensagem do cliente chega primeiro a você/u);
-  assert.match(gateway, /runAgentTurn/u);
-  assert.match(gateway, /const contextForModel = modelContext/u);
-  assert.match(gateway, /let decision = await runAgentTurn/u);
-  assert.match(gateway, /const tool = text\(decision\.tool\) \|\| "none"/u);
-  assert.match(gateway, /if \(tool !== "none"\)/u);
+test("Bia uses native model function calling instead of a JSON intent router", () => {
+  assert.match(gateway, /tool_choice = "auto"/u);
+  assert.match(gateway, /type:\s*"function"/u);
+  assert.match(gateway, /function_call/u);
+  assert.doesNotMatch(gateway, /AGENT_SCHEMA/u);
+  assert.doesNotMatch(gateway, /RECOVERY_SCHEMA/u);
 });
 
-test("qualitative investment conversation stays with the model", () => {
-  assert.match(gateway, /'Quero investir' => tool=none/u);
-  assert.match(gateway, /comprar para vender daqui alguns anos/u);
-  assert.match(gateway, /NÃO use ferramenta para opinião, conversa, intenção/u);
+test("qualitative investment conversation remains model-first", () => {
+  assert.match(gateway, /Estou pensando em comprar para vender daqui alguns anos/u);
+  assert.match(gateway, /conversa aberta/u);
   assert.match(gateway, /não um chatbot de menus/u);
 });
 
-test("canonical and transactional capabilities are explicit ERP tools", () => {
-  assert.match(gateway, /"inventory"/u);
-  assert.match(gateway, /"commercial"/u);
-  assert.match(gateway, /"simulation"/u);
-  assert.match(gateway, /"visit"/u);
-  assert.match(gateway, /"hold"/u);
-  assert.match(gateway, /enterprise-vitoria-agent-gateway/u);
+test("canonical operations are explicit tools", () => {
+  for (const tool of [
+    "consultar_estoque",
+    "consultar_condicoes_comerciais",
+    "simular_pagamento",
+    "buscar_materiais",
+    "agendar_visita",
+    "registrar_contato",
+    "bloquear_lote",
+    "transferir_especialista",
+  ]) assert.match(gateway, new RegExp(tool, "u"));
   assert.match(gateway, /delegateToEnterprise/u);
 });
 
-test("ordinary conversation is persisted without forcing buttons or actions", () => {
+test("open conversation is persisted without automatic menu buttons", () => {
   assert.match(gateway, /commit_public_agent_gateway_turn_v1/u);
-  assert.match(gateway, /action:\s*"none"/u);
   assert.match(gateway, /quickReplies:\s*\[\]/u);
-  assert.match(gateway, /requestContact:\s*false/u);
-  assert.match(gateway, /handoffRequested:\s*false/u);
+  assert.match(gateway, /action:\s*"none"/u);
 });
 
-test("empty conversational reply is recovered by the model instead of returning 503 immediately", () => {
-  assert.match(gateway, /recoverConversationalReply/u);
-  assert.match(gateway, /bia-agent-empty-reply/u);
-  assert.match(gateway, /RECOVERY_SCHEMA/u);
-  assert.match(gateway, /BIA_AGENT_REPLY_RECOVERY_FAILED/u);
+test("model failures retry and then fall back to a plain conversational model call", () => {
+  assert.match(gateway, /bia-agent-primary-failed/u);
+  assert.match(gateway, /callModel\(runtime, contextForModel, false, true\)/u);
+  assert.match(gateway, /responseStatus/u);
+  assert.match(gateway, /incomplete_details/u);
+  assert.match(gateway, /x-request-id/u);
+});
+
+test("model output budget is large enough to include reasoning and visible output", () => {
+  assert.match(gateway, /max_output_tokens:\s*allowTools \? 4_096 : 3_000/u);
 });

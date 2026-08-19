@@ -214,12 +214,14 @@ test("AI runtime admin API never returns secrets and prepares worker only on ena
   assert.doesNotMatch(route, /console\.log\([^)]*apiKey/i);
 });
 
-test("settings UI never displays a stored OpenAI key", async () => {
+test("settings UI never displays a stored OpenAI key and has no shadow mode", async () => {
   const view = await source("src/components/erp/crm-v5/ai-runtime-settings.tsx");
   assert.match(view, /type="password"/);
   assert.match(view, /Protegida no Vault/);
-  assert.match(view, /Ativar modo sombra/);
-  assert.match(view, /sem enviar mensagens ao cliente/i);
+  assert.match(view, /Ativar Bia/);
+  assert.match(view, /Bia ativa/);
+  assert.doesNotMatch(view, /modo sombra/i);
+  assert.doesNotMatch(view, /sem enviar mensagens ao cliente/i);
   assert.doesNotMatch(view, /runtime\?\.api_key\?\.(value|key|secret)/i);
 });
 

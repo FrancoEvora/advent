@@ -14,7 +14,7 @@ type JsonObject = Record<string, unknown>;
 export type CrmAiRuntime = {
   organizationId: string;
   enabled: boolean;
-  mode: "shadow";
+  mode: "autonomous";
   apiKey: string | null;
   apiKeyVersion: number;
   agentModel: string;
@@ -93,7 +93,7 @@ function parseVaultRuntime(
   }
 
   const enabled = value.enabled === true;
-  const mode = value.mode === "shadow" ? "shadow" : null;
+  const mode = value.mode === "autonomous" ? "autonomous" : null;
   const agentModel = string(value.agent_model);
   const supervisorModel = string(value.supervisor_model);
   const agentReasoning = reasoning(value.agent_reasoning);
@@ -148,7 +148,7 @@ function environmentFallback(organizationId: string): CrmAiRuntime | null {
     return {
       organizationId,
       enabled: true,
-      mode: "shadow",
+      mode: "autonomous",
       apiKey: config.apiKey,
       apiKeyVersion: 0,
       agentModel: config.agentModel,
@@ -168,7 +168,7 @@ function disabledRuntime(organizationId: string): CrmAiRuntime {
   return {
     organizationId,
     enabled: false,
-    mode: "shadow",
+    mode: "autonomous",
     apiKey: null,
     apiKeyVersion: 0,
     agentModel: "gpt-5.6-sol",
@@ -214,7 +214,7 @@ export async function isCrmAiRuntimeEnabled(
   organizationId: string,
 ): Promise<boolean> {
   const runtime = await fetchCrmAiRuntime(organizationId);
-  return runtime.enabled && runtime.mode === "shadow" && Boolean(runtime.apiKey);
+  return runtime.enabled && runtime.mode === "autonomous" && Boolean(runtime.apiKey);
 }
 
 export async function cancelCrmAiJobForDisabledRuntime(

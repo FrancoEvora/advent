@@ -326,7 +326,7 @@ export async function generateSupervisedShadowDraft(
     };
   }
 
-  if (!runtime.enabled || runtime.mode !== "shadow" || !runtime.apiKey) {
+  if (!runtime.enabled || runtime.mode !== "autonomous" || !runtime.apiKey) {
     throw new CrmAiModelError(
       "CRM_AI_RUNTIME_DISABLED",
       "O runtime da Bia está desabilitado para esta organização.",

@@ -1,4 +1,4 @@
-const CACHE = "evora-gestao-v6-25-1-static";
+const CACHE = "evora-gestao-v6-25-2-static";
 const STATIC_ASSETS = [
   "/manifest.webmanifest",
   "/icon.svg",
@@ -26,24 +26,36 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  if (request.mode === "navigate") {
-    event.respondWith(fetch(request));
-    return;
-  }
+  // Navegações ficam a cargo do navegador. Interceptá-las com respondWith(fetch())
+  // faz o Safari exibir "FetchEvent.respondWith ... TypeError: Load failed" quando
+  // há qualquer falha transitória de rede durante uma navegação.
+  if (request.mode === "navigate") return;
 
   const cacheableDestinations = new Set(["style", "script", "image", "font", "manifest"]);
   if (!cacheableDestinations.has(request.destination)) return;
 
   event.respondWith(
     caches.match(request).then((cached) => {
-      const fresh = fetch(request).then((response) => {
+      if (cached) {
+        event.waitUntil(
+          fetch(request)
+            .then((response) => {
+              if (response.ok && response.type === "basic") {
+                return caches.open(CACHE).then((cache) => cache.put(request, response.clone()));
+              }
+            })
+            .catch(() => undefined),
+        );
+        return cached;
+      }
+
+      return fetch(request).then((response) => {
         if (response.ok && response.type === "basic") {
           const copy = response.clone();
-          caches.open(CACHE).then((cache) => cache.put(request, copy));
+          event.waitUntil(caches.open(CACHE).then((cache) => cache.put(request, copy)));
         }
         return response;
       });
-      return cached || fresh;
     }),
   );
 });

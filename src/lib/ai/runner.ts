@@ -79,7 +79,7 @@ async function processJob(job: ClaimedCrmAiJob): Promise<JobOutcome> {
     const runtime = await fetchCrmAiRuntime(job.organizationId);
     if (
       !runtime.enabled ||
-      runtime.mode !== "shadow" ||
+      runtime.mode !== "autonomous" ||
       !runtime.apiKey ||
       job.mode !== "shadow"
     ) {

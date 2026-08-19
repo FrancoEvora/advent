@@ -142,8 +142,8 @@ export function AiRuntimeSettings({
     await update(
       { enabled: next },
       next
-        ? "Bia ativada em modo sombra. Nenhuma mensagem é enviada ao cliente."
-        : "Bia desativada. Novos leads não serão enfileirados para IA.",
+        ? "Bia ativada para atendimento com IA."
+        : "Bia desativada. Novos atendimentos não serão processados pela IA.",
     );
   }
 
@@ -182,12 +182,12 @@ export function AiRuntimeSettings({
           <small>INTELIGÊNCIA COMERCIAL</small>
           <h3>Bia · Agente Comercial IA</h3>
           <p>
-            Atendimento supervisionado integrado ao CRM. Nesta etapa a Bia opera somente em modo sombra:
-            analisa o lead e prepara rascunhos internos, sem enviar mensagens ao cliente.
+            Atendimento com IA integrado ao CRM. A Bia conversa diretamente com o cliente e consulta
+            o ERP por ferramentas controladas quando precisa de dados ou executar uma ação.
           </p>
         </div>
         <Status tone={enabled ? "success" : configured ? "info" : "neutral"}>
-          {enabled ? "modo sombra ativo" : configured ? "configurada" : "não configurada"}
+          {enabled ? "Bia ativa" : configured ? "configurada" : "não configurada"}
         </Status>
       </header>
 
@@ -241,7 +241,7 @@ export function AiRuntimeSettings({
           {busy ? "Salvando..." : configured ? "Salvar parâmetros" : "Salvar chave no Vault"}
         </button>
         <button disabled={busy || !configured} onClick={toggleEnabled}>
-          {enabled ? "Desativar Bia" : "Ativar modo sombra"}
+          {enabled ? "Desativar Bia" : "Ativar Bia"}
         </button>
         <button disabled={busy || !configured} onClick={revoke}>
           Revogar chave
@@ -251,8 +251,8 @@ export function AiRuntimeSettings({
       {message && <p className="crm5-callout success">{message}</p>}
       {error && <p className="crm5-callout danger">{error}</p>}
       <p className="crm5-muted">
-        Regra desta versão: preço, estoque, proposta, desconto e envio automático permanecem bloqueados.
-        O Supervisor revisa cada rascunho antes de ele aparecer no CRM.
+        Dados operacionais como preço, estoque, simulações, visitas e bloqueios continuam sujeitos
+        às validações e ferramentas controladas do ERP.
       </p>
     </section>
   );

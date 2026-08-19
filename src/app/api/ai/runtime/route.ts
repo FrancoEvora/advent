@@ -98,8 +98,6 @@ function sanitizedStatus(data: unknown) {
     updated_at: safeDate(rawApiStatus?.updated_at),
   };
 
-  // Mesmo que a RPC seja alterada no futuro, nenhum campo bruto com nome de
-  // segredo atravessa a API. `api_key` é reconstruído apenas com metadados.
   const {
     api_key: _rawApiKey,
     access_token: _accessToken,
@@ -236,7 +234,7 @@ export async function PUT(request: NextRequest) {
       p_organization_id: org,
       p_api_key: apiKey,
       p_enabled: enabled,
-      p_mode: "shadow",
+      p_mode: "autonomous",
       p_agent_model: agentModel,
       p_agent_reasoning: agentReasoning,
       p_supervisor_model: supervisorModel,

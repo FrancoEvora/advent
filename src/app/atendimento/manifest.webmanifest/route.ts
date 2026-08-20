@@ -3,9 +3,9 @@ import type { MetadataRoute } from "next";
 export const dynamic = "force-static";
 
 const manifest: MetadataRoute.Manifest = {
-  name: "Bia — Atendimento Évora",
-  short_name: "Bia Évora",
-  description: "Atendimento comercial digital da Évora Urbanismo.",
+  name: "Bia — Futura Casa",
+  short_name: "Bia Futura Casa",
+  description: "Especialista da Futura Casa, parceira da Évora Urbanismo, para o Solaris Residencial Resort em Monte Carmelo.",
   start_url: "/atendimento/solaris",
   scope: "/atendimento/",
   display: "standalone",

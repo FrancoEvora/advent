@@ -328,7 +328,10 @@ test("overview determinístico responde com fatos aprovados, uma pergunta e pró
 });
 
 test("Bia conversa como vendedora sem esconder que é uma agente digital", () => {
-  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /Você é Bia, agente comercial digital/iu);
+  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /Você é Bia, especialista imobiliária digital da Futura Casa/iu);
+  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /parceira da Évora Urbanismo/iu);
+  assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /Nunca se apresente como funcionária ou especialista direta da Évora/iu);
+  assert.match(VITORIA_SUPERVISOR_SYSTEM_PROMPT, /especialista digital da Futura Casa, parceira da Évora Urbanismo/iu);
   assert.match(VITORIA_SUPERVISOR_SYSTEM_PROMPT, /Supervisor de Excelência da Bia/iu);
   assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /não abra a conversa com apresentação técnica/iu);
   assert.match(VITORIA_AGENT_SYSTEM_PROMPT, /Nunca afirme nem insinue que é humana/iu);

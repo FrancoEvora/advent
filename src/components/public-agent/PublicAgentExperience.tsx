@@ -120,6 +120,8 @@ const TRANSCRIPTION_FETCH_TIMEOUT_MS = 70_000;
 const MAX_AUDIO_BYTES = 2_100_000;
 const MAX_RECORDING_SECONDS = 90;
 const PUBLIC_AGENT_DISPLAY_NAME = "Bia";
+const PUBLIC_AGENT_BRAND_LINE = "Especialista da Futura Casa · Parceira da Évora Urbanismo";
+const PUBLIC_AGENT_ACCESSIBLE_IDENTITY = "especialista da Futura Casa, parceira da Évora Urbanismo";
 const DEFAULT_VITORIA_AVATAR = "/vitoria/vitoria-avatar.webp";
 const LEGACY_VITORIA_AVATAR = "/vitoria/vitoria-portrait.svg";
 const AUDIO_MIME_CANDIDATES = [
@@ -203,11 +205,7 @@ function initialGreeting(experience: PublicAgentExperience) {
   ) {
     return currentAgentCopy(configured);
   }
-  const project = experience.name?.normalize("NFC").trim();
-  const destination = project && project !== "Évora Urbanismo"
-    ? ` ou ainda conhecendo o ${project}`
-    : " ou ainda conhecendo as opções da Évora";
-  return `Oi! Tudo bem? Sou a ${publicAgentName(experience.agentName)}, da Évora. Me conta: você está procurando um lote para morar, investir${destination}?`;
+  return `Oi! Tudo bem? Eu sou a ${publicAgentName(experience.agentName)}, especialista da Futura Casa, parceira da Évora Urbanismo. Estou aqui especialmente para te ajudar com o Solaris Residencial Resort, em Monte Carmelo. Você está pensando em morar, investir ou quer comparar as condições?`;
 }
 
 function attributionFromLocation() {
@@ -230,7 +228,7 @@ function attributionFromLocation() {
   return Object.fromEntries(keys.map((key) => [key, params.get(key)]).filter(([, value]) => Boolean(value)));
 }
 
-function mapStoredMessages(messages: PublicAgentMessage[]): UiMessage[] {
+function mapStoredMessages(messages: PublicAgentMessage[], experience: PublicAgentExperience): UiMessage[] {
   return messages
     .filter((message) => message.direction === "user" || message.direction === "assistant")
     .map((message) => {
@@ -244,7 +242,9 @@ function mapStoredMessages(messages: PublicAgentMessage[]): UiMessage[] {
       return {
         id: String(message.id),
         direction: message.direction as "user" | "assistant",
-        content: message.content,
+        content: message.direction === "assistant" && metadata.initial_greeting === true
+          ? initialGreeting(experience)
+          : message.content,
         createdAt: message.created_at,
         deliveryState: message.direction === "user" ? "sent" as const : undefined,
         ...(storedAudio
@@ -518,7 +518,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         const payload = (await response.json()) as SessionResponse;
         if (!response.ok || !payload.ok) throw new Error(payload.error || "PUBLIC_AGENT_SESSION_UNAVAILABLE");
         if (!active) return;
-        const restoredMessages = mapStoredMessages(payload.messages || []);
+        const restoredMessages = mapStoredMessages(payload.messages || [], experience);
         setMessages(restoredMessages);
         setStage(payload.stage || "welcome");
         setConverted(Boolean(payload.converted));
@@ -1020,7 +1020,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
 
   return (
     <main id="conteudo-principal" className="public-agent-page" style={style}>
-      <h1 className="public-agent-sr-only">Conversa com a {agentName}, atendimento digital da Évora Urbanismo</h1>
+      <h1 className="public-agent-sr-only">Conversa com a {agentName}, {PUBLIC_AGENT_ACCESSIBLE_IDENTITY}, para atendimento do Solaris Residencial Resort em Monte Carmelo</h1>
       <section className="public-agent-shell">
         <section className="public-agent-chat-card" aria-label={`Conversa com a ${agentName}`} aria-busy={initializing || sending || audioBusy}>
           <div className="public-agent-chat-head">
@@ -1039,7 +1039,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
             </div>
             <div>
               <strong>{agentName}</strong>
-              <span>Atendimento digital · Évora Urbanismo</span>
+              <span>{PUBLIC_AGENT_BRAND_LINE}</span>
             </div>
             {converted && <em className="public-agent-captured">Atendimento registrado</em>}
           </div>
@@ -1199,12 +1199,12 @@ export function PublicAgentExperience({ slug, experience }: Props) {
             </div>
           )}
           <p className="public-agent-disclosure">
-            Atendimento comercial com IA. Esta conversa e os dados enviados
+            Atendimento comercial com IA da Futura Casa, parceira da Évora Urbanismo. Esta conversa e os dados enviados
             ficam registrados para atendimento, segurança e histórico
             comercial. Valores e disponibilidade são consultados na plataforma
-            da Évora.{" "}
+            da Évora Urbanismo.{" "}
             <a
-              href="mailto:relacionamento@evoraurbanismo.com.br?subject=Privacidade%20-%20Atendimento%20Vit%C3%B3ria"
+              href="mailto:relacionamento@evoraurbanismo.com.br?subject=Privacidade%20-%20Atendimento%20Bia%20Futura%20Casa"
             >
               Falar sobre privacidade
             </a>

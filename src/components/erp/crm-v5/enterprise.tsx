@@ -273,6 +273,7 @@ export function CrmEnterprise({
           lead={activity}
           close={() => setActivity(undefined)}
           done={done}
+          canAssignBroker={can("crm.assign")}
         />
       )}
     </div>

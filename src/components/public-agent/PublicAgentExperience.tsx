@@ -205,10 +205,6 @@ function initialGreeting(experience: PublicAgentExperience) {
   ) {
     return currentAgentCopy(configured);
   }
-  const project = experience.name?.normalize("NFC").trim();
-  const destination = project && project !== "Évora Urbanismo"
-    ? ` ou ainda conhecendo o ${project}`
-    : " ou ainda conhecendo as opções da Évora";
   return `Oi! Tudo bem? Eu sou a ${publicAgentName(experience.agentName)}, especialista da Futura Casa, parceira da Évora Urbanismo. Estou aqui especialmente para te ajudar com o Solaris Residencial Resort, em Monte Carmelo. Você está pensando em morar, investir ou quer comparar as condições?`;
 }
 

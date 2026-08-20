@@ -180,9 +180,9 @@ export function AiRuntimeSettings({
       <header>
         <div>
           <small>INTELIGÊNCIA COMERCIAL</small>
-          <h3>Bia · Agente Comercial IA</h3>
+          <h3>Bia · Especialista Comercial IA da Futura Casa</h3>
           <p>
-            Atendimento com IA integrado ao CRM. A Bia conversa diretamente com o cliente e consulta
+            Atendimento da Futura Casa, parceira da Évora Urbanismo, integrado ao CRM. A Bia conversa diretamente com o cliente e consulta
             o ERP por ferramentas controladas quando precisa de dados ou executar uma ação.
           </p>
         </div>

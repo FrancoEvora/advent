@@ -37,26 +37,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const experience = await experienceOrNull(slug);
   if (!experience) {
     return {
-      title: "Atendimento não encontrado — Évora Urbanismo",
+      title: "Atendimento não encontrado — Futura Casa",
       robots: { index: false, follow: false },
     };
   }
   return {
-    title: `${experience.name} — Atendimento com a Bia`,
+    title: `${experience.name} — Atendimento com a Bia | Futura Casa`,
     description: experience.subtitle,
-    applicationName: "Atendimento Inteligente Évora",
+    applicationName: "Bia — Futura Casa",
     manifest: "/atendimento/manifest.webmanifest",
     robots: { index: true, follow: true },
     openGraph: {
-      title: `${experience.name} — Atendimento inteligente`,
+      title: `${experience.name} — Futura Casa`,
       description: experience.subtitle,
       type: "website",
       locale: "pt_BR",
-      siteName: "Évora Urbanismo",
+      siteName: "Futura Casa · Parceira da Évora Urbanismo",
     },
     twitter: {
       card: "summary_large_image",
-      title: `${experience.name} — Atendimento inteligente`,
+      title: `${experience.name} — Futura Casa`,
       description: experience.subtitle,
     },
   };

@@ -228,7 +228,7 @@ function attributionFromLocation() {
   return Object.fromEntries(keys.map((key) => [key, params.get(key)]).filter(([, value]) => Boolean(value)));
 }
 
-function mapStoredMessages(messages: PublicAgentMessage[]): UiMessage[] {
+function mapStoredMessages(messages: PublicAgentMessage[], experience: PublicAgentExperience): UiMessage[] {
   return messages
     .filter((message) => message.direction === "user" || message.direction === "assistant")
     .map((message) => {
@@ -242,7 +242,9 @@ function mapStoredMessages(messages: PublicAgentMessage[]): UiMessage[] {
       return {
         id: String(message.id),
         direction: message.direction as "user" | "assistant",
-        content: message.content,
+        content: message.direction === "assistant" && metadata.initial_greeting === true
+          ? initialGreeting(experience)
+          : message.content,
         createdAt: message.created_at,
         deliveryState: message.direction === "user" ? "sent" as const : undefined,
         ...(storedAudio
@@ -516,7 +518,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         const payload = (await response.json()) as SessionResponse;
         if (!response.ok || !payload.ok) throw new Error(payload.error || "PUBLIC_AGENT_SESSION_UNAVAILABLE");
         if (!active) return;
-        const restoredMessages = mapStoredMessages(payload.messages || []);
+        const restoredMessages = mapStoredMessages(payload.messages || [], experience);
         setMessages(restoredMessages);
         setStage(payload.stage || "welcome");
         setConverted(Boolean(payload.converted));

@@ -1,0 +1,54 @@
+name: Refresh stored Bia greeting identity
+
+on:
+  push:
+    branches:
+      - feature/futura-casa-bia-identity
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/futura-casa-bia-identity
+          fetch-depth: 0
+      - name: Normalize restored initial greeting
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/components/public-agent/PublicAgentExperience.tsx')
+          text = path.read_text()
+          replacements = [
+              (
+                  'function mapStoredMessages(messages: PublicAgentMessage[]): UiMessage[] {',
+                  'function mapStoredMessages(messages: PublicAgentMessage[], experience: PublicAgentExperience): UiMessage[] {'
+              ),
+              (
+                  '        content: message.content,',
+                  '        content: message.direction === "assistant" && metadata.initial_greeting === true\n          ? initialGreeting(experience)\n          : message.content,'
+              ),
+              (
+                  '        const restoredMessages = mapStoredMessages(payload.messages || []);',
+                  '        const restoredMessages = mapStoredMessages(payload.messages || [], experience);'
+              ),
+          ]
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f'trecho não encontrado: {old}')
+              text = text.replace(old, new, 1)
+          path.write_text(text)
+          PY
+      - name: Remove one-off workflow
+        run: rm .github/workflows/refresh-futura-casa-stored-greeting.yml
+      - name: Commit restored greeting normalization
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Normaliza saudação antiga para a identidade da Futura Casa"
+          git push origin HEAD:feature/futura-casa-bia-identity

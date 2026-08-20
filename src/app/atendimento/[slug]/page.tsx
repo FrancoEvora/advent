@@ -46,6 +46,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description: experience.subtitle,
     applicationName: "Bia — Futura Casa",
     manifest: "/atendimento/manifest.webmanifest",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: "Bia — Futura Casa",
+    },
     robots: { index: true, follow: true },
     openGraph: {
       title: `${experience.name} — Futura Casa`,

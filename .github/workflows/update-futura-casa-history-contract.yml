@@ -1,0 +1,52 @@
+name: Update Futura Casa public identity contract
+
+on:
+  push:
+    branches:
+      - feature/futura-casa-bia-identity
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/futura-casa-bia-identity
+          fetch-depth: 0
+      - name: Update public identity assertions
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('tests/crm-conversation-history-archive.test.mjs')
+          text = path.read_text()
+          old = '''  assert.match(
+    publicExperience,
+    /Oi! Tudo bem\\? Sou a \\$\\{publicAgentName\\(experience\\.agentName\\)\\}, da Évora/,
+  );
+  assert.match(publicExperience, /PUBLIC_AGENT_DISPLAY_NAME = "Bia"/);
+'''
+          new = '''  assert.match(
+    publicExperience,
+    /Oi! Tudo bem\\? Eu sou a \\$\\{publicAgentName\\(experience\\.agentName\\)\\}, especialista da Futura Casa, parceira da Évora Urbanismo/,
+  );
+  assert.match(publicExperience, /PUBLIC_AGENT_DISPLAY_NAME = "Bia"/);
+  assert.match(publicExperience, /PUBLIC_AGENT_BRAND_LINE = "Especialista da Futura Casa · Parceira da Évora Urbanismo"/);
+  assert.match(publicExperience, /metadata\\.initial_greeting === true[\\s\\S]*initialGreeting\\(experience\\)/);
+'''
+          if old not in text:
+              raise SystemExit('contrato público antigo não encontrado')
+          path.write_text(text.replace(old, new, 1))
+          PY
+      - name: Remove one-off workflow
+        run: rm .github/workflows/update-futura-casa-history-contract.yml
+      - name: Commit public identity contract
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "Atualiza contrato público da identidade Futura Casa"
+          git push origin HEAD:feature/futura-casa-bia-identity

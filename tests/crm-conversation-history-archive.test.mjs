@@ -7,6 +7,9 @@ const [
   archiveRoute,
   leadsView,
   publicExperience,
+  publicLoading,
+  publicError,
+  publicPage,
   humanReplies,
   archiveGuard,
   greetingMigration,
@@ -19,6 +22,9 @@ const [
     readFile("src/app/api/crm/leads/archive/route.ts", "utf8"),
     readFile("src/components/erp/crm-v5/leads-view.tsx", "utf8"),
     readFile("src/components/public-agent/PublicAgentExperience.tsx", "utf8"),
+    readFile("src/app/atendimento/[slug]/loading.tsx", "utf8"),
+    readFile("src/app/atendimento/[slug]/error.tsx", "utf8"),
+    readFile("src/app/atendimento/[slug]/page.tsx", "utf8"),
     readFile(
       "supabase/migrations/20260817154000_vitoria_humanized_action_replies.sql",
       "utf8",
@@ -70,6 +76,15 @@ test("Bia conversa naturalmente sem esconder o uso de IA", () => {
   assert.match(
     publicExperience,
     /metadata\.initial_greeting === true[\s\S]*initialGreeting\(experience\)/,
+  );
+  assert.match(publicLoading, /Futura Casa · Parceira da Évora Urbanismo/);
+  assert.match(publicLoading, /Solaris Residencial Resort/);
+  assert.doesNotMatch(publicLoading, /<span>Évora Urbanismo<\/span>/);
+  assert.match(publicError, /Futura Casa · Parceira da Évora Urbanismo/);
+  assert.doesNotMatch(publicError, /<span>Évora Urbanismo<\/span>/);
+  assert.match(
+    publicPage,
+    /appleWebApp:\s*\{[\s\S]*title:\s*"Bia — Futura Casa"/,
   );
   assert.doesNotMatch(
     publicExperience,

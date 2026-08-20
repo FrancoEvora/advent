@@ -6,9 +6,9 @@ export default function PublicAgentError({ reset }: { error: Error & { digest?: 
       <section className="public-agent-state-card" role="alert">
         <div className="public-agent-state-avatar" aria-hidden="true">B</div>
         <div>
-          <span>Évora Urbanismo</span>
+          <span>Futura Casa · Parceira da Évora Urbanismo</span>
           <h1>O atendimento está se reconectando</h1>
-          <p>Não foi possível abrir a conversa agora. Nenhum cadastro ou bloqueio foi executado.</p>
+          <p>Não foi possível abrir a conversa agora. Nenhum cadastro, visita ou bloqueio foi executado.</p>
         </div>
         <button type="button" onClick={reset}>Tentar novamente</button>
       </section>

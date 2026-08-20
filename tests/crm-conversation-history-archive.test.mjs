@@ -60,9 +60,17 @@ test("exclusão administrativa arquiva sem apagar o histórico", () => {
 test("Bia conversa naturalmente sem esconder o uso de IA", () => {
   assert.match(
     publicExperience,
-    /Oi! Tudo bem\? Sou a \$\{publicAgentName\(experience\.agentName\)\}, da Évora/,
+    /Oi! Tudo bem\? Eu sou a \$\{publicAgentName\(experience\.agentName\)\}, especialista da Futura Casa, parceira da Évora Urbanismo/,
   );
   assert.match(publicExperience, /PUBLIC_AGENT_DISPLAY_NAME = "Bia"/);
+  assert.match(
+    publicExperience,
+    /PUBLIC_AGENT_BRAND_LINE = "Especialista da Futura Casa · Parceira da Évora Urbanismo"/,
+  );
+  assert.match(
+    publicExperience,
+    /metadata\.initial_greeting === true[\s\S]*initialGreeting\(experience\)/,
+  );
   assert.doesNotMatch(
     publicExperience,
     /assistente virtual da Évora Urbanismo\. Posso te ajudar/,

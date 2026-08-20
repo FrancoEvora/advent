@@ -351,6 +351,10 @@ export function ActivityModal({
       setError("Selecione um lead.");
       return;
     }
+    if (!selectedLead || selectedLead.record_status === "arquivada") {
+      setError("O lead está arquivado e não pode receber novas atividades.");
+      return;
+    }
     if (!subject.trim()) {
       setError("Informe o assunto da atividade.");
       return;

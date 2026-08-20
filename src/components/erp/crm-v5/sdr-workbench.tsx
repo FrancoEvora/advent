@@ -15,6 +15,13 @@ import {
 import { SdrAssignmentPanel } from "./sdr-assignment-panel";
 
 type QueueFilter = "priority" | "unanswered" | "mine" | "overdue";
+type QueueSort =
+  | "priority"
+  | "date_desc"
+  | "date_asc"
+  | "source"
+  | "name"
+  | "stage";
 
 const outcomeLabels: Record<SdrOutcome, string> = {
   nao_atendeu: "Não atendeu",
@@ -23,6 +30,15 @@ const outcomeLabels: Record<SdrOutcome, string> = {
   sem_interesse: "Sem interesse",
   visita_agendada: "Visita agendada",
   proposta_solicitada: "Proposta solicitada",
+};
+
+const queueSortLabels: Record<QueueSort, string> = {
+  priority: "Prioridade automática",
+  date_desc: "Data · mais recentes",
+  date_asc: "Data · mais antigos",
+  source: "Origem · A–Z",
+  name: "Nome · A–Z",
+  stage: "Etapa · A–Z",
 };
 
 function formatDate(value: string | null | undefined) {
@@ -49,6 +65,56 @@ function priorityTone(label: SdrLeadContext["priorityLabel"]) {
   return "neutral";
 }
 
+function normalizeQueueText(value: string | null | undefined) {
+  return (value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .trim();
+}
+
+function sourceLabel(context: SdrLeadContext) {
+  return (
+    context.lead.source ||
+    context.lead.source_channel ||
+    context.lead.utm_source ||
+    context.campaign?.name ||
+    "Origem não informada"
+  );
+}
+
+function stageLabel(context: SdrLeadContext) {
+  return context.stage?.name || context.lead.stage || "Etapa não informada";
+}
+
+function leadCreatedAt(context: SdrLeadContext) {
+  const timestamp = new Date(context.lead.created_at).getTime();
+  return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function sortQueue(items: SdrLeadContext[], sort: QueueSort) {
+  if (sort === "priority") return items;
+  return [...items].sort((a, b) => {
+    if (sort === "date_desc") {
+      return leadCreatedAt(b) - leadCreatedAt(a) || b.priorityScore - a.priorityScore;
+    }
+    if (sort === "date_asc") {
+      return leadCreatedAt(a) - leadCreatedAt(b) || b.priorityScore - a.priorityScore;
+    }
+    if (sort === "source") {
+      return sourceLabel(a).localeCompare(sourceLabel(b), "pt-BR", { sensitivity: "base" }) ||
+        b.priorityScore - a.priorityScore;
+    }
+    if (sort === "stage") {
+      return stageLabel(a).localeCompare(stageLabel(b), "pt-BR", { sensitivity: "base" }) ||
+        b.priorityScore - a.priorityScore;
+    }
+    return (a.lead.person_name || "").localeCompare(b.lead.person_name || "", "pt-BR", {
+      sensitivity: "base",
+    }) || b.priorityScore - a.priorityScore;
+  });
+}
+
 export function SdrWorkbench({
   data,
   crm,
@@ -63,6 +129,8 @@ export function SdrWorkbench({
   can: (permission: string) => boolean;
 }) {
   const [filter, setFilter] = useState<QueueFilter>("priority");
+  const [queueSearch, setQueueSearch] = useState("");
+  const [queueSort, setQueueSort] = useState<QueueSort>("priority");
   const [selectedId, setSelectedId] = useState("");
   const [outcome, setOutcome] = useState<SdrOutcome>("nao_atendeu");
   const [busy, setBusy] = useState("");
@@ -75,7 +143,7 @@ export function SdrWorkbench({
   } | null>(null);
   const now = new Date();
   const contexts = buildPrioritizedSdrQueue(data, crm, now);
-  const queue = (() => {
+  const filteredQueue = (() => {
     if (filter === "unanswered") {
       return contexts.filter((item) => !item.lead.first_response_at);
     }
@@ -95,6 +163,23 @@ export function SdrWorkbench({
     }
     return contexts;
   })();
+  const normalizedSearch = normalizeQueueText(queueSearch);
+  const searchedQueue = normalizedSearch
+    ? filteredQueue.filter((context) =>
+        normalizeQueueText(
+          [
+            context.lead.person_name,
+            context.contact?.name,
+            sourceLabel(context),
+            stageLabel(context),
+            context.projectName,
+          ]
+            .filter(Boolean)
+            .join(" "),
+        ).includes(normalizedSearch),
+      )
+    : filteredQueue;
+  const queue = sortQueue(searchedQueue, queueSort);
   const selected =
     queue.find((item) => item.lead.id === selectedId) || queue[0] || null;
 
@@ -127,8 +212,7 @@ export function SdrWorkbench({
     const client = getSupabase();
     if (!client) return;
     setBusy(`schedule-${context.lead.id}`);
-    const assignedTo =
-      context.lead.sdr_user_id || data.session.user.id;
+    const assignedTo = context.lead.sdr_user_id || data.session.user.id;
     const task = await client.from("crm_actions").insert({
       organization_id: data.organization.id,
       crm_record_id: context.lead.id,
@@ -225,14 +309,16 @@ export function SdrWorkbench({
           .eq("id", context.nextPendingAction.id)
           .select("id")
           .single()
-      : await client.from("crm_actions").insert({
-          organization_id: data.organization.id,
-          crm_record_id: context.lead.id,
-          subject: `${attemptNumber}ª tentativa SDR · ${outcomeLabels[outcome]}`,
-          scheduled_at: nowIso,
-          created_by: data.session.user.id,
-          ...activityPayload,
-        })
+      : await client
+          .from("crm_actions")
+          .insert({
+            organization_id: data.organization.id,
+            crm_record_id: context.lead.id,
+            subject: `${attemptNumber}ª tentativa SDR · ${outcomeLabels[outcome]}`,
+            scheduled_at: nowIso,
+            created_by: data.session.user.id,
+            ...activityPayload,
+          })
           .select("id")
           .single();
     if (activity.error) {
@@ -441,12 +527,87 @@ export function SdrWorkbench({
 
       <div className="sdr67-workspace">
         <section className="crm5-panel sdr67-queue-panel">
-          <header>
+          <header
+            style={{
+              display: "flex",
+              alignItems: "flex-end",
+              justifyContent: "space-between",
+              gap: 14,
+              flexWrap: "wrap",
+            }}
+          >
             <div>
               <small>FILA INTELIGENTE</small>
               <h3>Ordem recomendada de atuação</h3>
             </div>
+            <div
+              role="search"
+              aria-label="Busca e ordenação da fila inteligente"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                flexWrap: "wrap",
+                marginLeft: "auto",
+              }}
+            >
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 10, fontWeight: 700 }}>Buscar</span>
+                <input
+                  type="search"
+                  value={queueSearch}
+                  onChange={(event) => setQueueSearch(event.target.value)}
+                  placeholder="Buscar lead por nome"
+                  aria-label="Buscar lead por nome"
+                  autoComplete="off"
+                  style={{ minWidth: 220, minHeight: 40 }}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 4 }}>
+                <span style={{ fontSize: 10, fontWeight: 700 }}>Ordenar por</span>
+                <select
+                  value={queueSort}
+                  onChange={(event) => setQueueSort(event.target.value as QueueSort)}
+                  aria-label="Ordenar fila inteligente"
+                  style={{ minWidth: 190, minHeight: 40 }}
+                >
+                  {Object.entries(queueSortLabels).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {(queueSearch || queueSort !== "priority") && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQueueSearch("");
+                    setQueueSort("priority");
+                  }}
+                  style={{ minHeight: 40, alignSelf: "flex-end" }}
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
           </header>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              gap: 10,
+              flexWrap: "wrap",
+              padding: "8px 0 4px",
+            }}
+          >
+            <small>
+              {queue.length} de {filteredQueue.length} lead(s) exibido(s)
+            </small>
+            <small>
+              Ordenação: <strong>{queueSortLabels[queueSort]}</strong>
+            </small>
+          </div>
           <div className="sdr67-queue">
             {queue.map((context, index) => (
               <button
@@ -460,9 +621,12 @@ export function SdrWorkbench({
                 <div>
                   <strong>{context.lead.person_name}</strong>
                   <small>
-                    {context.projectName} · {context.stage?.name || context.lead.stage}
+                    {context.projectName} · {stageLabel(context)}
                   </small>
                   <span>{context.recommendation.title}</span>
+                  <small>
+                    {sourceLabel(context)} · Entrada {formatDate(context.lead.created_at)}
+                  </small>
                 </div>
                 <div className="sdr67-priority">
                   <strong>{context.priorityScore}</strong>
@@ -474,8 +638,12 @@ export function SdrWorkbench({
             ))}
             {!queue.length && (
               <EmptyState
-                title="Fila sem itens"
-                text="Nenhum lead corresponde ao filtro selecionado."
+                title={queueSearch ? "Nenhum lead encontrado" : "Fila sem itens"}
+                text={
+                  queueSearch
+                    ? `Nenhum lead corresponde à busca “${queueSearch}”.`
+                    : "Nenhum lead corresponde ao filtro selecionado."
+                }
               />
             )}
           </div>

@@ -45,4 +45,5 @@ jobs:
           deno check
           supabase/functions/enterprise-vitoria-agent/index.ts
           supabase/functions/enterprise-vitoria-agent-gateway/index.ts
+          supabase/functions/enterprise-bia-knowledge-admin/index.ts
       - run: npm run build

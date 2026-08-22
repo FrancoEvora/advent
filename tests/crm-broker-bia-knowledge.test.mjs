@@ -40,8 +40,8 @@ test("conteúdo indexado usa o vector store já consumido pela Bia", () => {
   assert.match(knowledge, /vector_stores/);
   assert.match(knowledge, /set_crm_ai_knowledge_vector_store/);
   assert.match(knowledge, /purpose", "assistants/);
-  assert.match(gateway, /type:"file_search"/);
-  assert.match(gateway, /vector_store_ids:\[runtime\.vectorStoreId\]/);
+  assert.match(gateway, /type\s*:\s*"file_search"/);
+  assert.match(gateway, /vector_store_ids\s*:\s*\[runtime\.vectorStoreId\]/);
 });
 
 test("credencial OpenAI permanece fora da Vercel e do navegador", () => {

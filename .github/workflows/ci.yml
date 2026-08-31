@@ -35,6 +35,7 @@ jobs:
           tests/bia-commercial-presentation.test.mjs
           tests/crm-broker-bia-knowledge.test.mjs
           tests/weekly-platform-audit-hardening.test.mjs
+          tests/weekly-platform-audit-2026-08-31.test.mjs
       - name: Validate CRM conversation and archival contracts
         run: >-
           node --test

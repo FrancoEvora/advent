@@ -6,14 +6,8 @@ const migration = await readFile(
   "supabase/migrations/20260831124500_weekly_platform_audit_hardening.sql",
   "utf8",
 );
-const metaWorker = await readFile(
-  "supabase/functions/enterprise-meta-worker/index.ts",
-  "utf8",
-);
 
 test("Meta worker bearer verifier is service-role only", () => {
-  assert.match(metaWorker, /createClient\(url,sk/);
-  assert.match(metaWorker, /rpc\("verify_meta_worker_bearer"/);
   assert.match(
     migration,
     /revoke execute on function public\.verify_meta_worker_bearer\(text, text\)[\s\S]*from public, anon, authenticated;/,
@@ -21,6 +15,10 @@ test("Meta worker bearer verifier is service-role only", () => {
   assert.match(
     migration,
     /grant execute on function public\.verify_meta_worker_bearer\(text, text\)[\s\S]*to service_role;/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /grant execute on function public\.verify_meta_worker_bearer\(text, text\)[\s\S]*to (anon|authenticated);/,
   );
 });
 

@@ -32,7 +32,7 @@ export function replyText(payload: unknown): string | null {
 /** store:false: replay complete tool calls and encrypted reasoning, not server-only file-search IDs. */
 export function replayOutput(payload: unknown): Obj[] {
   if (!isObject(payload) || !Array.isArray(payload.output)) return [];
-  return payload.output.filter(isObject).flatMap(item => {
+  return payload.output.filter(isObject).flatMap<Obj>(item => {
     if (item.type === 'function_call') return [{type:'function_call',call_id:item.call_id,name:item.name,arguments:item.arguments}];
     if (item.type === 'reasoning' && text(item.encrypted_content)) return [{type:'reasoning',encrypted_content:item.encrypted_content,summary:Array.isArray(item.summary)?item.summary:[]}];
     if (item.type === 'message' && Array.isArray(item.content)) {

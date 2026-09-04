@@ -22,6 +22,8 @@ jobs:
         with:
           deno-version: v2.x
       - run: npm ci --no-audit --no-fund
+      - name: Validate Bia behavioral regressions without external requests
+        run: node --test tests/bia-professional-runtime.test.mjs
       - name: Validate CRM AI safety contracts
         run: >-
           node --test
@@ -48,4 +50,5 @@ jobs:
           supabase/functions/enterprise-vitoria-agent/index.ts
           supabase/functions/enterprise-vitoria-agent-gateway/index.ts
           supabase/functions/enterprise-bia-knowledge-admin/index.ts
+          supabase/functions/enterprise-bia-agent-gateway/index.ts
       - run: npm run build

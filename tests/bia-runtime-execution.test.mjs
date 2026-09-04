@@ -30,11 +30,11 @@ function harness({responses=[],claim=null,overrides={}}={}){
   return {data:{}};
  };
  const core={exports:{}};new Function('exports','module',coreCode)(core.exports,core);
- const module={exports:{}};
+ const runtimeModule={exports:{}};
  const fakeFetch=async(url,opts)=>{assert.equal(url,'https://api.openai.com/v1/responses');modelRequests.push(JSON.parse(opts.body));const next=responses.shift();if(next instanceof Error)throw next;if(!next)throw Error('Unexpected model call');return new Response(JSON.stringify(next.payload||next),{status:next.statusCode||200,headers:{'content-type':'application/json','x-request-id':'req_test'}});};
  const deno={env:{get:n=>({SUPABASE_URL:'https://test.supabase.co',SUPABASE_SERVICE_ROLE_KEY:'server-secret',SUPABASE_PUBLISHABLE_KEYS:JSON.stringify({default:key})})[n]},serve:()=>{}};
- new Function('require','exports','module','Deno','fetch',indexCode)(name=>name==='./core.ts'?core.exports:{createClient:()=>({rpc})},module.exports,module,deno,fakeFetch);
- return {calls,modelRequests,run:async(body={})=>{const r=await module.exports.handleRequest(new Request('https://test/function',{method:'POST',headers:{apikey:key,'content-type':'application/json'},body:JSON.stringify({...base,...body})}));return {status:r.status,...await r.json()};}};
+ new Function('require','exports','module','Deno','fetch',indexCode)(name=>name==='./core.ts'?core.exports:{createClient:()=>({rpc})},runtimeModule.exports,runtimeModule,deno,fakeFetch);
+ return {calls,modelRequests,run:async(body={})=>{const r=await runtimeModule.exports.handleRequest(new Request('https://test/function',{method:'POST',headers:{apikey:key,'content-type':'application/json'},body:JSON.stringify({...base,...body})}));return {status:r.status,...await r.json()};}};
 }
 test('cached duplicate completes without model or tool cost',async()=>{const h=harness({claim:{state:'succeeded',response:{reply:'cached',status:'completed'}}});const r=await h.run();assert.equal(r.data.reply,'cached');assert.equal(h.modelRequests.length,0);});
 test('active identical request only polls without executing',async()=>{const h=harness({claim:{state:'inProgress'}});const r=await h.run();assert.equal(r.status,202);assert.equal(r.data.status,'processing');assert.equal(h.modelRequests.length,0);});

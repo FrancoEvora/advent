@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { canonical, cleanReply, replyText, replayOutput, toolCalls, phone, evidencedContact, safeFilters, compactCommercial, cheapestUnit, bestScenario, simulationSummary, errorKind, dateWithZone, safeExternalUrl } from '../supabase/functions/enterprise-bia-agent-gateway/core';
+import { canonical, cleanReply, replyText, replayOutput, toolCalls, phone, evidencedContact, safeFilters, compactCommercial, cheapestUnit, bestScenario, simulationSummary, errorKind, dateWithZone, safeExternalUrl } from '../supabase/functions/enterprise-bia-agent-gateway/core.ts';
 const call=(id:string,name='consultar_estoque',args='{}')=>({type:'function_call',call_id:id,name,arguments:args});
 test('every function call receives a unique parsed item',()=>{const c=toolCalls({output:[call('a'),call('b','simular_pagamento'),call('a')]});assert.deepEqual(c.map(x=>x.callId),['a','b']);});
 test('malformed JSON and arrays are invalid, not empty valid tool actions',()=>{assert.equal(toolCalls({output:[call('a','x','bad')]} )[0].invalid,true);assert.equal(toolCalls({output:[call('b','x','[]')]} )[0].invalid,true);});

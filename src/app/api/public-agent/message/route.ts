@@ -125,9 +125,11 @@ function normalizePresentation(result: PublicAgentTurnResponse): PublicAgentTurn
   if (result.status !== "completed") return result;
   const prelude = commercialPrelude(result.simulation, result.commercial);
   const reply = result.reply || "";
+  // The runtime already explains the terms and the UI renders structured cards.
+  // Only recover a missing textual answer; never duplicate the whole policy.
   return {
     ...result,
-    reply: prelude && !reply.includes("Condições comerciais:")
+    reply: prelude && !reply.trim()
       ? `${prelude}\n\n${reply}`.trim()
       : reply,
     attachments: dedupeAttachments(result.attachments, result.simulation),

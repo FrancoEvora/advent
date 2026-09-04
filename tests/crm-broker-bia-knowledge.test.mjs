@@ -16,7 +16,6 @@ test("atividade comercial exige corretor e agenda para visitas", () => {
   assert.match(activity, /conflictingIntervals/);
   assert.match(activity, /canAssignBroker/);
 });
-
 test("banco protege conflito e cria compromisso do corretor", () => {
   assert.match(migration, /pg_advisory_xact_lock/);
   assert.match(migration, /O corretor já possui compromisso neste horário/);
@@ -24,7 +23,6 @@ test("banco protege conflito e cria compromisso do corretor", () => {
   assert.match(migration, /private\.create_crm_assignment/);
   assert.match(migration, /get_crm_broker_availability/);
 });
-
 test("base da Bia usa Edge segura e tenant-scoped", () => {
   assert.match(settings, /BiaKnowledgeBase/);
   assert.match(proxy, /enterprise-bia-knowledge-admin/);
@@ -35,15 +33,15 @@ test("base da Bia usa Edge segura e tenant-scoped", () => {
   assert.match(migration, /enable row level security/);
   assert.match(migration, /crm_ai_knowledge_documents/);
 });
-
-test("conteúdo indexado usa o vector store já consumido pela Bia", () => {
+test("conteúdo indexado usa o vector store configurado sem depender de itens hospedados não persistidos", () => {
   assert.match(knowledge, /vector_stores/);
   assert.match(knowledge, /set_crm_ai_knowledge_vector_store/);
   assert.match(knowledge, /purpose", "assistants/);
-  assert.match(gateway, /type\s*:\s*"file_search"/);
-  assert.match(gateway, /vector_store_ids\s*:\s*\[runtime\.vectorStoreId\]/);
+  assert.match(gateway, /knowledge_vector_store_id/);
+  assert.match(gateway, /vector_stores\/\$\{turn\.runtime\.vectorStoreId\}\/search/);
+  assert.match(gateway, /max_num_results\s*:\s*5/);
+  assert.doesNotMatch(gateway, /type\s*:\s*"file_search"/);
 });
-
 test("credencial OpenAI permanece fora da Vercel e do navegador", () => {
   assert.match(migration, /get_crm_ai_knowledge_runtime_credentials/);
   assert.match(migration, /service_role/);
@@ -53,7 +51,6 @@ test("credencial OpenAI permanece fora da Vercel e do navegador", () => {
   assert.doesNotMatch(proxy, /get_crm_ai_knowledge_runtime_credentials/);
   assert.doesNotMatch(proxy, /apiKey/);
 });
-
 test("proxy preserva multipart e falha fechado", () => {
   assert.match(proxy, /request\.arrayBuffer\(\)/);
   assert.match(proxy, /multipart\/form-data/);

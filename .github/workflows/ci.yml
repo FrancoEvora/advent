@@ -36,8 +36,10 @@ jobs:
           tests/crm-broker-bia-knowledge.test.mjs
           tests/weekly-platform-audit-hardening.test.mjs
           tests/weekly-platform-audit-2026-08-31.test.mjs
-      - name: Validate Bia behavioral and execution regressions
-        run: node --test tests/bia-professional-behavior.test.mts tests/bia-runtime-execution.test.mjs
+      - name: Validate Bia execution regressions
+        run: node --test tests/bia-runtime-execution.test.mjs
+      - name: Validate Bia pure behavior contracts
+        run: deno test tests/bia-professional-behavior.test.mts
       - name: Validate CRM conversation and archival contracts
         run: >-
           node --test

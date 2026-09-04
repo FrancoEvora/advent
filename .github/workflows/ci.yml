@@ -36,6 +36,8 @@ jobs:
           tests/crm-broker-bia-knowledge.test.mjs
           tests/weekly-platform-audit-hardening.test.mjs
           tests/weekly-platform-audit-2026-08-31.test.mjs
+      - name: Validate Bia behavioral and execution regressions
+        run: node --test tests/bia-professional-behavior.test.mts tests/bia-runtime-execution.test.mjs
       - name: Validate CRM conversation and archival contracts
         run: >-
           node --test
@@ -47,5 +49,6 @@ jobs:
           deno check
           supabase/functions/enterprise-vitoria-agent/index.ts
           supabase/functions/enterprise-vitoria-agent-gateway/index.ts
+          supabase/functions/enterprise-bia-agent-gateway/index.ts
           supabase/functions/enterprise-bia-knowledge-admin/index.ts
       - run: npm run build

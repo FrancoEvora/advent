@@ -9,6 +9,7 @@ import { PanelTitle } from "../views-dashboard";
 import { EntityDocumentModal } from "../documents/entity-document-modal";
 import { EntryFields } from "./entry-fields";
 import { QuickContactModal } from "./quick-contact-modal";
+import { ArisaEntryEvidence } from "../arisa/entry-evidence";
 
 const documentTypes = [
   ["nota_fiscal", "Nota fiscal"],
@@ -152,6 +153,7 @@ export function EntryModal({ data, revenueCenters, entry, close, mutate }: { dat
     <div className="modal-backdrop" onMouseDown={close}><form className="modal large" onSubmit={submit} onMouseDown={event => event.stopPropagation()}><PanelTitle eyebrow={entry ? "EDITAR MOVIMENTO" : "NOVO MOVIMENTO"} title={entry ? entry.description : "Adicionar lançamento financeiro"} /><button className="modal-close" type="button" onClick={close}>×</button>
       <EntryFields data={data} revenueCenters={revenueCenters} entry={entry} entryType={entryType} setEntryType={setEntryType} amountChanged={setAmount} dueDate={dueDate} setDueDate={setDueDate} scheduledPaymentDate={scheduledPaymentDate} setScheduledPaymentDate={setScheduledPaymentDate} accountId={accountId} setAccountId={setAccountId} contactId={contactId} setContactId={setContactId} contacts={contacts} openContact={() => setQuickContact(true)} />
       <div className="form-section entry-documents-section"><div className="entry-documents-heading"><div><h4>Documentos do lançamento</h4><small>Anexe nota fiscal, boleto, contrato ou comprovante. Os arquivos ficam em armazenamento privado.</small></div>{entry && <button type="button" onClick={() => setDocumentsOpen(true)}>Gerenciar documentos <b>{linkedDocuments.length}</b></button>}</div><div className="form-grid three"><label>Tipo do documento<select name="attachment_type" defaultValue="nota_fiscal">{documentTypes.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label className="span-2">Arquivos<input name="attachments" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.xlsx,.csv" /></label></div></div>
+      {entry && <ArisaEntryEvidence organizationId={data.organization.id} entryId={entry.id} />}
       {risk?.risky && <div className={`cash-risk-alert ${risk.level}`}><div><b>!</b><span><strong>Risco de caixa {risk.level}</strong><small>Saldo projetado após o pagamento: {money.format(risk.projectedBalance)}</small></span></div><p>{risk.reason}</p>{risk.recommendedDate && <button type="button" onClick={() => setScheduledPaymentDate(risk.recommendedDate!)}>Programar para a data recomendada: {shortDate.format(dateAtNoon(risk.recommendedDate))}</button>}<em>O vencimento contratual será preservado. A programação somente será confirmada após as aprovações necessárias.</em></div>}
       {error && <div className="feedback error"><strong>Não foi possível salvar.</strong><span>{error}</span></div>}
       <footer><button type="button" onClick={close}>Cancelar</button><button className="primary">{entry ? "Salvar alterações" : "Salvar lançamento"}</button></footer>

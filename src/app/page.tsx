@@ -11,7 +11,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const metaLeads = params.meta === "leads";
   return <ErpAppV55
     initialTarget={target}
-    initialView={metaLeads ? "crm" : "dashboard"}
+    initialView={params.view === "arisa" ? "arisa" : metaLeads ? "crm" : "dashboard"}
     initialCrmSection={metaLeads ? "settings" : "overview"}
   />;
 }

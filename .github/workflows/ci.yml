@@ -38,6 +38,12 @@ jobs:
           tests/weekly-platform-audit-2026-08-31.test.mjs
       - name: Validate Bia execution regressions
         run: node --test tests/bia-runtime-execution.test.mjs
+      - name: Validate Arisa financial and CRM operations
+        run: >-
+          node --test
+          tests/arisa-crm-operations.test.mts
+          tests/arisa-document-extraction.test.mts
+          tests/arisa-operations-handler.test.mts
       - name: Validate Bia pure behavior contracts
         run: deno test tests/bia-professional-behavior.test.mts
       - name: Validate CRM conversation and archival contracts
@@ -53,4 +59,5 @@ jobs:
           supabase/functions/enterprise-vitoria-agent-gateway/index.ts
           supabase/functions/enterprise-bia-agent-gateway/index.ts
           supabase/functions/enterprise-bia-knowledge-admin/index.ts
+          supabase/functions/arisa-operations/index.ts
       - run: npm run build

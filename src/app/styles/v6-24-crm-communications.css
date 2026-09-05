@@ -365,3 +365,8 @@
     justify-self: start;
   }
 }
+
+/* The current version is rendered by the application, including screen readers. */
+.erp-v55 .sidebar-version > span { font-size: 11px; }
+.erp-v55 .sidebar-version > span::after, .auth-v5 form > small:first-child::after { content: none; }
+.auth-v5 form > small:first-child { font-size: 11px; }

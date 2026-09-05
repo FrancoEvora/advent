@@ -18,5 +18,21 @@ if(!s.includes('mediaCapabilities')){
     report.results.push({browser:name,kind:'audio-diagnostics',passed:false,diagnostic});
     throw error;
    }finally{await context.close();}`);
- fs.writeFileSync(file,s);
 }
+if(!s.includes("kind:'unsupported-mediarecorder-fallback'")){
+ const old="    console.log('BIA_BROWSER_CAPABILITIES',name,JSON.stringify(mediaCapabilities));\n    await microphone(page);";
+ assert.equal(s.split(old).length,2);
+ s=s.replace(old,`    console.log('BIA_BROWSER_CAPABILITIES',name,JSON.stringify(mediaCapabilities));
+    if(mediaCapabilities.mediaRecorder==='undefined'){
+      await page.getByRole('button',{name:'Gravar mensagem de voz'}).click();
+      await page.getByRole('alert').waitFor();
+      assert.match(await page.getByRole('alert').innerText(),/gravação não está disponível/);
+      assert.equal(await page.getByRole('textbox').isEnabled(),true);
+      assert.equal(calls.transcriptions.length,0);
+      await page.screenshot({path:'.qa/results/'+name+'-recording-unavailable.png'});
+      report.results.push({browser:name,kind:'unsupported-mediarecorder-fallback',passed:true,recordingTested:false,reason:'The installed WebKit build does not expose MediaRecorder. Physical Safari/iPhone recording remains unverified.'});
+      continue;
+    }
+    await microphone(page);`);
+}
+fs.writeFileSync(file,s);

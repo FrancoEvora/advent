@@ -8,6 +8,11 @@ let test=fs.readFileSync(qa,'utf8');
 test=test.replaceAll("page.getByText('Entendi sua mensagem. Vou consultar os lotes do Solaris.')","page.locator('.public-agent-messages').getByText('Entendi sua mensagem. Vou consultar os lotes do Solaris.')");
 test=test.replace("res.setHeader('content-type','text/css')","res.setHeader('content-type','text/css; charset=utf-8')");
 test=test.replace('<head><meta name="viewport"','<head><meta charset="utf-8"><meta name="viewport"');
+// The synthetic microphone needs its AudioContext resumed inside the user gesture,
+// just as Safari requires for audio playback. Real getUserMedia does not use this adapter.
+test=test.replace('window.__qaMicCalls++;await new Promise(r=>setTimeout(r,200));','window.__qaMicCalls++;const ctx=denied?null:new AudioContext();const resumed=ctx?.resume();await new Promise(r=>setTimeout(r,200));');
+test=test.replace('const ctx=new AudioContext();const buffer=','const buffer=');
+test=test.replace('await ctx.resume();source.start();','await resumed;source.start();');
 fs.writeFileSync(qa,test);
 
 const css='src/app/styles/v6-27-bia-whatsapp.css';let styles=fs.readFileSync(css,'utf8');
@@ -63,8 +68,13 @@ if(!source.includes('transcribeBiaAudio')){
 const ui='src/components/public-agent/PublicAgentExperience.tsx';let experience=fs.readFileSync(ui,'utf8');
 if(!experience.includes('PUBLIC_AGENT_AUDIO_MODEL_UNAVAILABLE:')){
  experience=experience.replace('const ERROR_TEXT: Record<string, string> = {','const ERROR_TEXT: Record<string, string> = {\n  PUBLIC_AGENT_AUDIO_MODEL_UNAVAILABLE: "A transcrição de áudio precisa ser habilitada na integração. Por enquanto, envie sua mensagem por escrito.",\n  PUBLIC_AGENT_AUDIO_PROVIDER_QUOTA: "A transcrição está temporariamente indisponível na integração. Seu áudio foi mantido para tentar novamente.",\n  PUBLIC_AGENT_AUDIO_PROVIDER_BUSY: "A transcrição está ocupada agora. Aguarde um momento e tente novamente com o mesmo áudio.",');
- fs.writeFileSync(ui,experience);
 }
+if(!experience.includes('const permanentAudioErrors = [')){
+ const start=experience.indexOf('  async function requestTranscription(');assert.ok(start>0);
+ const before=experience.slice(0,start),after=experience.slice(start);
+ experience=before+after.replace('      if (response.status >= 500) {','      const permanentAudioErrors = ["PUBLIC_AGENT_AUDIO_MODEL_UNAVAILABLE", "PUBLIC_AGENT_AUDIO_PROVIDER_QUOTA", "PUBLIC_AGENT_AUDIO_TRANSCRIPT_TOO_LONG"];\n      if (permanentAudioErrors.includes(payload.error || "")) throw new Error(payload.error);\n      if (response.status >= 500) {');
+}
+fs.writeFileSync(ui,experience);
 const viewport='tests/public-agent-mobile-viewport.test.mjs';
 let vp=fs.readFileSync(viewport,'utf8');
 vp=vp.replace('/ref=\\{messagesRef\\} className="public-agent-messages"/', '/ref=\\{messagesRef\\}[\\s\\S]{0,400}className="public-agent-messages"/');

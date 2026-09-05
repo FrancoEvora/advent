@@ -67,6 +67,8 @@ try{
    }
    const {page,context,calls}=await pageWithApi(browser,390,844,false);
    try{
+    const mediaCapabilities=await page.evaluate(()=>({mediaRecorder:typeof MediaRecorder,audioContext:typeof AudioContext,secure:window.isSecureContext,mimes:['audio/webm;codecs=opus','audio/mp4;codecs=mp4a.40.2','audio/mp4'].map(mime=>({mime,supported:typeof MediaRecorder!=='undefined'&&MediaRecorder.isTypeSupported(mime)}))}));
+    console.log('BIA_BROWSER_CAPABILITIES',name,JSON.stringify(mediaCapabilities));
     await microphone(page);
     await page.getByRole('button',{name:'Gravar mensagem de voz'}).click();await page.getByRole('group',{name:'Gravando mensagem de voz'}).waitFor();
     await page.waitForTimeout(3600);assert.equal(await page.evaluate(()=>window.__qaMicCalls),1);
@@ -83,6 +85,12 @@ try{
     await page.getByRole('button',{name:'Gravar mensagem de voz'}).click();await page.getByRole('group',{name:'Gravando mensagem de voz'}).waitFor();await page.getByRole('button',{name:'Descartar gravação'}).click();await page.getByRole('button',{name:'Gravar mensagem de voz'}).waitFor();assert.equal(calls.transcriptions.length,2,'cancel never sends');
     assert.equal(await page.evaluate(()=>window.__qaStreams.every(s=>s.getTracks().every(t=>t.readyState==='ended'))),true,'all microphone tracks released');
     report.results.push({browser:name,kind:'real-mediarecorder-with-mocked-backend',passed:true,transcriptionRetries:2,voiceTurns:1});
+   }catch(error){
+    const diagnostic=await page.evaluate(()=>({body:document.body.innerText,micCalls:window.__qaMicCalls,streams:window.__qaStreams?.map(s=>s.getTracks().map(t=>({state:t.readyState,kind:t.kind}))),capabilities:typeof MediaRecorder==='undefined'?null:['audio/webm;codecs=opus','audio/mp4;codecs=mp4a.40.2','audio/mp4'].map(mime=>({mime,supported:MediaRecorder.isTypeSupported(mime)}))}));
+    console.log('BIA_BROWSER_AUDIO_FAILURE',name,JSON.stringify(diagnostic));
+    await page.screenshot({path:'.qa/results/'+name+'-audio-failure.png'});
+    report.results.push({browser:name,kind:'audio-diagnostics',passed:false,diagnostic});
+    throw error;
    }finally{await context.close();}
    const denied=await pageWithApi(browser,390,844,false);
    try{await microphone(denied.page,true);await denied.page.getByRole('button',{name:'Gravar mensagem de voz'}).click();await denied.page.getByRole('alert').waitFor();assert.match(await denied.page.getByRole('alert').innerText(),/permita o microfone/);assert.equal(await denied.page.getByRole('textbox').isEnabled(),true);report.results.push({browser:name,kind:'permission-denied',passed:true});}finally{await denied.context.close();}

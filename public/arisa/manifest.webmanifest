@@ -1,0 +1,16 @@
+{
+  "id": "/arisa",
+  "name": "Arisa — Évora Urbanismo",
+  "short_name": "Arisa",
+  "description": "Conversa privada com a administradora da plataforma Évora.",
+  "start_url": "/arisa",
+  "scope": "/arisa",
+  "display": "standalone",
+  "background_color": "#efeae2",
+  "theme_color": "#075e54",
+  "lang": "pt-BR",
+  "orientation": "any",
+  "icons": [
+    { "src": "/arisa/icon", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -8,6 +8,16 @@ A Arisa consulta o catálogo atual de dados, resolve nomes para identificadores 
 
 ## Recursos
 
+### Instalação no iPhone (6.29.1)
+
+Abra `https://advent-tau.vercel.app/arisa` no Safari, use Compartilhar → Adicionar à Tela de Início e mantenha "Abrir como App da Web" ativado, quando disponível. O ícone abre a Arisa em modo aplicativo, sem as barras do Safari; os indicadores do iOS permanecem sob controle do sistema. Um atalho antigo que abre a raiz precisa ser removido e adicionado novamente após a publicação.
+
+A Arisa tem manifesto próprio (`/arisa/manifest.webmanifest`), com `id`, `start_url` e `scope` em `/arisa`. A instalação não fixa o identificador de uma conversa privada. Ícones PNG dedicados (512 px e Apple 180 px) e áreas seguras protegem o cabeçalho, o rodapé e o menu em iPhones com recorte de tela. A configuração de instalação da plataforma e a Bia permanecem inalteradas. Login continua obrigatório; instalar não concede acesso administrativo nem habilita funcionamento offline.
+
+Verificação: `node --test tests/arisa-installation.test.mjs tests/public-agent-mobile-viewport.test.mjs`. A confirmação final da instalação em tela inicial requer um iPhone real.
+
+### Operações
+
 - Consultas e agregações completas (financeiro, CRM, obras, contratos, RH, agenda, marketing, pós-venda e administração).
 - Cadastros e alterações em entidades autorizadas no catálogo; controle otimista por revisão para não sobrescrever trabalho concorrente.
 - Rotinas transacionais de designação/atividade/arquivamento de CRM, documentos, medições, contratos e obras.

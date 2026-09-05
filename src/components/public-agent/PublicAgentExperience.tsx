@@ -1,13 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import { CommercialUnitsView } from "./ChatLotOptions";
+import { AudioMessageView, ChatVoicePlayer, ChatPrivacyNote } from "./ChatVoiceMessage";
 import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   PublicAgentAttachment,
   PublicAgentAudio,
   PublicAgentCommercialContext,
-  PublicAgentCommercialUnit,
   PublicAgentExperience,
   PublicAgentMessage,
   PublicAgentProfile,
@@ -99,11 +100,15 @@ type AnalyticsWindow = Window & {
 };
 
 const ERROR_TEXT: Record<string, string> = {
+  PUBLIC_AGENT_AUDIO_MODEL_UNAVAILABLE: "A transcrição de áudio precisa ser habilitada na integração. Por enquanto, envie sua mensagem por escrito.",
+  PUBLIC_AGENT_AUDIO_PROVIDER_QUOTA: "A transcrição está temporariamente indisponível na integração. Seu áudio foi mantido para tentar novamente.",
+  PUBLIC_AGENT_AUDIO_PROVIDER_BUSY: "A transcrição está ocupada agora. Aguarde um momento e tente novamente com o mesmo áudio.",
   PUBLIC_AGENT_RATE_LIMIT: "Você enviou muitas mensagens em pouco tempo. Aguarde alguns minutos e tente novamente.",
   PUBLIC_AGENT_SESSION_INACTIVE: "Esta conversa expirou. Atualize a página para iniciar um novo atendimento.",
-  PUBLIC_AGENT_CONSENT_REQUIRED: "Confirme a autorização de contato para continuar.",
+  PUBLIC_AGENT_CONSENT_REQUIRED: "Para organizar esse atendimento, informe seu nome e WhatsApp.",
   PUBLIC_AGENT_PHONE_INVALID: "Informe um telefone brasileiro válido com DDD.",
   PUBLIC_AGENT_EMAIL_INVALID: "Revise o e-mail informado.",
+  PUBLIC_AGENT_AUDIO_TRANSCRIPT_TOO_LONG: "O áudio tem mais texto do que cabe em uma mensagem. Grave em partes mais curtas para não perder informações.",
   PUBLIC_AGENT_AUDIO_INVALID: "Não consegui ler este áudio. Grave uma nova mensagem e tente novamente.",
   PUBLIC_AGENT_AUDIO_TYPE_INVALID: "Este formato de áudio não é compatível. Grave novamente pelo microfone da conversa.",
   PUBLIC_AGENT_AUDIO_TOO_LARGE: "O áudio ficou muito longo. Grave uma mensagem mais curta e tente novamente.",
@@ -315,90 +320,6 @@ function PublicAgentIcon({ name }: { name: "mic" | "send" | "stop" | "trash" }) 
   );
 }
 
-function AudioMessageView({
-  message,
-  disabled,
-  onRetry,
-}: {
-  message: UiMessage;
-  disabled: boolean;
-  onRetry: (messageId: string) => void;
-}) {
-  return (
-    <section className="public-agent-audio-bubble" aria-label="Mensagem de voz">
-      {message.audioUrl && (
-        <audio
-          aria-label="Reproduzir mensagem de voz"
-          controls
-          preload="metadata"
-          src={message.audioUrl}
-        />
-      )}
-      <div className="public-agent-audio-meta">
-        <span>{formatDuration(message.audioDuration || 0)}</span>
-        {message.audioState === "transcribing" && <span role="status">Transcrevendo…</span>}
-        {message.audioState === "ready" && <span>Transcrito</span>}
-        {message.audioState === "failed" && <span>Não transcrito</span>}
-      </div>
-      {message.transcript && (
-        <div className="public-agent-audio-transcript">
-          <span>Transcrição</span>
-          {message.transcript}
-        </div>
-      )}
-      {message.audioState === "failed" && (
-        <button type="button" onClick={() => onRetry(message.id)} disabled={disabled}>
-          Tentar transcrever novamente
-        </button>
-      )}
-    </section>
-  );
-}
-
-function CommercialUnitsView({
-  commercial,
-  disabled,
-  onSimulate,
-}: {
-  commercial: PublicAgentCommercialContext;
-  disabled: boolean;
-  onSimulate: (unit: PublicAgentCommercialUnit) => void;
-}) {
-  const units = commercial.units || [];
-  if (!units.length) return null;
-  return (
-    <section className="public-agent-units" aria-label="Lotes disponíveis">
-      <div className="public-agent-units-head">
-        <div>
-          <span>{commercial.realTime ? "Disponibilidade em tempo real" : "Opções encontradas"}</span>
-          <strong>Lotes disponíveis</strong>
-        </div>
-        {typeof commercial.summary?.availableCount === "number" && (
-          <small>{commercial.summary.availableCount} no estoque</small>
-        )}
-      </div>
-      <div className="public-agent-unit-list">
-        {units.map((unit) => (
-          <article className="public-agent-unit-card" key={unit.unitCode}>
-            <span>Lote {unit.unitCode}</span>
-            {typeof unit.area === "number" && <strong>{unit.area.toLocaleString("pt-BR")} m²</strong>}
-            {typeof unit.listPrice === "number" && <b>{currency.format(unit.listPrice)}</b>}
-            {typeof unit.pricePerSqm === "number" && <small>{currency.format(unit.pricePerSqm)}/m²</small>}
-            <button
-              type="button"
-              onClick={() => onSimulate(unit)}
-              disabled={disabled}
-              aria-label={`Simular condições do lote ${unit.unitCode}`}
-            >
-              Simular condições
-            </button>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function SimulationView({ simulation }: { simulation: PublicAgentSimulation }) {
   return (
     <section className="public-agent-simulation-card">
@@ -477,6 +398,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   const [pageError, setPageError] = useState<string | null>(null);
   const [converted, setConverted] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+  const [microphonePending, setMicrophonePending] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [audioDraft, setAudioDraft] = useState<AudioDraft | null>(null);
   const [audioBusy, setAudioBusy] = useState(false);
@@ -485,6 +407,10 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const startedRef = useRef(false);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordingStartingRef = useRef(false);
+  const sendInFlightRef = useRef(false);
+  const audioInFlightRef = useRef(false);
+  const pinnedToBottomRef = useRef(true);
   const mediaStreamRef = useRef<MediaStream | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const recordingStartedAtRef = useRef(0);
@@ -592,7 +518,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       const messagesPane = messagesRef.current;
-      if (!messagesPane) return;
+      if (!messagesPane || !pinnedToBottomRef.current) return;
       messagesPane.scrollTo({ top: messagesPane.scrollHeight, behavior: "smooth" });
     });
     return () => window.cancelAnimationFrame(frame);
@@ -621,9 +547,13 @@ export function PublicAgentExperience({ slug, experience }: Props) {
     if (
       !message
       || sending
+      || sendInFlightRef.current
+      || recordingStartingRef.current
       || initializing
       || (audioBusy && !options.existingUserMessageId)
     ) return;
+    sendInFlightRef.current = true;
+    pinnedToBottomRef.current = true;
     const clientMessageId = options.clientMessageId || crypto.randomUUID();
     const userMessageId = options.existingUserMessageId || clientMessageId;
     const createdAt = new Date().toISOString();
@@ -745,8 +675,9 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         : item));
       setPageError(ERROR_TEXT[code] || "Não consegui concluir o envio agora. Sua mensagem pode ser tentada novamente sem duplicar o atendimento.");
     } finally {
-      setSending(false);
-      window.setTimeout(() => inputRef.current?.focus(), 100);
+      sendInFlightRef.current = false;
+      if (mountedRef.current) setSending(false);
+      if (options.source !== "audio" && navigator.maxTouchPoints === 0) window.setTimeout(() => inputRef.current?.focus(), 100);
     }
   }
 
@@ -795,6 +726,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         window.clearTimeout(timer);
       }
 
+      const permanentAudioErrors = ["PUBLIC_AGENT_AUDIO_MODEL_UNAVAILABLE", "PUBLIC_AGENT_AUDIO_PROVIDER_QUOTA", "PUBLIC_AGENT_AUDIO_TRANSCRIPT_TOO_LONG"];
+      if (permanentAudioErrors.includes(payload.error || "")) throw new Error(payload.error);
       if (response.status >= 500) {
         networkAttempts += 1;
         if (networkAttempts >= 4 || nowMs() + 1_500 >= deadline) {
@@ -815,7 +748,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
       if (!response.ok || !payload.ok) {
         throw new Error(payload.error || "PUBLIC_AGENT_TRANSCRIPTION_UNAVAILABLE");
       }
-      const transcript = payload.text?.trim().slice(0, 800) || "";
+      const transcript = payload.text?.trim() || "";
+      if (transcript.length > 800) throw new Error("PUBLIC_AGENT_AUDIO_TRANSCRIPT_TOO_LONG");
       if (!transcript) throw new Error("PUBLIC_AGENT_TRANSCRIPTION_FAILED");
       return { text: transcript, audio: payload.audio };
     }
@@ -824,7 +758,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
 
   async function transcribeAndSend(messageId: string) {
     const audio = audioPayloadsRef.current.get(messageId);
-    if (!audio || audioBusy || sending || initializing) return;
+    if (!audio || audioBusy || audioInFlightRef.current || sending || initializing) return;
+    audioInFlightRef.current = true;
     setAudioBusy(true);
     setPageError(null);
     setMessages((current) => current.map((item) => item.id === messageId
@@ -865,9 +800,19 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         : item));
       setPageError(ERROR_TEXT[code] || "Não consegui transcrever este áudio agora. Você pode tentar novamente sem regravar.");
     } finally {
+      audioInFlightRef.current = false;
       if (mountedRef.current) setAudioBusy(false);
     }
   }
+
+  useEffect(() => {
+    const interrupt = () => {
+      const recorder = mediaRecorderRef.current;
+      if (document.hidden && recorder?.state === "recording") recorder.stop();
+    };
+    document.addEventListener("visibilitychange", interrupt);
+    return () => document.removeEventListener("visibilitychange", interrupt);
+  }, []);
 
   function clearRecordingTimer() {
     if (recordingIntervalRef.current !== null) {
@@ -884,78 +829,61 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   }
 
   async function startRecording() {
-    if (initializing || sending || audioBusy || audioDraft || isRecording) return;
+    if (initializing || sending || audioBusy || audioDraft || isRecording || recordingStartingRef.current) return;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
-      setPageError("A gravação de áudio não está disponível neste navegador. Você pode escrever sua mensagem.");
+      setPageError("A gravação não está disponível neste navegador. Você pode escrever sua mensagem.");
       return;
     }
+    recordingStartingRef.current = true;
+    setMicrophonePending(true);
     setPageError(null);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!mountedRef.current) {
-        stream.getTracks().forEach((track) => track.stop());
-        return;
-      }
-      const supportedMime = AUDIO_MIME_CANDIDATES.find((mime) => MediaRecorder.isTypeSupported(mime));
-      let recorder: MediaRecorder;
-      try {
-        recorder = new MediaRecorder(stream, supportedMime
-          ? { mimeType: supportedMime, audioBitsPerSecond: 64_000 }
-          : { audioBitsPerSecond: 64_000 });
-      } catch {
-        recorder = new MediaRecorder(stream);
-      }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      if (!mountedRef.current) { stream.getTracks().forEach(track => track.stop()); return; }
       mediaStreamRef.current = stream;
+      const supportedMime = AUDIO_MIME_CANDIDATES.find(mime => MediaRecorder.isTypeSupported(mime));
+      let recorder: MediaRecorder;
+      try { recorder = new MediaRecorder(stream, supportedMime ? { mimeType: supportedMime, audioBitsPerSecond: 64_000 } : { audioBitsPerSecond: 64_000 }); }
+      catch { recorder = new MediaRecorder(stream); }
+      const allowed = ["audio/webm", "audio/mp4", "audio/mpeg", "audio/wav", "audio/x-wav"];
+      if (recorder.mimeType && !allowed.includes(baseAudioMimeType(recorder.mimeType))) throw new Error("PUBLIC_AGENT_AUDIO_TYPE_INVALID");
       mediaRecorderRef.current = recorder;
       audioChunksRef.current = [];
       keepRecordingRef.current = true;
-      recorder.ondataavailable = (event) => {
-        if (event.data.size) audioChunksRef.current.push(event.data);
-      };
+      recorder.ondataavailable = event => { if (event.data.size) audioChunksRef.current.push(event.data); };
       recorder.onerror = () => {
-        setPageError("Houve um problema durante a gravação. Tente novamente.");
-        stopRecording(false);
+        keepRecordingRef.current = false;
+        clearRecordingTimer();
+        if (recorder.state !== "inactive") recorder.stop();
+        stream.getTracks().forEach(track => track.stop());
+        if (mountedRef.current) { setIsRecording(false); setPageError("A gravação foi interrompida. Grave novamente ou escreva sua mensagem."); }
       };
       recorder.onstop = () => {
         clearRecordingTimer();
-        stream.getTracks().forEach((track) => track.stop());
+        stream.getTracks().forEach(track => track.stop());
         mediaStreamRef.current = null;
         mediaRecorderRef.current = null;
         if (!mountedRef.current) return;
         setIsRecording(false);
-        if (!keepRecordingRef.current) {
-          audioChunksRef.current = [];
-          setRecordingSeconds(0);
-          return;
-        }
-        const duration = Math.max(1, Math.min(
-          MAX_RECORDING_SECONDS,
-          Math.round((nowMs() - recordingStartedAtRef.current) / 1_000),
-        ));
-        const mimeType = baseAudioMimeType(recorder.mimeType || audioChunksRef.current[0]?.type || "audio/webm");
+        setRecordingSeconds(0);
+        if (!keepRecordingRef.current) { audioChunksRef.current = []; return; }
+        const duration = Math.max(1, Math.min(MAX_RECORDING_SECONDS, Math.round((nowMs() - recordingStartedAtRef.current) / 1_000)));
+        const actualMime = recorder.mimeType || audioChunksRef.current.find(chunk => chunk.type)?.type || "";
+        const mimeType = baseAudioMimeType(actualMime);
         const blob = new Blob(audioChunksRef.current, { type: mimeType });
         audioChunksRef.current = [];
-        setRecordingSeconds(0);
-        if (!blob.size || blob.size > MAX_AUDIO_BYTES) {
-          setPageError(ERROR_TEXT.PUBLIC_AGENT_AUDIO_TOO_LARGE);
-          return;
-        }
+        if (!actualMime || !allowed.includes(mimeType)) { setPageError(ERROR_TEXT.PUBLIC_AGENT_AUDIO_TYPE_INVALID); return; }
+        if (!blob.size) { setPageError(ERROR_TEXT.PUBLIC_AGENT_AUDIO_INVALID); return; }
+        if (blob.size > MAX_AUDIO_BYTES) { setPageError(ERROR_TEXT.PUBLIC_AGENT_AUDIO_TOO_LARGE); return; }
         const url = URL.createObjectURL(blob);
         objectUrlsRef.current.add(url);
-        setAudioDraft({
-          messageId: crypto.randomUUID(),
-          transcriptionRequestId: crypto.randomUUID(),
-          blob,
-          url,
-          duration,
-          mimeType,
-          filename: audioFilename(mimeType),
-        });
+        setAudioDraft({ messageId: crypto.randomUUID(), transcriptionRequestId: crypto.randomUUID(), blob, url, duration, mimeType, filename: audioFilename(mimeType) });
       };
+      stream.getAudioTracks().forEach(track => track.addEventListener("ended", () => { if (recorder.state === "recording") recorder.stop(); }, { once: true }));
       recordingStartedAtRef.current = nowMs();
+      recorder.start(250);
       setRecordingSeconds(0);
       setIsRecording(true);
-      recorder.start(250);
       analytics("AgentVoiceRecordingStarted", slug);
       recordingIntervalRef.current = window.setInterval(() => {
         const elapsed = Math.floor((nowMs() - recordingStartedAtRef.current) / 1_000);
@@ -963,10 +891,18 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         if (elapsed >= MAX_RECORDING_SECONDS) stopRecording(true);
       }, 250);
     } catch (error) {
-      const denied = error instanceof DOMException && ["NotAllowedError", "SecurityError"].includes(error.name);
-      setPageError(denied
-        ? "Para enviar áudio, permita o acesso ao microfone nas configurações do navegador."
-        : "Não consegui acessar o microfone agora. Você pode escrever sua mensagem.");
+      clearRecordingTimer();
+      mediaStreamRef.current?.getTracks().forEach(track => track.stop());
+      mediaStreamRef.current = null;
+      mediaRecorderRef.current = null;
+      if (mountedRef.current) {
+        setIsRecording(false);
+        const denied = error instanceof DOMException && ["NotAllowedError", "SecurityError"].includes(error.name);
+        setPageError(denied ? "Para enviar áudio, permita o microfone nas configurações do navegador." : ERROR_TEXT[error instanceof Error ? error.message : ""] || "Não consegui acessar o microfone. Você pode escrever sua mensagem.");
+      }
+    } finally {
+      recordingStartingRef.current = false;
+      if (mountedRef.current) setMicrophonePending(false);
     }
   }
 
@@ -978,7 +914,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   }
 
   function sendAudioDraft() {
-    if (!audioDraft || audioBusy || sending || initializing) return;
+    if (!audioDraft || audioBusy || audioInFlightRef.current || sending || initializing) return;
     const payload: AudioPayload = { ...audioDraft };
     audioPayloadsRef.current.set(payload.messageId, payload);
     setMessages((current) => [
@@ -1019,10 +955,10 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   } as React.CSSProperties;
 
   return (
-    <main id="conteudo-principal" className="public-agent-page" style={style}>
+    <main id="conteudo-principal" className="public-agent-page bia-whatsapp" style={style}>
       <h1 className="public-agent-sr-only">Conversa com a {agentName}, {PUBLIC_AGENT_ACCESSIBLE_IDENTITY}, para atendimento do Solaris Residencial Resort em Monte Carmelo</h1>
       <section className="public-agent-shell">
-        <section className="public-agent-chat-card" aria-label={`Conversa com a ${agentName}`} aria-busy={initializing || sending || audioBusy}>
+        <section className="public-agent-chat-card" aria-label={`Conversa com a ${agentName}`} aria-busy={initializing || sending || audioBusy} data-identified={converted}>
           <div className="public-agent-chat-head">
             <div className="public-agent-avatar" aria-hidden="true">
               {activeAvatarSource ? (
@@ -1039,12 +975,12 @@ export function PublicAgentExperience({ slug, experience }: Props) {
             </div>
             <div>
               <strong>{agentName}</strong>
-              <span>{PUBLIC_AGENT_BRAND_LINE}</span>
+              <span title={PUBLIC_AGENT_BRAND_LINE}>{sending ? "digitando…" : audioBusy ? "Transcrevendo áudio…" : "Especialista da Futura Casa"}</span>
+              <small>Parceira da Évora Urbanismo</small>
             </div>
-            {converted && <em className="public-agent-captured">Atendimento registrado</em>}
           </div>
 
-          <div ref={messagesRef} className="public-agent-messages" role="log" aria-label="Histórico da conversa" aria-live="off">
+          <div ref={messagesRef} onScroll={(event) => { const pane = event.currentTarget; pinnedToBottomRef.current = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 100; }} className="public-agent-messages" role="log" aria-label="Histórico da conversa" aria-live="off">
             {visibleMessages.map((message) => (
               <article key={message.id} className={`public-agent-message ${message.direction}`}>
                 <div className="public-agent-message-content">
@@ -1058,11 +994,11 @@ export function PublicAgentExperience({ slug, experience }: Props) {
                     <p>{message.content}</p>
                   )}
                   {message.simulation && <SimulationView simulation={message.simulation} />}
-                  {message.commercial && (
+                  {message.commercial && !message.simulation && (
                     <CommercialUnitsView
                       commercial={message.commercial}
                       disabled={initializing || sending || audioBusy || isRecording || Boolean(audioDraft)}
-                      onSimulate={(unit) => void sendMessage(`Simular condições do lote ${unit.unitCode}`)}
+                      onSimulate={(unit) => void sendMessage(`Simule a menor parcela do lote ${unit.unitCode}, mantendo a entrada e os balões que já definimos. Se não definimos, use a entrada mínima da política e nenhum balão. Explique as premissas.`)}
                     />
                   )}
                   {message.attachments?.map((attachment, index) => (
@@ -1108,7 +1044,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
 
           {!initializing && quickReplies.length > 0 && (
             <div className="public-agent-quick-replies">
-              {quickReplies.map((reply) => (
+              {quickReplies.slice(0, 3).map((reply) => (
                 <button
                   key={reply}
                   type="button"
@@ -1158,7 +1094,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
                 <PublicAgentIcon name="trash" />
               </button>
               <div>
-                <audio aria-label="Ouvir mensagem de voz antes de enviar" controls preload="metadata" src={audioDraft.url} />
+                <ChatVoicePlayer key={audioDraft.url} src={audioDraft.url} duration={audioDraft.duration} label="Ouvir mensagem de voz antes de enviar" />
                 <span>{formatDuration(audioDraft.duration)}</span>
               </div>
               <button
@@ -1182,8 +1118,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
                   event.currentTarget.style.height = `${Math.min(event.currentTarget.scrollHeight, 112)}px`;
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder={initializing ? "Iniciando atendimento..." : converted ? "Continue a conversa, se precisar" : "Mensagem"}
-                disabled={initializing || audioBusy}
+                placeholder={initializing ? "Iniciando atendimento…" : "Mensagem"}
+                disabled={initializing || audioBusy || microphonePending}
                 aria-label={`Mensagem para a ${agentName}`}
                 maxLength={800}
                 rows={1}
@@ -1191,25 +1127,14 @@ export function PublicAgentExperience({ slug, experience }: Props) {
               <button
                 type="button"
                 onClick={() => input.trim() ? void sendMessage(input) : void startRecording()}
-                disabled={initializing || sending || audioBusy}
-                aria-label={input.trim() ? "Enviar mensagem" : "Gravar mensagem de voz"}
+                disabled={initializing || sending || audioBusy || microphonePending}
+                aria-label={microphonePending ? "Aguardando permissão do microfone" : input.trim() ? "Enviar mensagem" : "Gravar mensagem de voz"}
               >
                 <PublicAgentIcon name={input.trim() ? "send" : "mic"} />
               </button>
             </div>
           )}
-          <p className="public-agent-disclosure">
-            Atendimento comercial com IA da Futura Casa, parceira da Évora Urbanismo. Esta conversa e os dados enviados
-            ficam registrados para atendimento, segurança e histórico
-            comercial. Valores e disponibilidade são consultados na plataforma
-            da Évora Urbanismo.{" "}
-            <a
-              href="mailto:relacionamento@evoraurbanismo.com.br?subject=Privacidade%20-%20Atendimento%20Bia%20Futura%20Casa"
-            >
-              Falar sobre privacidade
-            </a>
-            .
-          </p>
+          <ChatPrivacyNote />
         </section>
       </section>
     </main>

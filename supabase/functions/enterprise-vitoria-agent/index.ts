@@ -1,3 +1,4 @@
+import { transcribeBiaAudio } from "../_shared/bia-audio-transcription.ts";
 import { createClient as createSupabaseClient } from "npm:@supabase/supabase-js@2";
 import { PDFDocument, StandardFonts, rgb } from "npm:pdf-lib@1.17.1";
 import {
@@ -1728,42 +1729,28 @@ async function transcribe(
   bytes: Uint8Array,
 ) {
   await rpc(admin, "claim_public_agent_media_quota", {
-    p_slug: slug,
-    p_session_token_hash: tokenHash,
-    p_fingerprint_hash: fingerprintHash,
-    p_kind: "voice",
+    p_slug: slug, p_session_token_hash: tokenHash, p_fingerprint_hash: fingerprintHash, p_kind: "voice",
   });
-  const form = new FormData();
-  form.append(
-    "file",
-    new Blob([new Uint8Array(bytes)], { type: mime }),
-    `vitoria.${mime.includes("mp4") ? "m4a" : mime.includes("mpeg") ? "mp3" : mime.includes("wav") ? "wav" : "webm"}`,
-  );
-  form.append("model", "gpt-4o-mini-transcribe");
-  form.append("language", "pt");
-  form.append("response_format", "json");
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), TRANSCRIPTION_TIMEOUT_MS);
-  try {
-    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${runtime.apiKey}` },
-      body: form,
-      signal: controller.signal,
-    });
-    const payload = await response.json().catch(() => null) as Obj | null;
-    const text = payload ? str(payload.text) : null;
-    if (!response.ok || !text) throw new EdgeError("PUBLIC_AGENT_TRANSCRIPTION_FAILED", 503);
-    return { text: text.slice(0, 800) };
-  } catch (error) {
-    if (error instanceof EdgeError) throw error;
-    if (error instanceof Error && error.name === "AbortError") {
-      throw new EdgeError("PUBLIC_AGENT_TRANSCRIPTION_TIMEOUT", 503);
-    }
-    throw new EdgeError("PUBLIC_AGENT_TRANSCRIPTION_FAILED", 503);
-  } finally {
-    clearTimeout(timer);
-  }
+  const result = await transcribeBiaAudio({
+    apiKey: runtime.apiKey,
+    model: Deno.env.get("BIA_TRANSCRIPTION_MODEL") || "gpt-4o-mini-transcribe",
+    mime, bytes, timeoutMs: TRANSCRIPTION_TIMEOUT_MS,
+    diagnose: async (diagnostic) => {
+      console.error("bia-audio-provider", diagnostic);
+      await admin.rpc("record_bia_openai_diagnostic", {
+        p_organization_id: null,
+        p_model: diagnostic.model,
+        p_http_status: diagnostic.status,
+        p_error_code: diagnostic.code,
+        p_error_type: diagnostic.type,
+        p_request_id: diagnostic.requestId,
+        p_limit_requests: null, p_remaining_requests: null, p_reset_requests: null,
+        p_limit_tokens: null, p_remaining_tokens: null, p_reset_tokens: null,
+      });
+    },
+  });
+  if (!result.ok) throw new EdgeError(result.code, 503);
+  return { text: result.text };
 }
 
 async function persistPublicAudio(

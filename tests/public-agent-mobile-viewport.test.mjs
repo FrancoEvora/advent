@@ -21,7 +21,7 @@ test("mobile chat locks the document and follows the iOS visual viewport", () =>
 });
 
 test("only the message history receives vertical conversation scrolling", () => {
-  assert.match(component, /ref=\{messagesRef\} className="public-agent-messages"/);
+  assert.match(component, /ref=\{messagesRef\}[\s\S]{0,400}className="public-agent-messages"/);
   assert.match(component, /messagesPane\.scrollTo\(\{ top: messagesPane\.scrollHeight/);
   assert.doesNotMatch(component, /scrollIntoView/);
   assert.match(styles, /\.public-agent-messages\{[^}]*overflow-y:auto/);

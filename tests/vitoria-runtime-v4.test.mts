@@ -560,8 +560,8 @@ test("cartão de lote inicia simulação sem criar intenção artificial de rese
     new URL("../src/components/public-agent/PublicAgentExperience.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(ui, /Simular condições do lote \$\{unit\.unitCode\}/);
-  assert.match(ui, />\s*Simular condições\s*</);
+  assert.match(ui, /Simule a menor parcela do lote \$\{unit\.unitCode\}/);
+  assert.match(readFileSync(new URL("../src/components/public-agent/ChatLotOptions.tsx", import.meta.url), "utf8"), />\s*Simular parcelas\s*</);
   assert.doesNotMatch(ui, /Quero reservar o lote \$\{unit\.unitCode\}/);
   assert.doesNotMatch(ui, />\s*Quero reservar\s*</);
 });

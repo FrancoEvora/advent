@@ -1,0 +1,109 @@
+/* Scoped chat skin: keeps the Enterprise UI and the Futura Casa identity untouched. */
+.public-agent-page.bia-whatsapp{position:fixed;top:var(--public-agent-viewport-top,0);left:var(--public-agent-viewport-left,0);width:var(--public-agent-viewport-width,100vw);height:var(--public-agent-viewport-height,100dvh);min-height:0;overflow:hidden;background:#dcdedb;color:#111b21;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.45}
+.bia-whatsapp .public-agent-shell{display:block;width:min(880px,100%);height:100%;min-height:0;margin:0 auto;padding:0}
+.bia-whatsapp .public-agent-chat-card{display:flex;flex-direction:column;min-height:0;max-height:none;height:100%;width:100%;border:0;border-radius:0;background:#efeae2;box-shadow:0 0 24px #00000012;backdrop-filter:none}
+.bia-whatsapp .public-agent-chat-card:before{display:none}
+.bia-whatsapp .public-agent-chat-head{z-index:2;flex:0 0 auto;gap:11px;padding:10px 14px;border:0;background:#075e54;box-shadow:0 1px 2px #00000018}
+.bia-whatsapp .public-agent-avatar{width:42px;height:42px;border:0;border-radius:50%;overflow:hidden;box-shadow:none;background:#d9e8df}
+.bia-whatsapp .public-agent-avatar img{width:100%;height:100%;object-fit:cover}
+.bia-whatsapp .public-agent-chat-head>div:nth-child(2){display:block;min-width:0;flex:1}
+.bia-whatsapp .public-agent-chat-head strong{display:block;color:#fff;font-size:18px;line-height:1.25;font-weight:650}
+.bia-whatsapp .public-agent-chat-head span{display:block;color:#e5f1ed;font-size:12px;line-height:1.35;letter-spacing:0}
+.bia-whatsapp .public-agent-chat-head small{display:block;color:#d4e6e0;font-size:11px;line-height:1.35}
+.bia-whatsapp .public-agent-captured{display:none}
+.bia-whatsapp .public-agent-messages{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain;padding:16px 12px 8px;scroll-padding-block:12px;background-color:#efeae2;background-image:radial-gradient(#b8b1a21f .85px,transparent .85px);background-size:18px 18px;scrollbar-color:#c5c6be transparent}
+.bia-whatsapp .public-agent-message{display:flex;margin:0 0 9px;padding:0;max-width:100%}
+.bia-whatsapp .public-agent-message-content{position:relative;display:block;width:auto;min-width:0;max-width:min(88%,580px);padding:8px 11px 5px;border:0;border-radius:8px;box-shadow:0 1px 1px #0b141a18;background:#fff;color:#111b21}
+.bia-whatsapp .public-agent-message.assistant .public-agent-message-content{border-top-left-radius:0;background:#fff}
+.bia-whatsapp .public-agent-message.user .public-agent-message-content{border-top-right-radius:0;background:#d9fdd3}
+.bia-whatsapp .public-agent-message-content:before{content:"";position:absolute;top:0;width:0;height:0;border-bottom:8px solid transparent}
+.bia-whatsapp .assistant .public-agent-message-content:before{left:-6px;border-right:6px solid #fff}
+.bia-whatsapp .user .public-agent-message-content:before{right:-6px;border-left:6px solid #d9fdd3}
+.bia-whatsapp .public-agent-message-content>p{display:block;max-width:none;width:auto;min-width:0;margin:0;padding:0;border:0;border-radius:0;background:none;color:inherit;box-shadow:none;font-size:16px;font-weight:400;line-height:1.46;white-space:pre-wrap;overflow-wrap:anywhere}
+.bia-whatsapp .public-agent-message-meta{display:flex;justify-content:flex-end;align-items:center;gap:5px;margin:3px 0 0;padding:0;color:#607974;font-size:10.5px;line-height:1.3;min-height:14px}
+.bia-whatsapp .public-agent-message-meta button{min-height:28px;border:0;padding:1px 3px;background:none;color:#a43d30;font-size:11px;text-decoration:underline}
+.bia-whatsapp .public-agent-message:has(.bia-lots) .public-agent-message-content,.bia-whatsapp .public-agent-message:has(.public-agent-simulation-card) .public-agent-message-content{width:min(92%,520px);max-width:92%}
+.bia-whatsapp .public-agent-typing{flex:0 0 auto;align-items:center;justify-content:flex-start;min-height:32px;width:max-content;padding:8px 12px;background:#fff;border:0;border-radius:8px;box-shadow:0 1px 1px #00000010}
+.bia-whatsapp .public-agent-typing:after{font-size:12px;letter-spacing:0;font-weight:400;color:#667781}
+.bia-whatsapp .public-agent-composer,.bia-whatsapp .public-agent-recording-composer,.bia-whatsapp .public-agent-audio-draft{flex:0 0 auto;display:grid;grid-template-columns:minmax(0,1fr) 46px;gap:7px;align-items:end;margin:0;padding:7px 8px 3px;border:0;background:#f0f2f5}
+.bia-whatsapp .public-agent-composer textarea{display:block;resize:none;box-sizing:border-box;width:100%;min-width:0;height:46px;min-height:46px;max-height:112px;margin:0;padding:12px 16px;border:0;border-radius:24px;background:#fff;color:#111b21;box-shadow:none;font:inherit;font-size:16px;line-height:22px;outline-offset:1px}
+.bia-whatsapp .public-agent-composer textarea:focus{border:0;box-shadow:none;outline:1px solid #b6d4ca}
+.bia-whatsapp .public-agent-composer textarea::placeholder{color:#7b848a;opacity:1}
+.bia-whatsapp .public-agent-composer button,.bia-whatsapp .public-agent-audio-action{display:grid;place-items:center;width:46px;height:46px;min-height:46px;border:0;border-radius:50%;padding:11px;background:#008069;color:#fff;box-shadow:none}
+.bia-whatsapp .public-agent-composer button svg,.bia-whatsapp .public-agent-audio-action svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.bia-whatsapp button:disabled{opacity:.48;cursor:default}
+.bia-whatsapp button:focus-visible,.bia-whatsapp summary:focus-visible{outline:2px solid #008069;outline-offset:2px}
+.bia-whatsapp .public-agent-recording-composer,.bia-whatsapp .public-agent-audio-draft{grid-template-columns:40px minmax(0,1fr) 46px;align-items:center;min-height:59px}
+.bia-whatsapp .public-agent-audio-action.secondary{width:40px;height:42px;min-height:42px;background:none;color:#65747b;box-shadow:none}
+.bia-whatsapp .public-agent-audio-draft>div{min-width:0;display:block}
+.bia-whatsapp .public-agent-audio-draft>div>span{display:none}
+.bia-whatsapp .public-agent-recording-status{min-width:0;gap:9px;display:flex;align-items:center;justify-content:flex-start;color:#111b21;font-size:14px}
+.bia-whatsapp .public-agent-quick-replies{flex:0 0 auto;display:flex;flex-wrap:wrap;gap:5px;overflow:visible;padding:5px 9px;background:#efeae2}
+.bia-whatsapp .public-agent-quick-replies button{flex:0 1 auto;max-width:100%;min-height:34px;white-space:normal;font-size:12px;padding:6px 10px;border-radius:18px;box-shadow:none}
+.bia-whatsapp .public-agent-alert{flex:0 0 auto;max-height:96px;overflow-y:auto;margin:0;padding:9px 12px;border:0;border-top:1px solid #eed6d0;border-radius:0;background:#fff3ed;color:#9b3d30;font-size:12px;line-height:1.4}
+.bia-chat-privacy{flex:0 0 auto;padding:0 12px calc(3px + env(safe-area-inset-bottom,0px));background:#f0f2f5;color:#68767d}
+.bia-chat-privacy>summary{display:list-item;list-style:none;min-height:25px;padding:3px 0;text-align:center;cursor:pointer;font-size:11px;line-height:19px}
+.bia-chat-privacy>summary::-webkit-details-marker{display:none}
+.bia-chat-privacy>summary:after{content:" ⌄"}
+.bia-chat-privacy[open]>summary:after{content:" ⌃"}
+.bia-chat-privacy>div{max-height:160px;overflow-y:auto;padding:4px 4px 10px;font-size:12px;line-height:1.45}
+.bia-chat-privacy p{margin:0 0 7px}
+.bia-chat-privacy a{color:#096b58;text-decoration:underline}
+.bia-whatsapp .bia-lots{width:100%;min-width:0;margin:12px 0 4px;padding:0;background:none;border:0;border-radius:0;box-shadow:none}
+.bia-lots-heading{display:block;margin:0 0 9px}
+.bia-lots-heading strong{display:block;font-size:15px;font-weight:650;color:#1c3931}
+.bia-lots-heading span{font-size:11px;color:#738079}
+.bia-lots-list{display:grid;grid-template-columns:minmax(0,1fr);list-style:none;gap:8px;margin:0;padding:0;overflow:visible}
+.bia-lot{min-width:0;padding:10px;border:1px solid #dfe8e2;border-radius:7px;background:#fafcfb}
+.bia-lot[data-featured="true"]{border-left:3px solid #008069;padding-left:8px}
+.bia-lot-top{display:flex;align-items:baseline;justify-content:space-between;gap:5px;flex-wrap:wrap}
+.bia-lot-top strong{font-size:13px;font-weight:650;color:#28473c;letter-spacing:0}
+.bia-lot-top span{font-size:12px;color:#66746c;white-space:nowrap}
+.bia-lot-price{margin:3px 0 8px;font-size:21px;font-weight:650;line-height:1.25;color:#153d2f}
+.bia-lot-actions{display:grid;grid-template-columns:minmax(0,1fr) 72px;gap:5px;align-items:start}
+.bia-lot-simulate{min-width:0;min-height:39px;padding:7px 10px;border:1px solid #c0d9cc;border-radius:6px;background:#fff;color:#08755d;font-size:12px;font-weight:600;line-height:1.3;box-shadow:none}
+.bia-lot[data-featured="true"] .bia-lot-simulate{border-color:#008069;background:#008069;color:#fff}
+.bia-lot-details{min-width:0;font-size:12px}
+.bia-lot-details>summary{min-height:39px;padding:9px 4px;cursor:pointer;color:#386957;list-style:none;text-align:center;font-size:12px}
+.bia-lot-details>summary::-webkit-details-marker{display:none}
+.bia-lot-details>summary:after{content:" ⌄"}
+.bia-lot-details[open]{grid-column:1/-1}
+.bia-lot-details[open]>summary{text-align:left}
+.bia-lot-details dl{display:grid;gap:5px;margin:0;padding:7px 0 1px;border-top:1px solid #e2eae5}
+.bia-lot-details dl div{display:flex;justify-content:space-between;gap:12px}
+.bia-lot-details dt{color:#68746d}
+.bia-lot-details dd{margin:0;text-align:right;color:#233e33;overflow-wrap:anywhere}
+.bia-lots-more{display:block;width:100%;min-height:40px;margin-top:4px;padding:8px;border:0;background:none;color:#08755d;font-size:12px;font-weight:500;text-align:center}
+.bia-lots-compare{margin-top:3px;font-size:12px}
+.bia-lots-compare summary{padding:9px 1px;min-height:36px;cursor:pointer;color:#406754}
+.bia-lots-compare table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:11px;line-height:1.3}
+.bia-lots-compare caption{text-align:left;padding:4px 0 8px;font-size:11px;color:#66776e}
+.bia-lots-compare th,.bia-lots-compare td{padding:7px 2px;border-bottom:1px solid #e4eae6;text-align:left;overflow-wrap:anywhere}
+.bia-lots-compare th:last-child,.bia-lots-compare td:last-child{text-align:right;width:40%}
+.bia-whatsapp .bia-lots-note{margin:7px 0 2px;padding:0;border:0;background:none;box-shadow:none;max-width:none;font-size:10px;line-height:1.4;color:#758079}
+.bia-whatsapp .public-agent-simulation-card{max-width:100%;width:100%;box-sizing:border-box;margin:10px 0 3px;padding:11px;border:1px solid #d8e5dc;border-radius:7px;box-shadow:none;background:#f7faf8}
+.bia-whatsapp .public-agent-simulation-card p{max-width:100%;padding:0;border:0;border-radius:0;background:none;box-shadow:none;font-size:13px;color:#42594d}
+.bia-whatsapp .public-agent-simulation-card>div{display:grid;grid-template-columns:minmax(0,1fr);gap:4px}
+.bia-whatsapp .public-agent-simulation-card small{display:flex;flex-wrap:wrap;gap:5px;justify-content:space-between;font-size:12px}
+.bia-whatsapp .public-agent-audio-bubble{width:100%;min-width:0;margin:0;padding:0;border:0;border-radius:0;box-shadow:none;background:none}
+.bia-voice-player{display:grid;grid-template-columns:38px minmax(80px,1fr) 21px;gap:8px;align-items:center;width:100%;min-width:200px;max-width:100%;padding:4px 0}
+.bia-voice-player>audio{display:none}
+.bia-voice-play{display:grid;place-items:center;width:38px;height:38px;min-height:38px;border:0;padding:8px;border-radius:50%;background:none;color:#668078;box-shadow:none}
+.bia-voice-play svg{width:23px;height:23px;fill:currentColor;stroke:none}
+.bia-voice-track{min-width:0;display:grid;gap:3px}
+.bia-voice-track input{box-sizing:border-box;width:100%;min-width:0;min-height:20px;height:20px;padding:0;border:0;box-shadow:none;accent-color:#008069;background:transparent}
+.bia-voice-track>span{font-size:10px;color:#678278;font-variant-numeric:tabular-nums}
+.bia-voice-mic{width:20px;height:23px;fill:none;stroke:#008069;stroke-width:1.8;stroke-linecap:round}
+.bia-whatsapp .bia-voice-error{grid-column:1/-1;max-width:none;margin:0;padding:0;border:0;background:none;color:#984535;font-size:11px;line-height:1.35;box-shadow:none}
+.bia-voice-state{display:block;margin:2px 0;color:#58746a;font-size:11px}
+.bia-voice-transcript{font-size:12px;margin-top:2px;border-top:1px solid #7fae901f}
+.bia-voice-transcript summary{cursor:pointer;min-height:28px;padding:4px 0;color:#497966}
+.bia-whatsapp .bia-voice-transcript p{max-width:none;margin:0;padding:4px 0;border:0;background:none;box-shadow:none;color:inherit;font-size:14px;line-height:1.4}
+.bia-voice-retry{min-height:32px;padding:5px 2px;background:none;border:0;color:#8c3f30;text-decoration:underline;font-size:12px}
+.bia-whatsapp .public-agent-audio-draft .bia-voice-player{min-width:0;grid-template-columns:30px minmax(30px,1fr);gap:4px}
+.bia-whatsapp .public-agent-audio-draft .bia-voice-mic{display:none}
+@media(max-width:360px){.bia-whatsapp .public-agent-messages{padding-inline:10px}.bia-whatsapp .public-agent-message-content{max-width:92%;padding-inline:9px}.bia-whatsapp .public-agent-message:has(.bia-lots) .public-agent-message-content{width:94%;max-width:94%}.bia-lot{padding:8px}.bia-lot-top strong{font-size:12px}.bia-lot-price{font-size:20px}.bia-whatsapp .public-agent-chat-head small{font-size:10px}.bia-voice-player{min-width:175px}}
+@media(prefers-reduced-motion:reduce){.bia-whatsapp *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+.bia-whatsapp .public-agent-message.assistant .public-agent-message-meta{justify-content:flex-end}
+.bia-whatsapp .bia-lot-simulate,.bia-whatsapp .bia-lots-more{font-size:12px}

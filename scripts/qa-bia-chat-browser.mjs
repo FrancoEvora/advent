@@ -11,8 +11,8 @@ const commercial={realTime:true,asOf:'2026-09-04T20:00:00Z',summary:{availableCo
 await build({stdin:{contents:`import React from 'react';import {createRoot} from 'react-dom/client';import {PublicAgentExperience} from './src/components/public-agent/PublicAgentExperience';createRoot(document.getElementById('app')).render(<PublicAgentExperience slug="solaris" experience={${JSON.stringify(experience)}}/>);`,resolveDir:process.cwd(),loader:'tsx'},bundle:true,outfile:'.qa/app.js',platform:'browser',jsx:'automatic',plugins:[{name:'next-image-test-adapter',setup(b){b.onResolve({filter:/^next\/image$/},()=>({path:'image',namespace:'test-image'}));b.onLoad({filter:/.*/,namespace:'test-image'},()=>({contents:'import React from "react";export default function Image({priority,unoptimized,...props}){return <img {...props}/>}',loader:'jsx',resolveDir:process.cwd()}));}}]});
 const css=['src/app/globals.css','src/app/styles/v6-26-public-agent.css','src/app/styles/v6-26-bia-commercial-presentation.css','src/app/styles/v6-27-bia-whatsapp.css'].map(f=>fs.readFileSync(f,'utf8')).join('\n');
 const server=http.createServer((req,res)=>{
- if(req.url==='/'){res.setHeader('content-type','text/html');res.end('<!doctype html><html lang="pt-BR"><head><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/style.css"></head><body><div id="app"></div><script src="/app.js"></script></body></html>');}
- else if(req.url==='/style.css'){res.setHeader('content-type','text/css');res.end(css);}
+ if(req.url==='/'){res.setHeader('content-type','text/html');res.end('<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><link rel="stylesheet" href="/style.css"></head><body><div id="app"></div><script src="/app.js"></script></body></html>');}
+ else if(req.url==='/style.css'){res.setHeader('content-type','text/css; charset=utf-8');res.end(css);}
  else if(req.url==='/app.js'){res.setHeader('content-type','text/javascript');res.end(fs.readFileSync('.qa/app.js'));}
  else if(req.url==='/voice.wav'){res.setHeader('content-type','audio/wav');res.end(fs.readFileSync('.qa/voice.wav'));}
  else if(req.url?.startsWith('/vitoria/')){const f=path.join('public',req.url);if(fs.existsSync(f)){res.setHeader('content-type','image/webp');res.end(fs.readFileSync(f));}else{res.statusCode=404;res.end();}}
@@ -61,7 +61,7 @@ try{
      await page.locator('.bia-lots-compare summary').click();assert.equal(await page.locator('.bia-lots-compare tbody tr').count(),3);await page.locator('.bia-lots-compare summary').click();
      await page.locator('.public-agent-messages').evaluate(el=>el.scrollTop=0);await page.waitForTimeout(300);
      await page.screenshot({path:`.qa/results/${name}-${width}-lotes.png`});
-     await page.getByLabel('Simular parcelas do lote SOL-C-04').click();await page.getByText('Entendi sua mensagem. Vou consultar os lotes do Solaris.').waitFor();assert.equal(calls.messages.length,1);assert.match(calls.messages[0].message,/SOL-C-04/);
+     await page.getByLabel('Simular parcelas do lote SOL-C-04').click();await page.locator('.public-agent-messages').getByText('Entendi sua mensagem. Vou consultar os lotes do Solaris.').waitFor();assert.equal(calls.messages.length,1);assert.match(calls.messages[0].message,/SOL-C-04/);
      report.results.push({browser:name,width,kind:'layout-and-lots',passed:true});
     }finally{await context.close();}
    }
@@ -75,7 +75,7 @@ try{
     await page.getByRole('button',{name:'Ouvir mensagem de voz antes de enviar'}).click();await page.waitForTimeout(650);assert.equal(await page.locator('.public-agent-audio-draft audio').evaluate(el=>el.paused),false,'recorded audio plays before sending');
     await page.getByRole('button',{name:'Pausar mensagem de voz'}).click();await page.screenshot({path:`.qa/results/${name}-audio-preview.png`});
     await page.getByRole('button',{name:'Enviar mensagem de voz'}).evaluate(el=>{el.click();el.click();});
-    await page.getByText('Entendi sua mensagem. Vou consultar os lotes do Solaris.').waitFor({timeout:30000});
+    await page.locator('.public-agent-messages').getByText('Entendi sua mensagem. Vou consultar os lotes do Solaris.').waitFor({timeout:30000});
     assert.equal(calls.messages.length,1,'one voice send');assert.equal(calls.messages[0].source,'audio');assert.equal(calls.transcriptions.length,2,'transcription retry');assert.equal(new Set(calls.transcriptions).size,1,'same id on retry');assert.equal(calls.messages[0].transcriptionRequestId,calls.transcriptions[0]);
     assert.equal(await page.locator('.public-agent-message.user .bia-voice-message').count(),1,'no duplicate voice bubble');
     await page.locator('.bia-voice-transcript summary').click();await page.locator('.bia-voice-transcript p').waitFor();

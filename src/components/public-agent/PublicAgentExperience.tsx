@@ -100,6 +100,9 @@ type AnalyticsWindow = Window & {
 };
 
 const ERROR_TEXT: Record<string, string> = {
+  PUBLIC_AGENT_AUDIO_MODEL_UNAVAILABLE: "A transcrição de áudio precisa ser habilitada na integração. Por enquanto, envie sua mensagem por escrito.",
+  PUBLIC_AGENT_AUDIO_PROVIDER_QUOTA: "A transcrição está temporariamente indisponível na integração. Seu áudio foi mantido para tentar novamente.",
+  PUBLIC_AGENT_AUDIO_PROVIDER_BUSY: "A transcrição está ocupada agora. Aguarde um momento e tente novamente com o mesmo áudio.",
   PUBLIC_AGENT_RATE_LIMIT: "Você enviou muitas mensagens em pouco tempo. Aguarde alguns minutos e tente novamente.",
   PUBLIC_AGENT_SESSION_INACTIVE: "Esta conversa expirou. Atualize a página para iniciar um novo atendimento.",
   PUBLIC_AGENT_CONSENT_REQUIRED: "Para organizar esse atendimento, informe seu nome e WhatsApp.",

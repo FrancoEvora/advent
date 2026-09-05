@@ -104,3 +104,6 @@
 .bia-whatsapp .public-agent-audio-draft .bia-voice-mic{display:none}
 @media(max-width:360px){.bia-whatsapp .public-agent-messages{padding-inline:10px}.bia-whatsapp .public-agent-message-content{max-width:92%;padding-inline:9px}.bia-whatsapp .public-agent-message:has(.bia-lots) .public-agent-message-content{width:94%;max-width:94%}.bia-lot{padding:8px}.bia-lot-top strong{font-size:12px}.bia-lot-price{font-size:20px}.bia-whatsapp .public-agent-chat-head small{font-size:10px}.bia-voice-player{min-width:175px}}
 @media(prefers-reduced-motion:reduce){.bia-whatsapp *{scroll-behavior:auto!important;animation:none!important;transition:none!important}}
+
+.bia-whatsapp .public-agent-message.assistant .public-agent-message-meta{justify-content:flex-end}
+.bia-whatsapp .bia-lot-simulate,.bia-whatsapp .bia-lots-more{font-size:12px}

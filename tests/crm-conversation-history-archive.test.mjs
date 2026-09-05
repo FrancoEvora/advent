@@ -41,6 +41,7 @@ const [
     readFile("supabase/functions/enterprise-public-agent/index.ts", "utf8"),
     readFile("src/app/api/public-agent/session/route.ts", "utf8"),
   ]);
+const publicPrivacy = await readFile("src/components/public-agent/ChatVoiceMessage.tsx", "utf8");
 
 test("histórico do CRM exige sessão, crm.view e escopo do lead", () => {
   assert.match(historyRoute, /auth\.getUser\(token\)/);
@@ -90,7 +91,8 @@ test("Bia conversa naturalmente sem esconder o uso de IA", () => {
     publicExperience,
     /assistente virtual da Évora Urbanismo\. Posso te ajudar/,
   );
-  assert.match(publicExperience, /Atendimento comercial com IA/);
+  assert.match(publicExperience, /<ChatPrivacyNote\s*\/>/);
+  assert.match(publicPrivacy, /<summary>Atendimento com IA · Privacidade<\/summary>/);
   assert.match(
     legacyPublicRuntime,
     /Não se apresente espontaneamente como assistente virtual/,
@@ -99,8 +101,8 @@ test("Bia conversa naturalmente sem esconder o uso de IA", () => {
     legacyPublicRuntime,
     /Apresente-se naturalmente como assistente virtual/,
   );
-  assert.match(publicExperience, /dados enviados[\s\S]*ficam registrados/);
-  assert.match(publicExperience, /relacionamento@evoraurbanismo\.com\.br/);
+  assert.match(publicPrivacy, /dados enviados[\s\S]*ficam registrados/);
+  assert.match(publicPrivacy, /relacionamento@evoraurbanismo\.com\.br/);
   assert.match(publicSessionRoute, /PUBLIC_CONVERSATION_MAX_AGE/);
   assert.doesNotMatch(publicSessionRoute, /\* 365/);
   assert.match(greetingMigration, /initial_greeting', true/);

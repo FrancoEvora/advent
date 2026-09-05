@@ -69,6 +69,16 @@ try{
    try{
     const mediaCapabilities=await page.evaluate(()=>({mediaRecorder:typeof MediaRecorder,audioContext:typeof AudioContext,secure:window.isSecureContext,mimes:['audio/webm;codecs=opus','audio/mp4;codecs=mp4a.40.2','audio/mp4'].map(mime=>({mime,supported:typeof MediaRecorder!=='undefined'&&MediaRecorder.isTypeSupported(mime)}))}));
     console.log('BIA_BROWSER_CAPABILITIES',name,JSON.stringify(mediaCapabilities));
+    if(mediaCapabilities.mediaRecorder==='undefined'){
+      await page.getByRole('button',{name:'Gravar mensagem de voz'}).click();
+      await page.getByRole('alert').waitFor();
+      assert.match(await page.getByRole('alert').innerText(),/gravação não está disponível/);
+      assert.equal(await page.getByRole('textbox').isEnabled(),true);
+      assert.equal(calls.transcriptions.length,0);
+      await page.screenshot({path:'.qa/results/'+name+'-recording-unavailable.png'});
+      report.results.push({browser:name,kind:'unsupported-mediarecorder-fallback',passed:true,recordingTested:false,reason:'The installed WebKit build does not expose MediaRecorder. Physical Safari/iPhone recording remains unverified.'});
+      continue;
+    }
     await microphone(page);
     await page.getByRole('button',{name:'Gravar mensagem de voz'}).click();await page.getByRole('group',{name:'Gravando mensagem de voz'}).waitFor();
     await page.waitForTimeout(3600);assert.equal(await page.evaluate(()=>window.__qaMicCalls),1);

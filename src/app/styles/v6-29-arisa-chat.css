@@ -1,35 +1,50 @@
-/* Arisa reuses Bia's mobile chat skin without changing the public sales assistant. */
+/* Arisa's brand and viewport overrides are isolated from Bia and the ERP. */
+html.arisa-active,body.arisa-active{background:#79B82B}
+.public-agent-page.bia-whatsapp.arisa-chat{--arisa-green:#79B82B;--arisa-ink:#19310f;--arisa-link:#41651b;--arisa-soft:#eef7df;--arisa-surface:#f6f8f2;display:block;top:var(--arisa-viewport-top,0px);left:0;width:100%;height:100dvh;height:var(--arisa-viewport-height,100dvh);padding:0;margin:0;box-sizing:border-box;background:var(--arisa-green);color:#202b1d}
 .arisa-chat .public-agent-shell{box-sizing:border-box;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
-.arisa-chat .public-agent-chat-head{padding-top:calc(10px + env(safe-area-inset-top,0px))}
+.arisa-chat .public-agent-chat-head{gap:10px;min-height:64px;box-sizing:border-box;padding:calc(8px + env(safe-area-inset-top,0px)) 12px 8px;background:var(--arisa-green);color:var(--arisa-ink);box-shadow:0 1px 0 #19310f14}
+.arisa-chat .public-agent-chat-head strong{color:var(--arisa-ink);font-size:18px;line-height:1.2}
+.arisa-chat .public-agent-chat-head span,.arisa-chat .public-agent-chat-head small{color:var(--arisa-ink);line-height:1.35}
+.arisa-chat .public-agent-chat-head span{font-size:12px}.arisa-chat .public-agent-chat-head small{font-size:11px}
+.arisa-chat .public-agent-messages{padding:14px 12px 10px;background-color:var(--arisa-surface);background-image:radial-gradient(#41651b0b .7px,transparent .7px);background-size:18px 18px;scroll-padding-bottom:12px}
+.arisa-chat .public-agent-message-content{color:#202b1d;box-shadow:0 1px 2px #19310f18}
+.arisa-chat .public-agent-message.user .public-agent-message-content{background:var(--arisa-soft)}
+.arisa-chat .public-agent-message.user .public-agent-message-content::before{border-left-color:var(--arisa-soft);border-right-color:var(--arisa-soft)}
 .arisa-chat .arisa-avatar{display:grid;place-items:center;background:#e4eee7;flex-shrink:0}
 .arisa-chat .arisa-avatar img{width:100%;height:100%;object-fit:cover;object-position:center 42%}
-.arisa-chat .arisa-icon-button{border:0;background:none;color:white;width:42px;height:42px;padding:9px;border-radius:50%}
+.arisa-chat .arisa-icon-button{border:0;background:none;color:var(--arisa-ink);width:44px;height:44px;padding:10px;border-radius:50%;flex-shrink:0}
 .arisa-chat svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
-.arisa-chat .public-agent-chat-card{position:relative}
+.arisa-chat .public-agent-chat-card{position:relative;background:var(--arisa-surface)}
 .arisa-chat .public-agent-message.user{justify-content:flex-end}
-.arisa-chat .arisa-composer{grid-template-columns:38px minmax(0,1fr) 46px}
-.arisa-chat .arisa-composer .arisa-attach{width:38px;background:transparent;color:#65757b;padding:8px}
+.arisa-chat .arisa-composer{grid-template-columns:44px minmax(0,1fr) 46px;gap:6px;padding:7px 10px 2px;background:var(--arisa-surface);border-top:1px solid #19310f0d}
+.arisa-chat .arisa-composer textarea{font-size:16px;border:1px solid #dfe7d6;background:#fff;color:#202b1d}
+.arisa-chat .arisa-composer button{background:var(--arisa-green);color:var(--arisa-ink)}
+.arisa-chat .arisa-composer .arisa-attach{width:44px;background:transparent;color:var(--arisa-link);padding:10px}
+.arisa-chat .bia-chat-privacy{padding:0 12px calc(2px + var(--arisa-safe-bottom,env(safe-area-inset-bottom,0px)));background:var(--arisa-surface);color:#526346}
+.arisa-chat .bia-chat-privacy>summary{min-height:28px;box-sizing:border-box;padding:4px 0;font-size:11px;line-height:20px}
+.arisa-chat .bia-chat-privacy a{color:var(--arisa-link)}
+.arisa-chat :is(button,a,input,select,textarea,summary):focus-visible{outline:2px solid var(--arisa-link);outline-offset:3px}
 .arisa-chat .arisa-login form{display:grid;gap:16px;padding:23px;margin:26px auto;width:min(100%,390px);background:#fff;border-radius:12px;box-sizing:border-box}
 .arisa-chat .arisa-login label{display:grid;gap:7px;color:#38574c;font-size:14px}
 .arisa-chat .arisa-login input,.arisa-chat .arisa-login select{width:100%;box-sizing:border-box;min-height:46px;border:1px solid #cdd9d2;background:#fff;border-radius:8px;padding:10px;font-size:16px}
-.arisa-chat .arisa-login button{background:#008069;color:#fff;border:0;border-radius:22px;min-height:46px;padding:10px 16px;font-size:15px}
-.arisa-chat .arisa-login a{display:block;color:#226755;font-size:13px;text-align:center;padding:10px}
-.arisa-chat .arisa-login-footer{padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));text-align:center;color:#63766a;font-size:11px;background:#f0f2f5}
-.arisa-chat .arisa-conversations{position:absolute;inset:0 0 0 auto;width:min(350px,94%);z-index:5;background:#fff;box-shadow:-12px 0 40px #0002;display:flex;flex-direction:column;gap:10px;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));box-sizing:border-box}
+.arisa-chat .arisa-login button{background:var(--arisa-green);color:var(--arisa-ink);border:0;border-radius:22px;min-height:46px;padding:10px 16px;font-size:15px;font-weight:600}
+.arisa-chat .arisa-login a{display:block;color:var(--arisa-link);font-size:13px;text-align:center;padding:10px}
+.arisa-chat .arisa-login-footer{flex:0 0 auto;padding:8px 12px calc(8px + var(--arisa-safe-bottom,env(safe-area-inset-bottom,0px)));text-align:center;color:#526346;font-size:11px;background:var(--arisa-surface)}
+.arisa-chat .arisa-conversations{position:absolute;inset:0 0 0 auto;width:min(350px,94%);z-index:5;background:#fff;box-shadow:-12px 0 40px #0002;display:flex;flex-direction:column;gap:10px;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + var(--arisa-safe-bottom,env(safe-area-inset-bottom,0px)));box-sizing:border-box}
 .arisa-chat .arisa-menu-head{display:flex;align-items:center;justify-content:space-between;color:#21574a}
 .arisa-chat .arisa-menu-head button{border:0;background:none;color:#436b60;width:44px;height:44px}
-.arisa-chat .arisa-conversations>small{color:#6b7a75}.arisa-chat .arisa-conversations>button{background:#e5f1e9;color:#075e54;border:0;border-radius:7px;min-height:44px;text-align:left;padding:10px}
+.arisa-chat .arisa-conversations>small{color:#6b7a75}.arisa-chat .arisa-conversations>button{background:var(--arisa-soft);color:var(--arisa-link);border:0;border-radius:7px;min-height:44px;text-align:left;padding:10px}
 .arisa-chat .arisa-conversations nav{display:flex;flex:1;min-height:0;overflow:auto;flex-direction:column;gap:3px}
 .arisa-chat .arisa-conversations nav button{border:0;border-radius:7px;background:#fff;color:#34493e;min-height:45px;padding:10px;text-align:left;overflow-wrap:anywhere;font-size:14px;flex-shrink:0}
-.arisa-chat .arisa-conversations nav button[aria-current=page]{background:#eef5ee}
+.arisa-chat .arisa-conversations nav button[aria-current=page]{background:var(--arisa-soft)}
 .arisa-chat .arisa-menu-links{border-top:1px solid #e0e8e2;padding-top:8px;display:grid;gap:6px}.arisa-chat .arisa-menu-links a,.arisa-chat .arisa-menu-links button{display:block;border:0;background:none;color:#22634e;padding:8px;font-size:14px;text-align:left}
 .arisa-chat .arisa-file{display:flex;gap:9px;align-items:center;max-width:100%;min-height:48px;padding:8px;margin:5px 0;border:1px solid #d6e3dc;border-radius:7px;background:#f6faf7;color:#2c6551;font-size:13px;text-align:left}
 .arisa-chat .arisa-file svg{flex-shrink:0;width:18px;height:20px}.arisa-chat .arisa-file span{overflow-wrap:anywhere;min-width:0}.arisa-chat .arisa-file small{display:block;color:#738178;font-size:10px}
-.arisa-chat .arisa-draft-files{display:flex;flex-wrap:wrap;max-height:145px;overflow:auto;gap:5px;padding:5px 10px;background:#f0f2f5}.arisa-chat .arisa-draft-files>div{display:flex;align-items:center;max-width:100%}.arisa-chat .arisa-draft-files>div>button:last-child{border:0;background:none;color:#667d72;min-width:32px;min-height:40px;font-size:23px}
+.arisa-chat .arisa-draft-files{display:flex;flex-wrap:wrap;max-height:145px;overflow:auto;gap:5px;padding:5px 10px;background:var(--arisa-surface)}.arisa-chat .arisa-draft-files>div{display:flex;align-items:center;max-width:100%}.arisa-chat .arisa-draft-files>div>button:last-child{border:0;background:none;color:#667d72;min-width:44px;min-height:44px;font-size:23px}
 .arisa-chat .arisa-action{margin-top:8px;padding:8px;background:#f1f8f3;border:1px solid #d8e8dc;border-radius:6px;font-size:12px;color:#29664a}.arisa-chat .arisa-action summary{cursor:pointer;line-height:1.45}.arisa-chat .arisa-action p{margin:6px 0;font-size:11px}.arisa-chat .arisa-action a{color:#276449;text-decoration:underline}
 .arisa-chat .arisa-message-error{display:block;padding:6px 0;color:#984230;font-size:11px;max-width:380px}.arisa-chat .arisa-retry,.arisa-chat .arisa-load-older{border:0;background:none;color:#287359;padding:9px 0;font-size:12px;text-decoration:underline}
 .arisa-chat .arisa-working{display:inline-block;padding:8px 12px;background:white;border-radius:8px;color:#647970;font-size:12px;box-shadow:0 1px 1px #0001}
 .arisa-chat .public-agent-alert{display:flex;justify-content:space-between;gap:8px}.arisa-chat .public-agent-alert button{border:0;background:none;min-width:32px;color:inherit;font-size:20px}
-.arisa-chat .arisa-recording{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:#f0f2f5;color:#a14b46;font-size:13px}.arisa-chat .arisa-recording button{display:grid;place-items:center;background:#008069;color:white;border:0;width:46px;height:46px;border-radius:50%}
+.arisa-chat .arisa-recording{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--arisa-surface);color:#a14b46;font-size:13px}.arisa-chat .arisa-recording button{display:grid;place-items:center;background:var(--arisa-green);color:var(--arisa-ink);border:0;width:46px;height:46px;border-radius:50%}
 .arisa-chat .public-agent-message-content p{tab-size:2}.arisa-chat button,.arisa-chat a{touch-action:manipulation}
 @media(max-width:450px){.arisa-chat .public-agent-message-content{max-width:91%}.arisa-chat .arisa-login form{padding:18px}.arisa-chat .arisa-composer{gap:3px}}

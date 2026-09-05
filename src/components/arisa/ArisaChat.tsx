@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { chatViewport } from "./chat-viewport";
 import { callManager, client, errorText, openFile, uploadFile, UUID, type Action, type ChatFile, type Message, type Thread } from "./chat-client";
 
 function Icon({ kind }: { kind: "send" | "mic" | "attach" | "stop" | "menu" | "close" }) {
@@ -13,14 +14,29 @@ function useChatViewport() {
   useEffect(() => {
     const viewport = window.visualViewport, root = document.documentElement; let frame = 0;
     const sync = () => { cancelAnimationFrame(frame); frame = requestAnimationFrame(() => {
-      root.style.setProperty("--public-agent-viewport-height", `${Math.round(viewport?.height || innerHeight)}px`);
-      root.style.setProperty("--public-agent-viewport-width", `${Math.round(viewport?.width || innerWidth)}px`);
-      root.style.setProperty("--public-agent-viewport-top", `${Math.max(0, Math.round(viewport?.offsetTop || 0))}px`);
-      root.style.setProperty("--public-agent-viewport-left", `${Math.max(0, Math.round(viewport?.offsetLeft || 0))}px`);
+      const active = document.activeElement;
+      const editing = (active instanceof HTMLInputElement && !active.disabled && !active.readOnly
+        && ["text", "email", "password", "search", "tel", "url", "number"].includes(active.type))
+        || (active instanceof HTMLTextAreaElement && !active.disabled && !active.readOnly)
+        || (active instanceof HTMLElement && active.isContentEditable);
+      const next = chatViewport({ layoutHeight: Math.max(innerHeight, root.clientHeight), visualHeight: viewport?.height || innerHeight, offsetTop: viewport?.offsetTop || 0, scale: viewport?.scale || 1, editing });
+      root.style.setProperty("--arisa-viewport-height", next.height);
+      root.style.setProperty("--arisa-viewport-top", next.top);
+      if (next.keyboard) root.style.setProperty("--arisa-safe-bottom", "0px");
+      else root.style.removeProperty("--arisa-safe-bottom");
     }); };
-    root.classList.add("public-agent-active"); document.body.classList.add("public-agent-active"); sync();
+    root.classList.add("public-agent-active", "arisa-active"); document.body.classList.add("public-agent-active", "arisa-active"); sync();
     viewport?.addEventListener("resize", sync); viewport?.addEventListener("scroll", sync); window.addEventListener("resize", sync);
-    return () => { cancelAnimationFrame(frame); viewport?.removeEventListener("resize", sync); viewport?.removeEventListener("scroll", sync); window.removeEventListener("resize", sync); root.classList.remove("public-agent-active"); document.body.classList.remove("public-agent-active"); ["height", "width", "top", "left"].forEach(name => root.style.removeProperty("--public-agent-viewport-" + name)); };
+    window.addEventListener("pageshow", sync); window.addEventListener("orientationchange", sync);
+    document.addEventListener("focusin", sync); document.addEventListener("focusout", sync);
+    return () => {
+      cancelAnimationFrame(frame);
+      viewport?.removeEventListener("resize", sync); viewport?.removeEventListener("scroll", sync); window.removeEventListener("resize", sync);
+      window.removeEventListener("pageshow", sync); window.removeEventListener("orientationchange", sync);
+      document.removeEventListener("focusin", sync); document.removeEventListener("focusout", sync);
+      root.classList.remove("public-agent-active", "arisa-active"); document.body.classList.remove("public-agent-active", "arisa-active");
+      ["--arisa-viewport-height", "--arisa-viewport-top", "--arisa-safe-bottom"].forEach(name => root.style.removeProperty(name));
+    };
   }, []);
 }
 function Header({ menu }: { menu?: () => void }) {

@@ -31,13 +31,14 @@ import "./styles/v6-26-public-agent.css";
 import "./styles/v6-26-bia-commercial-presentation.css";
 import "./styles/v6-26-crm-broker-bia.css";
 import "./styles/v6-27-bia-whatsapp.css";
+import "./styles/v6-29-arisa-chat.css";
 import {ServiceWorkerRegister} from "@/components/ServiceWorkerRegister";
 import {GlobalModuleNav} from "@/components/GlobalModuleNav";
 import {GlobalLogoutButton} from "@/components/GlobalLogoutButton";
 import {GlobalContentTarget} from "@/components/GlobalContentTarget";
 import {HelpMenuShortcutV63} from "@/components/erp/help/help-menu-shortcut-v63";
 
-export const metadata:Metadata={title:"Évora Gestão — Versão 6.28 Enterprise",description:"Plataforma integrada da Évora Urbanismo com insights e BI, análises gerenciais automáticas, financeiro, CRM, obras, contratos, parceiros, agenda, pós-venda e governança.",manifest:"/manifest.webmanifest",applicationName:"Évora Gestão",icons:{icon:"/icon.svg",apple:"/icon.svg"},appleWebApp:{capable:true,statusBarStyle:"default",title:"Évora Gestão"}};
+export const metadata:Metadata={title:"Évora Gestão — Versão 6.29 Enterprise",description:"Plataforma integrada da Évora Urbanismo com insights e BI, análises gerenciais automáticas, financeiro, CRM, obras, contratos, parceiros, agenda, pós-venda e governança.",manifest:"/manifest.webmanifest",applicationName:"Évora Gestão",icons:{icon:"/icon.svg",apple:"/icon.svg"},appleWebApp:{capable:true,statusBarStyle:"default",title:"Évora Gestão"}};
 export const viewport:Viewport={width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#1D5271"};
 
 export default function RootLayout({children}:Readonly<{children:React.ReactNode}>){

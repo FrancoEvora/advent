@@ -4,7 +4,7 @@ import {useEffect,useState} from "react";
 import {usePathname} from "next/navigation";
 import {getSupabase} from "@/lib/supabase";
 
-const publicPrefixes=["/cliente/","/parceiro","/contrato/","/proposta/","/portal/","/verificar/","/recuperar-senha","/atendimento/"];
+const publicPrefixes=["/cliente/","/parceiro","/contrato/","/proposta/","/portal/","/verificar/","/recuperar-senha","/atendimento/","/arisa"];
 
 export function GlobalLogoutButton(){
  const pathname=usePathname();

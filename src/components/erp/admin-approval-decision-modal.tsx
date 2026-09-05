@@ -12,6 +12,7 @@ import type {
 import { analyzeComprehensivePaymentRisk } from "./operational-cash";
 import { dateAtNoon, money, shortDate } from "./utils";
 import { PanelTitle } from "./views-dashboard";
+import { ArisaEntryEvidence } from "./arisa/entry-evidence";
 
 type ExtendedRequest = ApprovalRequest & {
   negotiated_due_date?: string | null;
@@ -265,6 +266,7 @@ export function ApprovalDecisionModal({
           />
         </label>
         {error && <div className="feedback error">{error}</div>}
+        <ArisaEntryEvidence organizationId={data.organization.id} entryId={entry.id} />
         <footer>
           <button type="button" onClick={close}>
             Cancelar

@@ -39,9 +39,9 @@ async function microphone(page,denied=false){
  await page.evaluate(({denied})=>{
   window.__qaMicCalls=0;window.__qaStreams=[];
   Object.defineProperty(navigator.mediaDevices,'getUserMedia',{configurable:true,value:async()=>{
-   window.__qaMicCalls++;await new Promise(r=>setTimeout(r,200));
+   window.__qaMicCalls++;const ctx=denied?null:new AudioContext();const resumed=ctx?.resume();await new Promise(r=>setTimeout(r,200));
    if(denied)throw new DOMException('Fixture permission refusal','NotAllowedError');
-   const ctx=new AudioContext();const buffer=await ctx.decodeAudioData(await (await fetch('/voice.wav')).arrayBuffer());const source=ctx.createBufferSource();source.buffer=buffer;source.loop=true;const destination=ctx.createMediaStreamDestination();source.connect(destination);await ctx.resume();source.start();window.__qaStreams.push(destination.stream);return destination.stream;
+   const buffer=await ctx.decodeAudioData(await (await fetch('/voice.wav')).arrayBuffer());const source=ctx.createBufferSource();source.buffer=buffer;source.loop=true;const destination=ctx.createMediaStreamDestination();source.connect(destination);await resumed;source.start();window.__qaStreams.push(destination.stream);return destination.stream;
   }});
  },{denied});
 }

@@ -726,6 +726,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         window.clearTimeout(timer);
       }
 
+      const permanentAudioErrors = ["PUBLIC_AGENT_AUDIO_MODEL_UNAVAILABLE", "PUBLIC_AGENT_AUDIO_PROVIDER_QUOTA", "PUBLIC_AGENT_AUDIO_TRANSCRIPT_TOO_LONG"];
+      if (permanentAudioErrors.includes(payload.error || "")) throw new Error(payload.error);
       if (response.status >= 500) {
         networkAttempts += 1;
         if (networkAttempts >= 4 || nowMs() + 1_500 >= deadline) {

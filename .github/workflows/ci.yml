@@ -44,6 +44,8 @@ jobs:
           tests/arisa-crm-operations.test.mts
           tests/arisa-document-extraction.test.mts
           tests/arisa-operations-handler.test.mts
+          tests/arisa-manager.test.mts
+          tests/arisa-manager-handler.test.mts
       - name: Validate Bia pure behavior contracts
         run: deno test tests/bia-professional-behavior.test.mts
       - name: Validate CRM conversation and archival contracts
@@ -60,4 +62,5 @@ jobs:
           supabase/functions/enterprise-bia-agent-gateway/index.ts
           supabase/functions/enterprise-bia-knowledge-admin/index.ts
           supabase/functions/arisa-operations/index.ts
+          supabase/functions/arisa-manager/index.ts
       - run: npm run build

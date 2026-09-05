@@ -19,7 +19,7 @@ export const viewport: Viewport = {
   viewportFit: "cover",
   themeColor: "#79B82B",
 };
-export default async function Page({ searchParams }: { searchParams: Promise<{ conversa?: string }> }) {
+export default async function Page({ searchParams }: { searchParams: Promise<{ conversa?: string; painel?: string }> }) {
   const params = await searchParams;
-  return <ArisaChat initialThreadId={typeof params.conversa === "string" ? params.conversa : null} />;
+  return <ArisaChat initialThreadId={typeof params.conversa === "string" ? params.conversa : null} initialPanel={params.painel === "email" || params.painel === "archive" || params.painel === "memory" ? params.painel : null} />;
 }

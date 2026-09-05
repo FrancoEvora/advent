@@ -48,6 +48,8 @@ jobs:
           tests/arisa-manager-handler.test.mts
           tests/arisa-installation.test.mjs
           tests/arisa-viewport.test.mts
+          tests/arisa-mail-memory.test.mts
+          tests/arisa-mail-handler.test.mts
       - name: Validate Bia pure behavior contracts
         run: deno test tests/bia-professional-behavior.test.mts
       - name: Validate CRM conversation and archival contracts
@@ -65,6 +67,8 @@ jobs:
           supabase/functions/enterprise-bia-knowledge-admin/index.ts
           supabase/functions/arisa-operations/index.ts
           supabase/functions/arisa-manager/index.ts
+          supabase/functions/arisa-mail/index.ts
+          supabase/functions/arisa-background/index.ts
       - run: npm run build
       - name: Validate Arisa home-screen HTTP metadata
         run: node --test tests/arisa-installation-http.test.mjs

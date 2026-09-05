@@ -6,11 +6,11 @@
   "start_url": "/arisa",
   "scope": "/arisa",
   "display": "standalone",
-  "background_color": "#efeae2",
-  "theme_color": "#075e54",
+  "background_color": "#79B82B",
+  "theme_color": "#79B82B",
   "lang": "pt-BR",
   "orientation": "any",
   "icons": [
-    { "src": "/arisa/icon", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+    { "src": "/arisa/icon?v=evora-1", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
   ]
 }

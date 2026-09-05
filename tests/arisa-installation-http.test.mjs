@@ -28,9 +28,10 @@ test("built Arisa serves its own install metadata and valid PNG icons", { timeou
       assert.match(html, /<meta name="mobile-web-app-capable" content="yes"/);
       assert.match(html, /<meta name="apple-mobile-web-app-title" content="Arisa"/);
       assert.match(html, /<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/);
+      assert.match(html, /<meta name="theme-color" content="#79B82B"/);
       const appleIcons = [...html.matchAll(/<link[^>]*rel="apple-touch-icon"[^>]*>/g)].map(match => match[0]);
       assert.equal(appleIcons.length, 1);
-      assert.match(appleIcons[0], /href="\/arisa\/apple-icon/);
+      assert.match(appleIcons[0], /href="\/arisa\/apple-icon\?v=evora-1"/);
       assert.doesNotMatch(appleIcons[0], /href="\/icon.svg"/);
     }
     const manifestResponse = await request("/arisa/manifest.webmanifest");
@@ -40,7 +41,8 @@ test("built Arisa serves its own install metadata and valid PNG icons", { timeou
     assert.equal(manifest.start_url, "/arisa");
     assert.equal(manifest.id, "/arisa");
     assert.equal(manifest.display, "standalone");
-    for (const [path, size] of [["/arisa/icon", 512], ["/arisa/apple-icon", 180]]) {
+    assert.equal(manifest.theme_color, "#79B82B");
+    for (const [path, size] of [[manifest.icons[0].src, 512], ["/arisa/apple-icon?v=evora-1", 180]]) {
       const response = await request(path);
       assert.equal(response.status, 200);
       assert.match(response.headers.get("content-type"), /image\/png/);

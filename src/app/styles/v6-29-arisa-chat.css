@@ -1,4 +1,6 @@
 /* Arisa reuses Bia's mobile chat skin without changing the public sales assistant. */
+.arisa-chat .public-agent-shell{box-sizing:border-box;padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.arisa-chat .public-agent-chat-head{padding-top:calc(10px + env(safe-area-inset-top,0px))}
 .arisa-chat .arisa-avatar{display:grid;place-items:center;background:#e4eee7;color:#075e54;font-family:Georgia,serif;font-size:29px;font-weight:700;flex-shrink:0}
 .arisa-chat .arisa-icon-button{border:0;background:none;color:white;width:42px;height:42px;padding:9px;border-radius:50%}
 .arisa-chat svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
@@ -11,8 +13,8 @@
 .arisa-chat .arisa-login input,.arisa-chat .arisa-login select{width:100%;box-sizing:border-box;min-height:46px;border:1px solid #cdd9d2;background:#fff;border-radius:8px;padding:10px;font-size:16px}
 .arisa-chat .arisa-login button{background:#008069;color:#fff;border:0;border-radius:22px;min-height:46px;padding:10px 16px;font-size:15px}
 .arisa-chat .arisa-login a{display:block;color:#226755;font-size:13px;text-align:center;padding:10px}
-.arisa-chat .arisa-login-footer{padding:12px;text-align:center;color:#63766a;font-size:11px;background:#f0f2f5}
-.arisa-chat .arisa-conversations{position:absolute;inset:0 0 0 auto;width:min(350px,94%);z-index:5;background:#fff;box-shadow:-12px 0 40px #0002;display:flex;flex-direction:column;gap:10px;padding:16px;box-sizing:border-box}
+.arisa-chat .arisa-login-footer{padding:12px 12px calc(12px + env(safe-area-inset-bottom,0px));text-align:center;color:#63766a;font-size:11px;background:#f0f2f5}
+.arisa-chat .arisa-conversations{position:absolute;inset:0 0 0 auto;width:min(350px,94%);z-index:5;background:#fff;box-shadow:-12px 0 40px #0002;display:flex;flex-direction:column;gap:10px;padding:calc(16px + env(safe-area-inset-top,0px)) 16px calc(16px + env(safe-area-inset-bottom,0px));box-sizing:border-box}
 .arisa-chat .arisa-menu-head{display:flex;align-items:center;justify-content:space-between;color:#21574a}
 .arisa-chat .arisa-menu-head button{border:0;background:none;color:#436b60;width:44px;height:44px}
 .arisa-chat .arisa-conversations>small{color:#6b7a75}.arisa-chat .arisa-conversations>button{background:#e5f1e9;color:#075e54;border:0;border-radius:7px;min-height:44px;text-align:left;padding:10px}

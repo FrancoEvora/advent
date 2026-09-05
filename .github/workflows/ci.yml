@@ -46,6 +46,7 @@ jobs:
           tests/arisa-operations-handler.test.mts
           tests/arisa-manager.test.mts
           tests/arisa-manager-handler.test.mts
+          tests/arisa-installation.test.mjs
       - name: Validate Bia pure behavior contracts
         run: deno test tests/bia-professional-behavior.test.mts
       - name: Validate CRM conversation and archival contracts

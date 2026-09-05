@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { callManager, client, errorText, openFile, uploadFile, UUID, type Action, type ChatFile, type Message, type Thread } from "./chat-client";
@@ -23,7 +24,7 @@ function useChatViewport() {
   }, []);
 }
 function Header({ menu }: { menu?: () => void }) {
-  return <header className="public-agent-chat-head"><div className="public-agent-avatar arisa-avatar" aria-hidden="true">A</div><div><strong>Arisa</strong><span>Administradora da plataforma</span><small>Évora Urbanismo</small></div>{menu && <button className="arisa-icon-button" onClick={menu} aria-label="Abrir conversas e opções"><Icon kind="menu" /></button>}</header>;
+  return <header className="public-agent-chat-head"><div className="public-agent-avatar arisa-avatar"><Image src="/arisa-profile.webp" alt="Foto de perfil da Arisa" width={42} height={42} priority /></div><div><strong>Arisa</strong><span>Administradora da plataforma</span><small>Évora Urbanismo</small></div>{menu && <button className="arisa-icon-button" onClick={menu} aria-label="Abrir conversas e opções"><Icon kind="menu" /></button>}</header>;
 }
 type Membership = { organization_id: string; organizations: { name: string; trade_name: string | null; active: boolean } | null };
 export default function ArisaChat({ initialThreadId }: { initialThreadId: string | null }) {

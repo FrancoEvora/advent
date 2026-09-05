@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { test } from "node:test";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
 const manifest = JSON.parse(read("../public/arisa/manifest.webmanifest"));
 const page = read("../src/app/arisa/page.tsx");
 const css = read("../src/app/styles/v6-29-arisa-chat.css");
+const chat = read("../src/components/arisa/ArisaChat.tsx");
 
 test("Arisa installs as a distinct app and starts at the complete chat address", () => {
   assert.equal(manifest.id, "/arisa");
@@ -39,4 +40,15 @@ test("standalone chat respects iPhone cutouts and the home indicator", () => {
   assert.match(css, /\.arisa-chat \.arisa-conversations\{[^}]*safe-area-inset-top[^}]*safe-area-inset-bottom/);
   assert.match(css, /\.arisa-chat \.public-agent-shell\{[^}]*safe-area-inset-left[^}]*safe-area-inset-right/);
   assert.match(read("../src/app/styles/v6-27-bia-whatsapp.css"), /\.bia-chat-privacy\{[^}]*safe-area-inset-bottom/);
+});
+
+test("Arisa uses the supplied portrait as her accessible profile photo", () => {
+  assert.match(chat, /import Image from "next\/image"/);
+  assert.match(chat, /src="\/arisa-profile\.webp" alt="Foto de perfil da Arisa" width=\{42\} height=\{42\} priority/);
+  assert.doesNotMatch(chat, /className="public-agent-avatar arisa-avatar" aria-hidden="true">A/);
+  assert.match(css, /\.arisa-chat \.arisa-avatar img\{[^}]*object-fit:cover[^}]*object-position:center 42%/);
+  const portrait = readFileSync(new URL("../public/arisa-profile.webp", import.meta.url));
+  assert.equal(portrait.subarray(0, 4).toString(), "RIFF");
+  assert.equal(portrait.subarray(8, 12).toString(), "WEBP");
+  assert.ok(statSync(new URL("../public/arisa-profile.webp", import.meta.url)).size < 100_000);
 });

@@ -25,13 +25,13 @@ Verificação: `node --test tests/arisa-installation.test.mjs tests/public-agent
 - Alteração de função, ativação/suspensão de membros e permissões. Credenciais e exclusão de identidade continuam na tela administrativa segura, sem senhas gravadas no chat.
 - Documentos privados, até 5 por mensagem, até 8 MB cada: PDF, PNG/JPEG/WebP, XML, CSV, OFX, texto e áudio. O processamento financeiro reutiliza Arisa Operações e sua deduplicação.
 - Gravação de até 90 segundos; transcrição revisável antes de enviar. Requer acesso do projeto OpenAI ao modelo de transcrição. Falha de provedor preserva o anexo e permite digitar.
-- Não há ferramenta de envio externo de WhatsApp/e-mail neste chat; canais atuais da Bia permanecem separados.
+- E-mail Google Workspace com arquivo e memória: veja [arisa-mail-memory.md](arisa-mail-memory.md). WhatsApp continua operado pela Bia, com histórico disponível no arquivo comercial.
 
 ## Arquitetura e segurança
 
 `arisa-manager` valida Bearer via `auth.getUser`, depois chama o catálogo com o token do usuário, antes de consultar credenciais internas. O gateway JWT legado está desligado porque a função realiza essa autenticação explicitamente e suporta as chaves rotacionáveis nativas. Chamadas sem sessão ou com token inválido retornam 401.
 
-Chaves privadas permanecem no Supabase. O cliente nunca recebe a chave de serviço nem a chave OpenAI. Todas as ferramentas de consulta e mutação usam o cliente do próprio usuário. O cliente administrativo serve somente para credenciais internas, concessão/conclusão do processamento e vínculo documental validado.
+Chaves privadas permanecem no Supabase. O cliente nunca recebe a chave de serviço nem a chave OpenAI. As consultas e mutações administrativas usam o cliente do próprio usuário. O cliente de serviço também opera o arquivo, a fila de memória e o e-mail, após validação da sessão e da organização ou autenticação do trabalhador agendado.
 
 Tabelas de conversas/anexos/ações têm RLS, leitura privada e nenhuma escrita direta para `authenticated`. Mutações passam por funções com validação administrativa, organização obrigatória, referências da mesma organização, revisão do registro e concessão de execução. Funções `SECURITY DEFINER` públicas são intencionais; o aviso informativo [0029 do Supabase](https://supabase.com/docs/guides/database/database-linter?lint=0029_authenticated_security_definer_function_executable) exige esta revisão, não remoção da autorização interna.
 

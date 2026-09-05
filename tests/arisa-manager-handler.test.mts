@@ -17,6 +17,8 @@ function createClient(_url: string, key: string) {
       if (name === "get_crm_ai_runtime_credentials") return { error: null, data: { enabled: true, api_key: "private-test-key-".repeat(4), agent_model: "test-model" } };
       if (name === "arisa_chat_claim") return { error: null, data: { lease: terminal ? null : lease, message: { id: messageId, content: "Cadastre o fornecedor Teste", created_at: "2026-09-05T12:00:00Z", file_ids: [] } } };
       if (name === "arisa_admin_execute") return { error: null, data: { ok: true, record_id: "created" } };
+      if (name === "arisa_recall") return { error: null, data: [] };
+      if (name === "arisa_trace") return { error: null, data: "archived-trace" };
       if (name === "arisa_chat_finish") return { error: null, data: { id: "reply", content: args.p_content, status: "completed" } };
       throw new Error("Unexpected RPC " + name);
     },
@@ -36,6 +38,7 @@ const source = readFileSync(new URL("supabase/functions/arisa-manager/index.ts",
   .replace(/import \{ createClient, type SupabaseClient \} from [^;]+;/, "const createClient = globalThis.__arisaManagerClient; type SupabaseClient = any;")
   .replaceAll('"../_shared/arisa-document.ts"', JSON.stringify(new URL("supabase/functions/_shared/arisa-document.ts", root).href))
   .replaceAll('"../_shared/arisa-manager.ts"', JSON.stringify(new URL("supabase/functions/_shared/arisa-manager.ts", root).href))
+  .replaceAll('"../_shared/arisa-mail-runtime.ts"', JSON.stringify(new URL("supabase/functions/_shared/arisa-mail-runtime.ts", root).href))
   .replace("Deno.serve(handleRequest);", "");
 const { handleRequest } = await import(`data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(source, { mode: "strip" })).toString("base64")}`);
 const originalFetch = globalThis.fetch;

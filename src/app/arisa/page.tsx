@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   title: "Arisa — Administradora da plataforma Évora",
   applicationName: "Arisa",
   manifest: "/arisa/manifest.webmanifest",
+  icons: {
+    icon: { url: "/arisa/icon", type: "image/png", sizes: "512x512" },
+    apple: { url: "/arisa/apple-icon", type: "image/png", sizes: "180x180" },
+  },
   appleWebApp: { capable: true, title: "Arisa", statusBarStyle: "black-translucent" },
   robots: { index: false, follow: false },
 };

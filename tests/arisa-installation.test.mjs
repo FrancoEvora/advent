@@ -22,6 +22,8 @@ test("Arisa installs as a distinct app and starts at the complete chat address",
 test("iPhone installation receives dedicated app metadata and PNG icons", () => {
   assert.match(page, /appleWebApp: \{ capable: true, title: "Arisa", statusBarStyle: "black-translucent" \}/);
   assert.match(page, /viewportFit: "cover"/);
+  assert.match(page, /icon: \{ url: "\/arisa\/icon", type: "image\/png", sizes: "512x512" \}/);
+  assert.match(page, /apple: \{ url: "\/arisa\/apple-icon", type: "image\/png", sizes: "180x180" \}/);
   assert.match(page, /themeColor: "#075e54"/);
   assert.match(page, /robots: \{ index: false, follow: false \}/);
   assert.equal(manifest.icons[0].src, "/arisa/icon");

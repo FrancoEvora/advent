@@ -65,3 +65,5 @@ jobs:
           supabase/functions/arisa-operations/index.ts
           supabase/functions/arisa-manager/index.ts
       - run: npm run build
+      - name: Validate Arisa home-screen HTTP metadata
+        run: node --test tests/arisa-installation-http.test.mjs

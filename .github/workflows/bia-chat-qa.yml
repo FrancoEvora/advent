@@ -43,7 +43,7 @@ jobs:
           else:
               assert new in s
           PY
-          deno check supabase/functions/enterprise-vitoria-agent/index.ts
+          deno check --node-modules-dir=auto supabase/functions/enterprise-vitoria-agent/index.ts
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add src/components/public-agent/PublicAgentExperience.tsx src/app/layout.tsx scripts/qa-bia-chat-browser.mjs src/app/styles/v6-27-bia-whatsapp.css supabase/functions/enterprise-vitoria-agent/index.ts

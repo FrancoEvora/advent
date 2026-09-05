@@ -1,0 +1,110 @@
+name: Bia Chat QA
+on:
+  push:
+    branches: [feat/bia-chat-whatsapp-audio]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: bia-chat-qa-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      sha: ${{ steps.revision.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Apply reviewed patch only on the feature branch
+        if: github.ref == 'refs/heads/feat/bia-chat-whatsapp-audio'
+        run: |
+          node scripts/apply-bia-chat-refresh.mjs
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/components/public-agent/PublicAgentExperience.tsx')
+          s=p.read_text()
+          old='if (!audioDraft || audioBusy || sending || initializing) return;'
+          new='if (!audioDraft || audioBusy || audioInFlightRef.current || sending || initializing) return;'
+          if old in s:
+              assert s.count(old)==1
+              p.write_text(s.replace(old,new))
+          else:
+              assert new in s
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/components/public-agent/PublicAgentExperience.tsx src/app/layout.tsx
+          if ! git diff --cached --quiet; then
+            git commit -m 'Bia: integra lista vertical, visual de conversa e captura de áudio protegida'
+            git push origin HEAD:feat/bia-chat-whatsapp-audio
+          fi
+      - id: revision
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+  browser:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Typecheck, lint and production build
+        run: npm run build
+      - name: Install isolated browser QA tools
+        run: |
+          npm install --no-save --package-lock=false @playwright/test@1.55.1 esbuild@0.25.10
+          npx playwright install --with-deps chromium webkit
+          sudo apt-get install -y espeak-ng
+          mkdir -p .qa/results
+          espeak-ng -v pt-br -s 145 -w .qa/voice.wav 'Bom dia, Bia. Quais lotes estão disponíveis no Solaris?'
+      - name: Test mobile layout and real browser audio recording
+        run: node scripts/qa-bia-chat-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bia-browser-${{ github.run_id }}
+          path: .qa/results/
+          retention-days: 7
+  live-audio:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Generate synthetic Portuguese QA clips, without personal voice data
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y ffmpeg espeak-ng
+          mkdir -p .qa/results
+          espeak-ng -v pt-br -s 145 -w .qa/voice.wav 'Bom dia, Bia. Quais lotes estão disponíveis no Solaris?'
+          ffmpeg -loglevel error -y -i .qa/voice.wav -c:a aac -b:a 64k .qa/voice.m4a
+          ffmpeg -loglevel error -y -i .qa/voice.wav -c:a libopus -b:a 48k .qa/voice.webm
+          echo "QA_AUDIO_DURATION=$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 .qa/voice.wav)" >> "$GITHUB_ENV"
+      - name: Validate current production audio API with a new anonymous test session
+        run: node scripts/qa-bia-audio-live.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bia-live-audio-${{ github.run_id }}
+          path: .qa/results/
+          retention-days: 7

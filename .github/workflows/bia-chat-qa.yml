@@ -7,7 +7,7 @@ permissions:
   contents: read
 concurrency:
   group: bia-chat-qa-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   prepare:
     runs-on: ubuntu-latest
@@ -23,10 +23,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 24
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
       - name: Apply reviewed patch only on the feature branch
         if: github.ref == 'refs/heads/feat/bia-chat-whatsapp-audio'
         run: |
           node scripts/apply-bia-chat-refresh.mjs
+          node scripts/apply-bia-audio-diagnostics.mjs
           python3 - <<'PY'
           from pathlib import Path
           p=Path('src/components/public-agent/PublicAgentExperience.tsx')
@@ -39,11 +43,12 @@ jobs:
           else:
               assert new in s
           PY
+          deno check supabase/functions/enterprise-vitoria-agent/index.ts
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add src/components/public-agent/PublicAgentExperience.tsx src/app/layout.tsx
+          git add src/components/public-agent/PublicAgentExperience.tsx src/app/layout.tsx scripts/qa-bia-chat-browser.mjs src/app/styles/v6-27-bia-whatsapp.css supabase/functions/enterprise-vitoria-agent/index.ts
           if ! git diff --cached --quiet; then
-            git commit -m 'Bia: integra lista vertical, visual de conversa e captura de áudio protegida'
+            git commit -m 'Bia: valida captura de áudio e diagnóstico seguro de transcrição'
             git push origin HEAD:feat/bia-chat-whatsapp-audio
           fi
       - id: revision

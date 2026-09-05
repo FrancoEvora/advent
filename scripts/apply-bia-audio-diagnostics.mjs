@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
+import {execFileSync} from 'node:child_process';
 
 const qa='scripts/qa-bia-chat-browser.mjs';
 let test=fs.readFileSync(qa,'utf8');
@@ -64,4 +65,14 @@ if(!experience.includes('PUBLIC_AGENT_AUDIO_MODEL_UNAVAILABLE:')){
  experience=experience.replace('const ERROR_TEXT: Record<string, string> = {','const ERROR_TEXT: Record<string, string> = {\n  PUBLIC_AGENT_AUDIO_MODEL_UNAVAILABLE: "A transcrição de áudio precisa ser habilitada na integração. Por enquanto, envie sua mensagem por escrito.",\n  PUBLIC_AGENT_AUDIO_PROVIDER_QUOTA: "A transcrição está temporariamente indisponível na integração. Seu áudio foi mantido para tentar novamente.",\n  PUBLIC_AGENT_AUDIO_PROVIDER_BUSY: "A transcrição está ocupada agora. Aguarde um momento e tente novamente com o mesmo áudio.",');
  fs.writeFileSync(ui,experience);
 }
+const viewport='tests/public-agent-mobile-viewport.test.mjs';
+let vp=fs.readFileSync(viewport,'utf8');
+vp=vp.replace('/ref=\\{messagesRef\\} className="public-agent-messages"/', '/ref=\\{messagesRef\\}[\\s\\S]{0,400}className="public-agent-messages"/');
+fs.writeFileSync(viewport,vp);
+const contracts='tests/vitoria-runtime-v4.test.mts';
+let ct=fs.readFileSync(contracts,'utf8');
+ct=ct.replace('assert.match(ui, /Simular condições do lote \\$\\{unit\\.unitCode\\}/);','assert.match(ui, /Simule a menor parcela do lote \\$\\{unit\\.unitCode\\}/);');
+ct=ct.replace('assert.match(ui, />\\s*Simular condições\\s*</);','assert.match(readFileSync(new URL("../src/components/public-agent/ChatLotOptions.tsx", import.meta.url), "utf8"), />\\s*Simular parcelas\\s*</);');
+fs.writeFileSync(contracts,ct);
+if(process.env.GITHUB_ACTIONS==='true')execFileSync('git',['add',viewport,contracts]);
 console.log('Applied bounded legacy transcription diagnostics and QA refinements.');

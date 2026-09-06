@@ -5,6 +5,7 @@ import {readFileSync} from "node:fs";
 const manager=()=>readFileSync("supabase/functions/_shared/arisa-manager.ts","utf8");
 const calendar=()=>readFileSync("supabase/functions/_shared/arisa-calendar.ts","utf8");
 const runtime=()=>readFileSync("supabase/functions/_shared/arisa-whatsapp-runtime.ts","utf8");
+const whatsapp=()=>readFileSync("supabase/functions/_shared/arisa-whatsapp.ts","utf8");
 const panel=()=>readFileSync("src/components/arisa/ArisaMailPanel.tsx","utf8");
 const whatsappPanel=()=>readFileSync("src/components/arisa/ArisaWhatsAppPanel.tsx","utf8");
 
@@ -12,8 +13,9 @@ test("Arisa exposes the official WhatsApp channel and 24h/template rule",()=>{
   assert.match(manager(),/tool\("whatsapp"/);
   assert.match(manager(),/24h/);
   assert.match(manager(),/template APPROVED/);
-  assert.match(runtime(),/WHATSAPP_TEMPLATE_REQUIRED/);
-  assert.match(runtime(),/graph\.facebook\.com|metaWhatsApp/);
+  assert.match(whatsapp(),/WHATSAPP_TEMPLATE_REQUIRED/);
+  assert.match(runtime(),/approvedTemplates/);
+  assert.match(whatsapp(),/graph\.facebook\.com/);
 });
 
 test("external calendar invitations cannot be empty",()=>{

@@ -4,6 +4,8 @@ import Link from "next/link";
 import Image from "next/image";
 import dynamic from "next/dynamic";
 import { MessageText } from "./MessageText";
+import { useArisaVoice, type ArisaVoice } from "./use-arisa-voice";
+import { VoiceToggle, VoiceBar, VoiceMessage } from "./VoiceControls";
 import type { WorkspacePanel } from "./workspace-client";
 import { workspaceLabels, workspacePanel, workspacePanels, workspaceUrl } from "./workspace-navigation";
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
@@ -44,8 +46,8 @@ function useChatViewport() {
     };
   }, []);
 }
-function Header({ menu }: { menu?: () => void }) {
-  return <header className="public-agent-chat-head"><div className="public-agent-avatar arisa-avatar"><Image src="/arisa-profile.webp" alt="Foto de perfil da Arisa" width={42} height={42} priority /></div><div><strong>Arisa</strong><span>Administradora da plataforma</span><small>Évora Urbanismo</small></div>{menu && <button className="arisa-icon-button" onClick={menu} aria-label="Abrir conversas e opções"><Icon kind="menu" /></button>}</header>;
+function Header({ menu, voice, recording }: { menu?: () => void; voice?: ArisaVoice; recording?: boolean }) {
+  return <header className="public-agent-chat-head"><div className="public-agent-avatar arisa-avatar"><Image src="/arisa-profile.webp" alt="Foto de perfil da Arisa" width={42} height={42} priority /></div><div><strong>Arisa</strong><span>Administradora da plataforma</span><small>Évora Urbanismo</small></div>{voice && <VoiceToggle voice={voice} disabled={recording} />}{menu && <button className="arisa-icon-button" onClick={menu} aria-label="Abrir conversas e opções"><Icon kind="menu" /></button>}</header>;
 }
 type Membership = { organization_id: string; organizations: { name: string; trade_name: string | null; active: boolean } | null };
 export default function ArisaChat({ initialThreadId, initialPanel = null }: { initialThreadId: string | null; initialPanel?: WorkspacePanel | null }) {
@@ -85,10 +87,11 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
   const [threads, setThreads] = useState<Thread[]>([]), [threadId, setThreadId] = useState<string | null>(initialThreadId && UUID.test(initialThreadId) ? initialThreadId : null);
   const [messages, setMessages] = useState<Message[]>([]), [files, setFiles] = useState<ChatFile[]>([]), [actions, setActions] = useState<Action[]>([]), [draftFiles, setDraftFiles] = useState<ChatFile[]>([]);
   const [draft, setDraft] = useState(""), [busy, setBusy] = useState(false), [loading, setLoading] = useState(Boolean(initialThreadId)), [error, setError] = useState(""), [menu, setMenu] = useState(false), [recording, setRecording] = useState(false), [older, setOlder] = useState(false);
+  const voice = useArisaVoice(organizationId, messages);
   const openPanel = useCallback((next: WorkspacePanel | null) => {
-    setPanel(next); setMenu(false);
+    voice.stop(); setPanel(next); setMenu(false);
     window.history.replaceState({}, "", workspaceUrl(next, threadId));
-  }, [threadId]);
+  }, [threadId, voice.stop]);
   const pane = useRef<HTMLDivElement>(null), input = useRef<HTMLTextAreaElement>(null), fileInput = useRef<HTMLInputElement>(null), pinned = useRef(true), creating = useRef<Promise<string> | null>(null), activeThread = useRef(threadId), working = useRef(false);
   const recorder = useRef<MediaRecorder | null>(null), recordTimer = useRef<ReturnType<typeof setTimeout> | null>(null), alive = useRef(true);
   const [clock, setClock] = useState(() => Date.now());
@@ -116,13 +119,13 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
   }, [threadId, refresh]);
   const pending = messages.some(message => message.role === "user" && message.status === "processing");
   useEffect(() => { if (!threadId || !pending) return; const timer = setInterval(() => { void refresh(threadId).catch(() => {}); }, 6000); return () => clearInterval(timer); }, [threadId, pending, refresh]);
-  useEffect(() => { const frame = requestAnimationFrame(() => { if (pinned.current && pane.current) pane.current.scrollTop = pane.current.scrollHeight; }); return () => cancelAnimationFrame(frame); }, [messages, busy, draftFiles]);
+  useEffect(() => { const frame = requestAnimationFrame(() => { if (pinned.current && pane.current) pane.current.scrollTop = pane.current.scrollHeight; }); return () => cancelAnimationFrame(frame); }, [messages, busy, draftFiles, voice.state.end]);
   function switchThread(id: string | null) {
     if (busy || recording || working.current) return;
-    setThreadId(id); activeThread.current = id; setLoading(Boolean(id)); setMessages([]); setActions([]); setFiles([]); setDraftFiles([]); setDraft(""); setError(""); setMenu(false); pinned.current = true;
+    voice.stop(); setThreadId(id); activeThread.current = id; setLoading(Boolean(id)); setMessages([]); setActions([]); setFiles([]); setDraftFiles([]); setDraft(""); setError(""); setMenu(false); pinned.current = true;
     window.history.pushState({}, "", id ? `/arisa?conversa=${id}` : "/arisa");
   }
-  useEffect(() => { const pop = () => { if (working.current) return; const params = new URL(window.location.href).searchParams; setPanel(workspacePanel(params.get("painel"))); const id = params.get("conversa"); const next = id && UUID.test(id) ? id : null; if (activeThread.current === next) return; activeThread.current = next; setThreadId(next); setLoading(Boolean(next)); setMessages([]); setDraft(""); setDraftFiles([]); }; window.addEventListener("popstate", pop); return () => window.removeEventListener("popstate", pop); }, []);
+  useEffect(() => { const pop = () => { if (working.current) return; voice.stop(); const params = new URL(window.location.href).searchParams; setPanel(workspacePanel(params.get("painel"))); const id = params.get("conversa"); const next = id && UUID.test(id) ? id : null; if (activeThread.current === next) return; activeThread.current = next; setThreadId(next); setLoading(Boolean(next)); setMessages([]); setDraft(""); setDraftFiles([]); }; window.addEventListener("popstate", pop); return () => window.removeEventListener("popstate", pop); }, [voice.stop]);
   async function ensureThread(): Promise<string> {
     if (activeThread.current) return activeThread.current;
     if (creating.current) return creating.current;
@@ -131,7 +134,7 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
   }
   async function send(retry?: Message) {
     if (working.current || recording || (!retry && !draft.trim() && !draftFiles.length)) return;
-    working.current = true; setBusy(true); setError(""); pinned.current = true;
+    voice.prepare(); working.current = true; setBusy(true); setError(""); pinned.current = true;
     let id: string | null = null;
     try {
       id = await ensureThread(); let messageId = retry?.id;
@@ -145,6 +148,7 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
         }
         setDraft(""); setDraftFiles([]); if (input.current) input.current.style.height = "46px";
       }
+      voice.arm(messageId);
       await refresh(id);
       await callManager({ action: "chat", organizationId, messageId });
     } catch (error) { if (alive.current) setError(errorText(error)); }
@@ -158,6 +162,7 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
   }
   async function startRecording() {
     if (working.current || draftFiles.length >= 5) return;
+    voice.stop();
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { setError("Este navegador não permite gravação. Você pode anexar um áudio ou digitar."); return; }
     setError(""); working.current = true; setBusy(true);
     try {
@@ -183,13 +188,14 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
   }
   const fileMap = new Map([...files, ...draftFiles].map(file => [file.id, file]));
   const fileButton = (file: ChatFile) => <button className="arisa-file" key={file.id} onClick={() => void openFile(file).catch(error => setError(errorText(error)))}><Icon kind="attach" /><span>{file.file_name}<small>{Math.max(1, Math.round(file.size_bytes / 1024))} KB{file.operation_item_id ? " · Na fila documental" : ""}</small></span></button>;
-  return <main id="conteudo-principal" className="public-agent-page bia-whatsapp arisa-chat">{panel && <ArisaWorkspace organizationId={organizationId} userId={userId} initialPanel={panel} onPanelChange={openPanel} onClose={() => openPanel(null)} />}<div className="public-agent-shell"><section className="public-agent-chat-card"><Header menu={() => setMenu(previous => !previous)} />
+  return <main id="conteudo-principal" className="public-agent-page bia-whatsapp arisa-chat">{panel && <ArisaWorkspace organizationId={organizationId} userId={userId} initialPanel={panel} onPanelChange={openPanel} onClose={() => openPanel(null)} />}<div className="public-agent-shell"><section className="public-agent-chat-card"><Header menu={() => setMenu(previous => !previous)} voice={voice} recording={recording} />
     {menu && <aside className="arisa-conversations" aria-label="Conversas"><div className="arisa-menu-head"><strong>Suas conversas</strong><button onClick={() => setMenu(false)} aria-label="Fechar menu"><Icon kind="close" /></button></div><small>{organizationName}</small><button onClick={() => switchThread(null)} disabled={busy || recording}>+ Nova conversa</button><nav>{threads.map(thread => <button key={thread.id} aria-current={threadId === thread.id ? "page" : undefined} onClick={() => switchThread(thread.id)} disabled={busy || recording}>{thread.title}</button>)}</nav><div className="arisa-menu-links">{workspacePanels.map(key => <button key={key} disabled={busy || recording} onClick={() => openPanel(key)}>{workspaceLabels[key]} da Arisa</button>)}<Link href="/">Abrir plataforma</Link><Link href="/?view=arisa">Fila de documentos</Link><Link href="/agenda">Agenda da plataforma</Link><button disabled={busy || recording} onClick={() => void client().auth.signOut()}>Sair da conta</button></div></aside>}
-    <div ref={pane} className="public-agent-messages" role="log" aria-label="Conversa com a Arisa" aria-live="polite" onScroll={() => { const value = pane.current; if (value) pinned.current = value.scrollHeight - value.scrollTop - value.clientHeight < 90; }}>
+    <VoiceBar voice={voice} />
+    <div ref={pane} className="public-agent-messages" role="log" aria-label="Conversa com a Arisa" aria-live={voice.state.enabled ? "off" : "polite"} onScroll={() => { const value = pane.current; if (value) pinned.current = value.scrollHeight - value.scrollTop - value.clientHeight < 90; }}>
       {older && messages[0] && <button className="arisa-load-older" onClick={() => { pinned.current = false; void refresh(threadId!, messages[0].created_at).catch(error => setError(errorText(error))); }}>Carregar mensagens anteriores</button>}
       {!messages.length && !loading && <div className="public-agent-message assistant"><div className="public-agent-message-content"><p>Oi! Eu sou a Arisa, gestora da plataforma Évora. Posso consultar informações, analisar o financeiro, organizar o CRM e executar suas tarefas administrativas. Você também pode me enviar boletos, notas fiscais e outros documentos. O que vamos resolver?</p></div></div>}
       {loading && <p role="status">Carregando conversa…</p>}
-      {messages.map(message => <div className={`public-agent-message ${message.role}`} key={message.id}><div className="public-agent-message-content">{message.content && <MessageText content={message.content} />}{message.file_ids.map(id => fileMap.get(id)).filter((file): file is ChatFile => Boolean(file)).map(fileButton)}{actions.filter(action => action.message_id === (message.parent_id || message.id)).filter(() => message.role === "assistant" || !messages.some(reply => reply.parent_id === message.id)).map(action => <details className="arisa-action" key={action.id}><summary>✓ {action.action === "rpc" ? "Rotina executada" : action.summary}</summary>{action.action === "rpc" && <p>Solicitação: {action.summary}</p>}<p>Operação registrada na plataforma. Referência: {action.id.slice(0, 8)}.</p><Link href="/?view=auditoria">Consultar auditoria</Link></details>)}<div className="public-agent-message-meta"><time dateTime={message.created_at}>{new Date(message.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}</time>{message.role === "user" && <span>{message.status === "completed" ? "✓✓" : message.status === "processing" ? "Processando" : message.status === "failed" ? "Interrompida" : "Salva"}</span>}</div>{message.role === "user" && (message.status === "failed" || message.status === "queued" || message.status === "processing" && message.lease_expires_at && new Date(message.lease_expires_at).getTime() < clock) && <button className="arisa-retry" disabled={busy} onClick={() => void send(message)}>Retomar esta mensagem</button>}{message.status === "failed" && message.metadata.message && <small className="arisa-message-error">{message.metadata.message}</small>}</div></div>)}
+      {messages.map(message => <div className={`public-agent-message ${message.role}`} key={message.id}><div className="public-agent-message-content">{message.content && (message.role === "assistant" ? <VoiceMessage message={message} voice={voice} disabled={recording} /> : <MessageText content={message.content} />)}{message.file_ids.map(id => fileMap.get(id)).filter((file): file is ChatFile => Boolean(file)).map(fileButton)}{actions.filter(action => action.message_id === (message.parent_id || message.id)).filter(() => message.role === "assistant" || !messages.some(reply => reply.parent_id === message.id)).map(action => <details className="arisa-action" key={action.id}><summary>✓ {action.action === "rpc" ? "Rotina executada" : action.summary}</summary>{action.action === "rpc" && <p>Solicitação: {action.summary}</p>}<p>Operação registrada na plataforma. Referência: {action.id.slice(0, 8)}.</p><Link href="/?view=auditoria">Consultar auditoria</Link></details>)}<div className="public-agent-message-meta"><time dateTime={message.created_at}>{new Date(message.created_at).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Sao_Paulo" })}</time>{message.role === "user" && <span>{message.status === "completed" ? "✓✓" : message.status === "processing" ? "Processando" : message.status === "failed" ? "Interrompida" : "Salva"}</span>}</div>{message.role === "user" && (message.status === "failed" || message.status === "queued" || message.status === "processing" && message.lease_expires_at && new Date(message.lease_expires_at).getTime() < clock) && <button className="arisa-retry" disabled={busy} onClick={() => void send(message)}>Retomar esta mensagem</button>}{message.status === "failed" && message.metadata.message && <small className="arisa-message-error">{message.metadata.message}</small>}</div></div>)}
       {busy && <div className="arisa-working" role="status">Arisa está trabalhando…</div>}
     </div>
     {error && <div className="public-agent-alert" role="alert">{error}<button onClick={() => setError("")} aria-label="Fechar aviso">×</button></div>}

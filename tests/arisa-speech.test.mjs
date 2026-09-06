@@ -11,7 +11,7 @@ const uri = (path, replace = []) => {
 const textUri=uri('supabase/functions/_shared/arisa-speech-text.ts');
 const speechUri=uri('supabase/functions/_shared/arisa-speech.ts', [['"./arisa-speech-text.ts"',JSON.stringify(textUri)]]);
 const {speechParts,spokenText,SPEECH_VERSION}=await import(textUri);
-const {partForReply,synthesize,VOICE,VOICE_INSTRUCTIONS}=await import(speechUri);
+const {partForReply,synthesize,VOICE,VOICE_INSTRUCTIONS,speechProviderFailure,SPEECH_ERRORS}=await import(speechUri);
 const {VoiceQueue}=await import(uri('src/components/arisa/voice-queue.ts', [['"../../../supabase/functions/_shared/arisa-speech-text"',JSON.stringify(textUri)]]));
 const tick=()=>new Promise(resolve=>setTimeout(resolve,0));
 
@@ -38,7 +38,7 @@ test('voice has fixed gentle adult pt-BR direction, exact input and no user-sele
  assert.equal((await synthesize('Olá, Franco.','test-key',request)).byteLength,128);
 });
 test('provider failures do not leak sensitive error bodies',async()=>{
- await assert.rejects(synthesize('Texto','test-key',async()=>new Response('provider-secret',{status:401})),/SPEECH_UNAVAILABLE/);
+ await assert.rejects(synthesize('Texto','test-key',async()=>new Response('provider-secret',{status:401})),/SPEECH_CREDENTIALS/);
  await assert.rejects(synthesize('Texto','test-key',async()=>new Response('private',{status:429})),/SPEECH_LIMIT/);
 });
 function audioFake(){let finished;const audio={plays:0,closed:false,paused:false,unlock:async()=>{},pause:async()=>{audio.paused=true},resume:async()=>{audio.paused=false},decode:async x=>x,play:()=>{audio.plays++;return {ended:new Promise(r=>{finished=r}),stop:()=>finished?.()}},close:()=>{audio.closed=true},finish:()=>finished?.()};return audio}
@@ -86,4 +86,29 @@ test('rate limiting occurs before any synthesis request',async()=>{reset();limit
 test('private audio is no-store and speech access never runs chat/administrative tools',async()=>{
  reset();const original=globalThis.fetch;globalThis.fetch=async()=>new Response(new Uint8Array(128),{headers:{'content-type':'audio/mpeg'}});
  try{const r=await handleRequest(req());assert.equal(r.status,200);assert.match(r.headers.get('cache-control'),/no-store/);assert.equal(r.headers.get('content-type'),'application/octet-stream');assert.equal((await r.arrayBuffer()).byteLength,128);assert.deepEqual(calls.map(x=>x.name),['arisa_admin_catalog','get_crm_ai_runtime_credentials','arisa_speech_consume']);}finally{globalThis.fetch=original}
+});
+
+test('provider access denial is actionable, not an expiring app session or a generic outage',()=>{
+ for(const status of [403,404]){const failure=speechProviderFailure(status);assert.equal(failure.code,'SPEECH_MODEL_ACCESS');assert.equal(failure.status,409);}
+ assert.equal(speechProviderFailure(401).code,'SPEECH_CREDENTIALS');assert.equal(speechProviderFailure(401).status,409);
+ assert.equal(speechProviderFailure(429).code,'SPEECH_LIMIT');assert.equal(speechProviderFailure(429).status,429);
+ for(const status of [400,408,500,502,503]){assert.equal(speechProviderFailure(status).code,'SPEECH_UNAVAILABLE');assert.equal(speechProviderFailure(status).status,503);}
+ assert.match(SPEECH_ERRORS.SPEECH_MODEL_ACCESS,/gpt-4o-mini-tts/);assert.match(SPEECH_ERRORS.SPEECH_MODEL_ACCESS,/Limits > Model Usage/);assert.match(SPEECH_ERRORS.SPEECH_MODEL_ACCESS,/não é preciso reenviar/);
+});
+test('a denied voice model is not retried with another model, voice or credential',async()=>{
+ for(const status of [401,403,404,429,503]){
+  let attempts=0,discarded=0;
+  await assert.rejects(synthesize('Texto de teste','synthetic-key',async()=>{attempts++;return new Response(new ReadableStream({cancel(){discarded++;}}),{status});}),error=>error.code===speechProviderFailure(status).code);
+  assert.equal(attempts,1);assert.equal(discarded,1);
+ }
+});
+test('provider permission error reaches the UI without leaking response bodies or running business tools',async()=>{
+ reset();const original=globalThis.fetch;let attempts=0;
+ globalThis.fetch=async()=>{attempts++;return new Response(JSON.stringify({error:{message:'Project private-project cannot access model; private-key'}}),{status:403,headers:{'content-type':'application/json'}});};
+ try{
+  const r=await handleRequest(req());assert.equal(r.status,409);assert.match(r.headers.get('cache-control'),/no-store/);
+  const body=await r.json();assert.equal(body.error,'SPEECH_MODEL_ACCESS');assert.match(body.message,/gpt-4o-mini-tts/);
+  assert.ok(!JSON.stringify(body).includes('private-project'));assert.ok(!JSON.stringify(body).includes('private-key'));assert.equal(attempts,1);
+  assert.deepEqual(calls.map(x=>x.name),['arisa_admin_catalog','get_crm_ai_runtime_credentials','arisa_speech_consume']);
+ }finally{globalThis.fetch=original}
 });

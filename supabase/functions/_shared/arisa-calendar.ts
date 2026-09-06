@@ -10,6 +10,7 @@ export const CALENDAR_ERRORS: Record<string, string> = {
   CALENDAR_API_DISABLED: "Ative a Google Calendar API no mesmo projeto Google Cloud da conexão. Não é necessário cadastrar outra senha nem criar outro cliente OAuth.",
   CALENDAR_ACCESS_DENIED: "Esta conta não tem acesso à agenda solicitada. Confira o compartilhamento da agenda e as políticas do Google Workspace.",
   CALENDAR_INVALID: "Confira agenda, título, participantes, início e término. Use datas com fuso horário explícito, por exemplo 2026-09-08T10:00:00-03:00.",
+  CALENDAR_DESCRIPTION_REQUIRED: "Reuniões com convidados precisam de uma descrição contextualizada com objetivo ou pauta antes do envio do convite.",
   CALENDAR_NOT_FOUND: "Este evento não está disponível na agenda informada. Consulte a agenda antes de alterar ou cancelar.",
   CALENDAR_CHANGED: "O evento mudou desde a última consulta. Leia novamente antes de alterar ou cancelar.",
   CALENDAR_BUSY: "Esta operação já está em andamento ou precisa de conferência. Não crie outro evento: consulte o resultado pelo identificador da operação.",
@@ -65,6 +66,7 @@ export function eventInput(args: Obj, updating = false): Obj {
     result.start = { dateTime: times.start, timeZone: zone }; result.end = { dateTime: times.end, timeZone: zone };
   }
   if (args.attendees !== undefined || !updating) result.attendees = participants(args.attendees ?? []).map(email => ({ email }));
+  if (!updating && Array.isArray(result.attendees) && result.attendees.length > 0 && (typeof result.description !== "string" || !result.description.trim())) throw new ManagerError("CALENDAR_DESCRIPTION_REQUIRED", 422);
   if (args.reminder_minutes !== undefined) {
     if (!Array.isArray(args.reminder_minutes) || args.reminder_minutes.length > 5 || args.reminder_minutes.some(n => !Number.isInteger(n) || Number(n) < 0 || Number(n) > 40320)) throw new ManagerError("CALENDAR_INVALID", 422);
     result.reminders = { useDefault: false, overrides: [...new Set(args.reminder_minutes)].map(minutes => ({ method: "popup", minutes })) };

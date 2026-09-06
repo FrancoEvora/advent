@@ -13,10 +13,20 @@ export const SPEECH_ERRORS: Record<string, string> = {
   SPEECH_NOT_READY: "Aguarde a conclusão da resposta antes de ouvir.",
   SPEECH_INVALID: "Não foi possível localizar este trecho da resposta. Atualize a conversa.",
   SPEECH_TOO_LONG: "Esta resposta é muito longa para leitura automática. Consulte o texto completo.",
-  SPEECH_LIMIT: "O limite temporário de voz foi atingido. O texto continua disponível.",
+  SPEECH_LIMIT: "O limite de uso da voz foi atingido. Verifique a cota da integração ou tente mais tarde. O texto continua disponível.",
   SPEECH_UNAVAILABLE: "Não foi possível gerar a voz agora. A resposta escrita está preservada.",
   SPEECH_DISABLED: "A integração de IA precisa estar ativa para gerar a voz.",
+  SPEECH_MODEL_ACCESS: "A OpenAI não autorizou o modelo de voz gpt-4o-mini-tts para esta integração. No projeto da OpenAI, confira Limits > Model Usage e a permissão da chave para Audio > Speech. Após liberar o acesso, toque em Ouvir resposta; não é preciso reenviar a mensagem.",
+  SPEECH_CREDENTIALS: "A OpenAI recusou a credencial usada para gerar a voz. Revise a chave cadastrada na integração de IA. Sua sessão e a resposta escrita estão preservadas; não envie chaves pelo chat.",
 };
+/** Classify only the HTTP status; never expose provider bodies, keys or project identifiers. */
+export function speechProviderFailure(status: number): SpeechError {
+  // These are provider credentials/permissions, not the user's Supabase session.
+  if (status === 401) return new SpeechError("SPEECH_CREDENTIALS", 409);
+  if (status === 403 || status === 404) return new SpeechError("SPEECH_MODEL_ACCESS", 409);
+  if (status === 429) return new SpeechError("SPEECH_LIMIT", 429);
+  return new SpeechError("SPEECH_UNAVAILABLE", 503);
+}
 export type StoredReply = { id: string; content: string; role: string; status: string; parent_id: string | null };
 export function partForReply(reply: StoredReply, index: unknown, version: unknown): { text: string; end: number; index: number } {
   if (reply.role !== "assistant") throw new SpeechError("NOT_FOUND", 404);
@@ -37,7 +47,12 @@ export async function synthesize(text: string, apiKey: string, request: typeof f
       body: JSON.stringify({ model: MODEL, voice: VOICE, input: text, instructions: VOICE_INSTRUCTIONS, speed: 0.96, response_format: "mp3" }), signal,
     });
   } catch { throw new SpeechError("SPEECH_UNAVAILABLE"); }
-  if (!response.ok) { await response.body?.cancel(); throw new SpeechError(response.status === 429 ? "SPEECH_LIMIT" : "SPEECH_UNAVAILABLE", response.status === 429 ? 429 : 503); }
+  if (!response.ok) {
+    const failure = speechProviderFailure(response.status);
+    // Cancelling an unread response must not obscure the original permission failure.
+    await response.body?.cancel().catch(() => {});
+    throw failure;
+  }
   const type = response.headers.get("content-type") || "";
   if (!/audio|octet-stream/.test(type)) { await response.body?.cancel(); throw new SpeechError("SPEECH_UNAVAILABLE"); }
   if (Number(response.headers.get("content-length") || 0) > 3000000) { await response.body?.cancel(); throw new SpeechError("SPEECH_UNAVAILABLE"); }

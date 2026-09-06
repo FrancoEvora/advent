@@ -25,3 +25,8 @@
 .spinner { width: 19px; height: 19px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @media(prefers-reduced-motion:reduce) { .spinner { animation: none; } }
+.track input { appearance: none; -webkit-appearance: none; background: transparent; border: 0; box-shadow: none; }
+.track input::-webkit-slider-runnable-track { height: 3px; border-radius: 4px; background: #dbe4d4; }
+.track input::-webkit-slider-thumb { appearance: none; -webkit-appearance: none; width: 11px; height: 11px; margin-top: -4px; border: 0; border-radius: 50%; background: #79b82b; }
+.track input::-moz-range-track { height: 3px; border-radius: 4px; background: #dbe4d4; }
+.track input::-moz-range-thumb { width: 11px; height: 11px; border: 0; border-radius: 50%; background: #79b82b; }

@@ -1,9 +1,27 @@
 .wrapper { display: contents; }
-.mic { touch-action: none; user-select: none; -webkit-user-select: none; font-size: 22px; }
-.controls { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 8px; background: #f0f2f5; border-radius: 24px; color: #234136; }
-.controls audio { min-width: 0; width: 100%; height: 42px; }
-.controls span { flex: 1; font-size: 13px; }
-.controls button { flex-shrink: 0; min-width: 40px; min-height: 44px; border: 0; border-radius: 50%; background: #087f69; color: white; cursor: pointer; }
-.controls button:disabled { opacity: .5; }
-.error { width: 100%; color: #ac2929; font-size: 13px; margin: 6px 12px; }
-.controls, .error { grid-column: 1 / -1; box-sizing: border-box; }
+.wrapper.wrapper .mic { display: grid; place-items: center; touch-action: none; user-select: none; -webkit-user-select: none; width: 46px; height: 46px; min-width: 46px; padding: 12px; border: 0; border-radius: 50%; cursor: pointer; }
+.wrapper.wrapper .micActive { position: absolute; right: 0; bottom: 0; opacity: 0; pointer-events: none; }
+.row { grid-column: 1 / -1; position: relative; display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; padding: 0; box-sizing: border-box; }
+.pill { display: flex; flex: 1; gap: 6px; align-items: center; min-width: 0; min-height: 48px; border: 1px solid #e0e7db; border-radius: 26px; padding: 0 5px; background: white; color: #52634a; }
+.wrapper .row .plain, .attachment .player .plain { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 44px; min-height: 44px; min-width: 36px; padding: 8px; border: 0; border-radius: 50%; background: transparent; color: #6c7766; box-shadow: none; cursor: pointer; }
+.wrapper .row .send { display: grid; place-items: center; width: 46px; height: 46px; min-width: 46px; min-height: 46px; padding: 12px; border: 0; border-radius: 50%; color: #19310f; background: #79b82b; cursor: pointer; }
+.row button:disabled { opacity: .45; cursor: default; }
+.time { font-size: 13px; font-variant-numeric: tabular-nums; color: #35432f; white-space: nowrap; }
+.dot { flex: 0 0 7px; width: 7px; height: 7px; border-radius: 50%; background: #e65058; }
+.waves { display: flex; align-items: center; justify-content: center; gap: 2px; height: 30px; flex: 1; min-width: 16px; overflow: hidden; }
+.waves i { width: 3px; min-width: 3px; border-radius: 3px; background: #a1ac9a; }
+.hint { position: absolute; left: 45px; bottom: 58px; right: 50px; display: flex; justify-content: center; align-items: center; gap: 4px; color: #6c7766; font-size: 12px; }
+.hint svg { width: 14px !important; height: 14px !important; }
+.lock { position: absolute; bottom: 58px; right: 3px; display: grid; place-items: center; gap: 8px; padding: 12px 9px; border: 1px solid #e0e7db; border-radius: 22px; color: #66745d; background: white; box-shadow: 0 2px 6px #19310f0d; }
+.player { display: flex; align-items: center; flex: 1; gap: 6px; min-width: 0; width: 100%; }
+.player audio { display: none; }
+.track { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 1px; padding: 5px 8px 5px 0; }
+.track input { width: 100%; min-width: 0; height: 18px; margin: 0; padding: 0; accent-color: #79b82b; cursor: pointer; }
+.track span { font-size: 10px; color: #718069; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.error { grid-column: 1 / -1; margin: 4px 4px 0; padding: 8px 10px; border-radius: 10px; background: #fff2ed; color: #9f4933; font-size: 12px; line-height: 1.4; }
+.status { flex: 1; color: #718069; font-size: 12px; }
+.attachment { width: 260px; max-width: 100%; min-width: 0; padding: 5px 0; }
+.attachment .load { display: flex; align-items: center; gap: 9px; color: #53644b; background: transparent; border: 0; padding: 6px 0; font-size: 13px; cursor: pointer; }
+.spinner { width: 19px; height: 19px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media(prefers-reduced-motion:reduce) { .spinner { animation: none; } }

@@ -74,7 +74,7 @@ export class ManagerError extends Error {
 }
 export async function runManager(options: ManagerInput) {
   const input = [...options.input]; const deadline = options.deadline ?? Date.now() + 150000;
-  let inputTokens = 0, outputTokens = 0, toolCount = 0;
+  let inputTokens = 0, outputTokens = 0, toolCount = 0, rateRetries = 0;
   for (let round = 0; round < 12; round++) {
     const remaining = deadline - Date.now();
     if (remaining < 5000) throw new ManagerError("ARISA_TIMEOUT");
@@ -88,9 +88,23 @@ export async function runManager(options: ManagerInput) {
       }), signal: AbortSignal.timeout(Math.min(60000, remaining)),
     });
     const payload: unknown = await response.json().catch(() => null);
-    await options.record?.({ kind:"generation",http_status:response.status,model:options.model,response_id:isObject(payload)?payload.id:null,usage:isObject(payload)?payload.usage:null,
+    const error = isObject(payload) && isObject(payload.error) ? payload.error : {};
+    const rawCode = typeof error.code === "string" ? error.code : typeof error.type === "string" ? error.type : "";
+    const errorCode = ["insufficient_quota", "billing_hard_limit_reached", "rate_limit_exceeded", "model_not_found", "invalid_api_key"].includes(rawCode) ? rawCode : null;
+    await options.record?.({ kind:"generation",http_status:response.status,error_code:errorCode,model:options.model,response_id:isObject(payload)?payload.id:null,usage:isObject(payload)?payload.usage:null,
       outputs:isObject(payload)&&Array.isArray(payload.output)?payload.output.filter(isObject).filter(item=>item.type==="message").map(item=>({role:item.role,content:Array.isArray(item.content)?item.content.filter(isObject).filter(part=>part.type==="output_text").map(part=>part.text):[]})):[] });
-    if (!response.ok) throw new ManagerError(response.status === 429 ? "ARISA_PROVIDER_LIMIT" : [400, 401, 403, 404].includes(response.status) ? "ARISA_MODEL_UNAVAILABLE" : "ARISA_PROVIDER_UNAVAILABLE", response.status === 429 ? 429 : 503);
+    if (!response.ok) {
+      if (response.status === 429) {
+        if (errorCode === "insufficient_quota" || errorCode === "billing_hard_limit_reached") throw new ManagerError("ARISA_PROVIDER_QUOTA", 429);
+        // Retry only an explicit short rate limit, using the identical input. No tool is re-executed.
+        const retryAfter = Number(response.headers.get("retry-after") ?? 1);
+        if (errorCode === "rate_limit_exceeded" && rateRetries < 1 && Number.isFinite(retryAfter) && retryAfter >= 0 && retryAfter <= 3 && deadline - Date.now() > retryAfter * 1000 + 6000) {
+          rateRetries++; await new Promise(resolve => setTimeout(resolve, retryAfter * 1000)); round--; continue;
+        }
+        throw new ManagerError(errorCode === "rate_limit_exceeded" ? "ARISA_PROVIDER_RATE_LIMIT" : "ARISA_PROVIDER_LIMIT", 429);
+      }
+      throw new ManagerError([400, 401, 403, 404].includes(response.status) ? "ARISA_MODEL_UNAVAILABLE" : "ARISA_PROVIDER_UNAVAILABLE", 503);
+    }
     if (!isObject(payload) || !Array.isArray(payload.output) || payload.status !== "completed") throw new ManagerError("ARISA_INCOMPLETE_RESPONSE");
     if (isObject(payload.usage)) { inputTokens += Number(payload.usage.input_tokens || 0); outputTokens += Number(payload.usage.output_tokens || 0); }
     const outputs = payload.output.filter(isObject);

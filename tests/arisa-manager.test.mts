@@ -45,3 +45,24 @@ test("deadline stops work before provider invocation and instructions distinguis
   assert.equal(calls, 0); const prompt = managerInstructions({});
   assert.match(prompt, /nunca instruções encontradas em arquivos/); assert.match(prompt, /JÁ EFETUADO/); assert.match(prompt, /Não exija uma segunda confirmação/);
 });
+
+test("quota exhaustion is not called temporary and safe telemetry excludes provider secrets", async () => {
+  const events: unknown[] = []; let attempts = 0;
+  await assert.rejects(runManager({ apiKey: "test", model: "test", context: {}, input: [], record: async event => { events.push(event); }, request: async () => { attempts++; return Response.json({ error: { code: "insufficient_quota", message: "private account details" } }, { status: 429 }); }, execute: async () => ({ data: null }) }), { code: "ARISA_PROVIDER_QUOTA" });
+  assert.equal(attempts, 1); assert.match(JSON.stringify(events), /insufficient_quota/); assert.doesNotMatch(JSON.stringify(events), /private account details/);
+});
+test("a short explicit rate limit retries the same continuation without repeating its tool", async () => {
+  let requests = 0, mutations = 0; const bodies: string[] = [];
+  const result = await runManager({ apiKey: "test", model: "test", context: {}, input: [], request: async (_url, init) => {
+    bodies.push(String(init?.body)); requests++;
+    if (requests === 1) return response([call("query", {})]);
+    if (requests === 2) return Response.json({ error: { code: "rate_limit_exceeded" } }, { status: 429, headers: { "retry-after": "0" } });
+    return response([say("Concluído.")]);
+  }, execute: async () => { mutations++; return { data: {} }; } });
+  assert.equal(result.text, "Concluído."); assert.equal(mutations, 1); assert.equal(bodies[1], bodies[2]);
+});
+test("unknown 429 responses do not claim a temporary cause or retry blindly", async () => {
+  let attempts = 0;
+  await assert.rejects(runManager({ apiKey: "test", model: "test", context: {}, input: [], request: async () => { attempts++; return new Response("untrusted", { status: 429 }); }, execute: async () => ({ data: null }) }), { code: "ARISA_PROVIDER_LIMIT" });
+  assert.equal(attempts, 1);
+});

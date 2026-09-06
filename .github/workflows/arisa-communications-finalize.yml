@@ -1,0 +1,42 @@
+name: Finalize Arisa communications
+on:
+  push:
+    branches: [codex/arisa-communications-suite-20260906]
+    paths:
+      - scripts/patch-arisa-communications.mjs
+      - supabase/functions/_shared/arisa-whatsapp.ts
+      - supabase/functions/_shared/arisa-whatsapp-runtime.ts
+      - supabase/functions/arisa-whatsapp/index.ts
+      - src/components/arisa/ArisaWhatsAppPanel.tsx
+      - src/components/arisa/workspace-client.ts
+      - tests/arisa-communications-policy.test.mjs
+      - .github/workflows/arisa-communications-finalize.yml
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/arisa-communications-suite-20260906
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Apply deterministic integration patch
+        run: node scripts/patch-arisa-communications.mjs
+      - name: Validate communications policy
+        run: node --test tests/arisa-communications-policy.test.mjs tests/arisa-manager-handler.test.mts tests/arisa-mail-handler.test.mts
+      - name: Typecheck, lint and production build
+        run: npm run typecheck && npm run lint && npm run build
+      - name: Commit generated integration patch
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/_shared/arisa-manager.ts supabase/functions/arisa-manager/index.ts supabase/functions/_shared/arisa-calendar.ts src/components/arisa/ArisaMailPanel.tsx
+          git commit -m "feat(arisa): integrate WhatsApp and contextual meeting communications"
+          git push origin HEAD:codex/arisa-communications-suite-20260906

@@ -6,3 +6,4 @@
 .controls button { flex-shrink: 0; min-width: 40px; min-height: 44px; border: 0; border-radius: 50%; background: #087f69; color: white; cursor: pointer; }
 .controls button:disabled { opacity: .5; }
 .error { width: 100%; color: #ac2929; font-size: 13px; margin: 6px 12px; }
+.controls, .error { grid-column: 1 / -1; box-sizing: border-box; }

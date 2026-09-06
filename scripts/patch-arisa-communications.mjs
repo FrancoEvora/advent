@@ -28,3 +28,10 @@ patch("supabase/functions/_shared/arisa-calendar.ts",source=>{
   if(!source.includes('CALENDAR_DESCRIPTION_REQUIRED", 422'))source=source.replace(attendees,attendees+'\n  if (!updating && Array.isArray(result.attendees) && result.attendees.length > 0 && (typeof result.description !== "string" || !result.description.trim())) throw new ManagerError("CALENDAR_DESCRIPTION_REQUIRED", 422);');
   return source;
 });
+
+patch("src/components/arisa/ArisaMailPanel.tsx",source=>{
+  if(!source.includes('ArisaWhatsAppPanel'))source=source.replace('import ArisaCalendarPanel from "./ArisaCalendarPanel";','import ArisaCalendarPanel from "./ArisaCalendarPanel";\nimport ArisaWhatsAppPanel from "./ArisaWhatsAppPanel";');
+  const calendar='<ArisaCalendarPanel organizationId={organizationId} connected={status?.connected === true} authorized={status?.calendar_authorized === true} busy={busy} onConnect={() => void connect("calendar")} />';expect(source.includes(calendar),"calendar panel");
+  if(!source.includes('<ArisaWhatsAppPanel'))source=source.replace(calendar,calendar+'\n    <ArisaWhatsAppPanel organizationId={organizationId} />');
+  return source;
+});

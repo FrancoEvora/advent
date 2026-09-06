@@ -1,7 +1,7 @@
 import { client, errorText } from "./chat-client";
 
-export type WorkspacePanel = "email" | "archive" | "memory";
-export async function workspaceCall(name: "arisa-mail" | "arisa-background", body: Record<string, unknown>) {
+export type WorkspacePanel = "email" | "archive" | "memory" | "whatsapp";
+export async function workspaceCall(name: "arisa-mail" | "arisa-background" | "arisa-whatsapp", body: Record<string, unknown>) {
   const { data, error } = await client().functions.invoke(name, { body });
   if (error) {
     if ("context" in error && error.context instanceof Response) {

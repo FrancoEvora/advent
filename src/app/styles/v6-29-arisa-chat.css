@@ -51,3 +51,5 @@ html.arisa-active,body.arisa-active{background:#79B82B}
 
 .arisa-chat .arisa-message-link { color: #315c0d; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
 .arisa-chat .arisa-message-link:focus-visible { outline: 2px solid #315c0d; outline-offset: 3px; border-radius: 2px; }
+/* Recording replaces the entire composer, including its hidden text field. */
+.arisa-chat .arisa-composer [hidden]{display:none!important}

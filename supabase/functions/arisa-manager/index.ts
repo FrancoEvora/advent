@@ -19,7 +19,15 @@ const ERRORS: Record<string, string> = {
   ARISA_INCOMPLETE_RESPONSE: "A IA não concluiu a resposta. A mensagem está salva para uma nova tentativa.", ARISA_EMPTY_RESPONSE: "A IA não retornou uma resposta. Tente retomar a mensagem.",
   ...CALENDAR_ERRORS,
   ...WHATSAPP_ERRORS,
-  FILE_INVALID: "O arquivo está incompleto ou não corresponde ao documento enviado.", AUDIO_UNAVAILABLE: "A transcrição de áudio não está disponível no provedor configurado. Você pode digitar a mensagem.", SERVICE_UNAVAILABLE: "Não foi possível concluir esta etapa. A conversa está preservada; tente novamente.",
+  FILE_INVALID: "O arquivo está incompleto ou não corresponde ao documento enviado.", AUDIO_UNAVAILABLE: "Não foi possível transcrever agora. Tente enviar novamente.",
+  AUDIO_MODEL_ACCESS: "O projeto OpenAI conectado precisa liberar um modelo de transcrição: gpt-4o-mini-transcribe, gpt-4o-transcribe ou whisper-1, em Limits → Model usage.",
+  AUDIO_PERMISSION: "A chave OpenAI conectada não tem permissão de transcrição. Confira Audio → Transcriptions nas permissões da chave e os modelos liberados no projeto.",
+  AUDIO_CREDENTIALS: "A credencial de IA foi recusada. Confira a conexão de IA da plataforma.",
+  AUDIO_QUOTA: "O projeto de IA está sem cota disponível. Confira o faturamento e os limites da conta OpenAI.",
+  AUDIO_LIMIT: "O provedor atingiu um limite temporário. Aguarde um momento e tente enviar novamente.",
+  AUDIO_INVALID: "O provedor não conseguiu ler este áudio. Tente gravar novamente ou anexar um arquivo M4A, MP3 ou WAV.",
+  AUDIO_EMPTY: "Não foi possível identificar fala no áudio. Confira a gravação e o microfone.",
+  AUDIO_TOO_LONG: "A transcrição ultrapassou o limite da mensagem. Divida o áudio em trechos menores.", SERVICE_UNAVAILABLE: "Não foi possível concluir esta etapa. A conversa está preservada; tente novamente.",
 };
 async function rpc(client: SupabaseClient, name: string, args: Obj): Promise<unknown> {
   const { data, error } = await client.rpc(name, args);
@@ -74,17 +82,34 @@ async function fileInput(caller: SupabaseClient, fileId: unknown, org: string, u
   const text = decodeDocument(bytes);
   return { data: { ...descriptor, text: text.slice(0, 100000), truncated: text.length > 100000 } };
 }
-async function transcribe(bytes: Uint8Array, file: ChatFile, apiKey: string) {
-  if (!file.mime_type.startsWith("audio/") || bytes.length > 2500000) throw new ManagerError("FILE_INVALID", 422);
-  for (const model of ["gpt-4o-mini-transcribe", "whisper-1"]) {
+export async function transcribe(bytes: Uint8Array, file: ChatFile, apiKey: string) {
+  if (!file.mime_type.startsWith("audio/") || !bytes.length || bytes.length > 2500000) throw new ManagerError("FILE_INVALID", 422);
+  let accessError = "AUDIO_MODEL_ACCESS";
+  for (const model of ["gpt-4o-mini-transcribe", "gpt-4o-transcribe", "whisper-1"]) {
     const form = new FormData(); form.append("file", new Blob([bytes as BlobPart], { type: file.mime_type }), file.file_name); form.append("model", model); form.append("language", "pt"); form.append("response_format", "json");
-    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { Authorization: "Bearer " + apiKey }, body: form, signal: AbortSignal.timeout(55000) });
-    if (!response.ok) { if ([400, 403, 404].includes(response.status)) continue; throw new ManagerError("AUDIO_UNAVAILABLE", 503); }
-    const value: unknown = await response.json();
-    if (!isObject(value) || typeof value.text !== "string" || !value.text.trim() || value.text.length > 6000) throw new ManagerError("AUDIO_UNAVAILABLE", 422);
+    let response: Response;
+    try { response = await fetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { Authorization: "Bearer " + apiKey }, body: form, signal: AbortSignal.timeout(30000) }); }
+    catch { throw new ManagerError("AUDIO_UNAVAILABLE", 503); }
+    if (!response.ok) {
+      const failure: unknown = await response.json().catch(() => null);
+      const detail = isObject(failure) && isObject(failure.error) ? failure.error : {};
+      const code = typeof detail.code === "string" ? detail.code : "";
+      // Never expose provider bodies: they can contain key/project identifiers.
+      if (response.status === 429) throw new ManagerError(code === "insufficient_quota" ? "AUDIO_QUOTA" : "AUDIO_LIMIT", 429);
+      if (response.status === 401) throw new ManagerError("AUDIO_CREDENTIALS", 503);
+      if (response.status === 403 || response.status === 404 || code === "model_not_found") {
+        if (response.status === 403 && code !== "model_not_found") accessError = "AUDIO_PERMISSION";
+        continue;
+      }
+      if (response.status === 400 || response.status === 422) throw new ManagerError("AUDIO_INVALID", 422);
+      throw new ManagerError("AUDIO_UNAVAILABLE", 503);
+    }
+    const value: unknown = await response.json().catch(() => null);
+    if (!isObject(value) || typeof value.text !== "string" || !value.text.trim()) throw new ManagerError("AUDIO_EMPTY", 422);
+    if (value.text.length > 6000) throw new ManagerError("AUDIO_TOO_LONG", 422);
     return value.text.trim();
   }
-  throw new ManagerError("AUDIO_UNAVAILABLE", 503);
+  throw new ManagerError(accessError, 403);
 }
 
 export async function handleRequest(request: Request): Promise<Response> {

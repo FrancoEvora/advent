@@ -54,7 +54,7 @@ test('rate limits and successful MP3 responses preserve the existing API contrac
   const bytes = await synthesize('Bom dia.', 'synthetic-key', async (url, request) => {
     assert.equal(url, 'https://api.openai.com/v1/audio/speech');
     const data = JSON.parse(request.body);
-    assert.equal(data.model, 'gpt-4o-mini-tts'); assert.equal(data.voice, 'coral'); assert.equal(data.speed, 0.96);
+    assert.equal(data.model, 'gpt-4o-mini-tts'); assert.equal(data.voice, 'marin'); assert.equal(data.speed, 1.12);
     assert.match(data.instructions, /profissional, delicada, doce/);
     return new Response(new Uint8Array(128), { headers: { 'content-type': 'audio/mpeg' } });
   });

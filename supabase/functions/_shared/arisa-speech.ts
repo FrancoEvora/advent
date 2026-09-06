@@ -69,7 +69,7 @@ export async function synthesize(text: string, apiKey: string, request: typeof f
   try {
     response = await request("https://api.openai.com/v1/audio/speech", {
       method: "POST", headers: { Authorization: "Bearer " + apiKey, "Content-Type": "application/json" },
-      body: JSON.stringify({ model: MODEL, voice: VOICE, input: text, instructions: VOICE_INSTRUCTIONS, speed: 1.08, response_format: "mp3" }), signal,
+      body: JSON.stringify({ model: MODEL, voice: VOICE, input: text, instructions: VOICE_INSTRUCTIONS, speed: 1.12, response_format: "mp3" }), signal,
     });
   } catch { throw new SpeechError("SPEECH_UNAVAILABLE"); }
   if (!response.ok) throw await providerFailure(response);

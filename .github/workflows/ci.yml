@@ -54,6 +54,7 @@ jobs:
           tests/arisa-whatsapp-runtime.test.mts
           tests/arisa-whatsapp-webhook.test.mts
           tests/arisa-channels-ui.test.mjs
+          tests/arisa-message-links.test.mts
       - name: Validate Bia pure behavior contracts
         run: deno test tests/bia-professional-behavior.test.mts
       - name: Validate CRM conversation and archival contracts

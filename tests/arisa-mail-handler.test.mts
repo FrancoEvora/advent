@@ -17,7 +17,7 @@ function createClient(_url:string,key:string){return {auth:{getUser:async()=>({e
 }};}
 const target=globalThis as unknown as {__mailClient:typeof createClient;Deno:{env:{get:(key:string)=>string|undefined}}};target.__mailClient=createClient;target.Deno={env:{get:key=>({SUPABASE_URL:"https://test.invalid",SUPABASE_ANON_KEY:"public",SUPABASE_SERVICE_ROLE_KEY:"service"} as Record<string,string>)[key]}};
 let source=readFileSync(new URL("supabase/functions/arisa-mail/index.ts",root),"utf8").replace(/import \{ createClient \} from [^;]+;/,"const createClient = globalThis.__mailClient;").replace("Deno.serve(handleMail);","");
-for(const name of ["arisa-manager","arisa-document","arisa-mail","arisa-mail-runtime"])source=source.replaceAll(`"../_shared/${name}.ts"`,JSON.stringify(new URL(`supabase/functions/_shared/${name}.ts`,root).href));
+for(const name of ["arisa-manager","arisa-document","arisa-mail","arisa-mail-runtime","arisa-calendar","arisa-calendar-runtime"])source=source.replaceAll(`"../_shared/${name}.ts"`,JSON.stringify(new URL(`supabase/functions/_shared/${name}.ts`,root).href));
 const {handleMail}=await import("data:text/javascript;base64,"+Buffer.from(stripTypeScriptTypes(source,{mode:"strip"})).toString("base64"));
 const request=(action:string,token="Bearer test")=>new Request("https://test.invalid",{method:"POST",headers:{authorization:token},body:JSON.stringify({organizationId:org,action,state:"state",code:"code"})});
 test.beforeEach(()=>{authenticated=true;authorized=true;consumed=false;calls.length=0;});

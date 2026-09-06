@@ -48,3 +48,6 @@ html.arisa-active,body.arisa-active{background:#79B82B}
 .arisa-chat .arisa-recording{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;background:var(--arisa-surface);color:#a14b46;font-size:13px}.arisa-chat .arisa-recording button{display:grid;place-items:center;background:var(--arisa-green);color:var(--arisa-ink);border:0;width:46px;height:46px;border-radius:50%}
 .arisa-chat .public-agent-message-content p{tab-size:2}.arisa-chat button,.arisa-chat a{touch-action:manipulation}
 @media(max-width:450px){.arisa-chat .public-agent-message-content{max-width:91%}.arisa-chat .arisa-login form{padding:18px}.arisa-chat .arisa-composer{gap:3px}}
+
+.arisa-chat .arisa-message-link { color: #315c0d; text-decoration: underline; text-underline-offset: 3px; overflow-wrap: anywhere; }
+.arisa-chat .arisa-message-link:focus-visible { outline: 2px solid #315c0d; outline-offset: 3px; border-radius: 2px; }

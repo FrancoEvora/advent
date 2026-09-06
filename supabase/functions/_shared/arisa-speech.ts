@@ -16,6 +16,9 @@ export const SPEECH_ERRORS: Record<string, string> = {
   SPEECH_LIMIT: "O limite temporário de voz foi atingido. O texto continua disponível.",
   SPEECH_UNAVAILABLE: "Não foi possível gerar a voz agora. A resposta escrita está preservada.",
   SPEECH_DISABLED: "A integração de IA precisa estar ativa para gerar a voz.",
+  SPEECH_MODEL_UNAVAILABLE: "O projeto conectado à OpenAI não tem acesso ao modelo de voz gpt-4o-mini-tts. O administrador da conta OpenAI precisa liberá-lo em Project > Limits > Model Usage. Depois, toque em Ouvir resposta. O texto está preservado.",
+  SPEECH_PERMISSION: "A credencial de IA não tem permissão para gerar áudio. Confira o acesso ao modelo gpt-4o-mini-tts e à API de geração de voz no projeto OpenAI.",
+  SPEECH_PROVIDER_QUOTA: "A cota ou o saldo do projeto OpenAI está impedindo a geração de voz. Revise os limites e o faturamento da API. O texto continua disponível.",
 };
 export type StoredReply = { id: string; content: string; role: string; status: string; parent_id: string | null };
 export function partForReply(reply: StoredReply, index: unknown, version: unknown): { text: string; end: number; index: number } {
@@ -28,6 +31,37 @@ export function partForReply(reply: StoredReply, index: unknown, version: unknow
   if (!part) throw new SpeechError("SPEECH_INVALID", 422);
   return part;
 }
+/** Read only a bounded error code. Never return, log, or persist raw provider messages. */
+export async function providerSpeechError(response: Response): Promise<SpeechError> {
+  let code = "";
+  const reader = response.body?.getReader();
+  if (reader) {
+    try {
+      const chunks: Uint8Array[] = []; let size = 0;
+      while (true) {
+        const part = await reader.read(); if (part.done) break;
+        size += part.value.byteLength;
+        if (size > 16384) break;
+        chunks.push(part.value);
+      }
+      if (size <= 16384) {
+        const bytes = new Uint8Array(size); let offset = 0;
+        for (const chunk of chunks) { bytes.set(chunk, offset); offset += chunk.byteLength; }
+        const value: unknown = JSON.parse(new TextDecoder().decode(bytes));
+        if (value && typeof value === "object" && "error" in value) {
+          const error = value.error;
+          if (error && typeof error === "object" && "code" in error && typeof error.code === "string") code = error.code;
+        }
+      }
+    } catch { /* A malformed provider response must not expose its body. */ }
+    finally { try { await reader.cancel(); } catch { /* stream already closed */ } }
+  }
+  // A 403 model_not_found is a project configuration failure, not a transient outage or a Safari issue.
+  if ([400, 403, 404].includes(response.status) && ["model_not_found", "model_not_available", "model_access_denied"].includes(code)) return new SpeechError("SPEECH_MODEL_UNAVAILABLE", 409);
+  if (response.status === 403) return new SpeechError("SPEECH_PERMISSION", 409);
+  if (response.status === 429) return new SpeechError(["insufficient_quota", "billing_hard_limit_reached"].includes(code) ? "SPEECH_PROVIDER_QUOTA" : "SPEECH_LIMIT", 429);
+  return new SpeechError("SPEECH_UNAVAILABLE");
+}
 export async function synthesize(text: string, apiKey: string, request: typeof fetch = fetch, abort?: AbortSignal): Promise<ArrayBuffer> {
   const signal = AbortSignal.any([AbortSignal.timeout(45000), ...(abort ? [abort] : [])]);
   let response: Response;
@@ -37,11 +71,10 @@ export async function synthesize(text: string, apiKey: string, request: typeof f
       body: JSON.stringify({ model: MODEL, voice: VOICE, input: text, instructions: VOICE_INSTRUCTIONS, speed: 0.96, response_format: "mp3" }), signal,
     });
   } catch { throw new SpeechError("SPEECH_UNAVAILABLE"); }
-  if (!response.ok) { await response.body?.cancel(); throw new SpeechError(response.status === 429 ? "SPEECH_LIMIT" : "SPEECH_UNAVAILABLE", response.status === 429 ? 429 : 503); }
+  if (!response.ok) throw await providerSpeechError(response);
   const type = response.headers.get("content-type") || "";
   if (!/audio|octet-stream/.test(type)) { await response.body?.cancel(); throw new SpeechError("SPEECH_UNAVAILABLE"); }
   if (Number(response.headers.get("content-length") || 0) > 3000000) { await response.body?.cancel(); throw new SpeechError("SPEECH_UNAVAILABLE"); }
-  // A bounded reader also protects when Content-Length is omitted.
   const reader = response.body?.getReader(); if (!reader) throw new SpeechError("SPEECH_UNAVAILABLE");
   const chunks: Uint8Array[] = []; let size = 0;
   while (true) {

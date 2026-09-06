@@ -56,7 +56,7 @@ jobs:
           tests/arisa-channels-ui.test.mjs
           tests/arisa-message-links.test.mts
       - name: Validate Arisa private voice playback
-        run: node --test tests/arisa-speech.test.mjs
+        run: node --test tests/arisa-speech.test.mjs tests/arisa-speech-provider.test.mjs
       - name: Validate Bia pure behavior contracts
         run: deno test tests/bia-professional-behavior.test.mts
       - name: Validate CRM conversation and archival contracts

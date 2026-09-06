@@ -1,0 +1,46 @@
+name: Integrate Arisa voice UI
+on:
+  push:
+    branches: [codex/arisa-gentle-voice]
+    paths: [.github/workflows/arisa-voice-integrate.yml]
+permissions:
+  contents: write
+jobs:
+  integrate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/arisa-gentle-voice
+      - name: Integrate explicit voice controls without modifying business tools
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('src/components/arisa/ArisaChat.tsx')
+          s=p.read_text()
+          def once(old,new):
+            global s
+            assert s.count(old)==1, 'Unexpected source: '+old[:90]
+            s=s.replace(old,new,1)
+          once('import { MessageText } from "./MessageText";', 'import { MessageText } from "./MessageText";\nimport { useArisaVoice, type ArisaVoice } from "./use-arisa-voice";\nimport { VoiceToggle, VoiceBar, VoiceMessage } from "./VoiceControls";')
+          once('function Header({ menu }: { menu?: () => void }) {','function Header({ menu, voice, recording }: { menu?: () => void; voice?: ArisaVoice; recording?: boolean }) {')
+          once('</small></div>{menu && <button className="arisa-icon-button"', '</small></div>{voice && <VoiceToggle voice={voice} disabled={recording} />}{menu && <button className="arisa-icon-button"')
+          once('  const openPanel = useCallback((next: WorkspacePanel | null) => {\n    setPanel(next);', '  const voice = useArisaVoice(organizationId, messages);\n  const openPanel = useCallback((next: WorkspacePanel | null) => {\n    voice.stop(); setPanel(next);')
+          once('  }, [threadId]);','  }, [threadId, voice.stop]);')
+          once('}, [messages, busy, draftFiles]);','}, [messages, busy, draftFiles, voice.state.end]);')
+          once('    setThreadId(id); activeThread.current = id;', '    voice.stop(); setThreadId(id); activeThread.current = id;')
+          once('const pop = () => { if (working.current) return;','const pop = () => { if (working.current) return; voice.stop();')
+          once('window.removeEventListener("popstate", pop); }, []);','window.removeEventListener("popstate", pop); }, [voice.stop]);')
+          once('    working.current = true; setBusy(true); setError(""); pinned.current = true;', '    voice.prepare(); working.current = true; setBusy(true); setError(""); pinned.current = true;')
+          once('      await refresh(id);\n      await callManager({ action: "chat", organizationId, messageId });','      voice.arm(messageId);\n      await refresh(id);\n      await callManager({ action: "chat", organizationId, messageId });')
+          once('  async function startRecording() {\n    if (working.current || draftFiles.length >= 5) return;','  async function startRecording() {\n    if (working.current || draftFiles.length >= 5) return;\n    voice.stop();')
+          once('<Header menu={() => setMenu(previous => !previous)} />','<Header menu={() => setMenu(previous => !previous)} voice={voice} recording={recording} />')
+          once('    <div ref={pane} className="public-agent-messages"','    <VoiceBar voice={voice} />\n    <div ref={pane} className="public-agent-messages"')
+          once('aria-label="Conversa com a Arisa" aria-live="polite"','aria-label="Conversa com a Arisa" aria-live={voice.state.enabled ? "off" : "polite"}')
+          once('{message.content && <MessageText content={message.content} />}','{message.content && (message.role === "assistant" ? <VoiceMessage message={message} voice={voice} disabled={recording} /> : <MessageText content={message.content} />)}')
+          p.write_text(s)
+          PY
+          git diff --check
+          git add src/components/arisa/ArisaChat.tsx
+          git -c user.name='github-actions[bot]' -c user.email='41898282+github-actions[bot]@users.noreply.github.com' commit -m 'feat(arisa): integrate private voice playback controls'
+          git push origin HEAD:codex/arisa-gentle-voice

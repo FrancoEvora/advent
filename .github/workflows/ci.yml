@@ -55,6 +55,8 @@ jobs:
           tests/arisa-whatsapp-webhook.test.mts
           tests/arisa-channels-ui.test.mjs
           tests/arisa-message-links.test.mts
+      - name: Validate Arisa private voice playback
+        run: node --test tests/arisa-speech.test.mjs
       - name: Validate Bia pure behavior contracts
         run: deno test tests/bia-professional-behavior.test.mts
       - name: Validate CRM conversation and archival contracts
@@ -75,6 +77,7 @@ jobs:
           supabase/functions/arisa-mail/index.ts
           supabase/functions/arisa-background/index.ts
           supabase/functions/arisa-whatsapp/index.ts
+          supabase/functions/arisa-speech/index.ts
           supabase/functions/enterprise-whatsapp-webhook/index.ts
       - run: npm run build
       - name: Validate Arisa home-screen HTTP metadata

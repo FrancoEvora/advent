@@ -39,6 +39,8 @@ const source = readFileSync(new URL("supabase/functions/arisa-manager/index.ts",
   .replaceAll('"../_shared/arisa-document.ts"', JSON.stringify(new URL("supabase/functions/_shared/arisa-document.ts", root).href))
   .replaceAll('"../_shared/arisa-manager.ts"', JSON.stringify(new URL("supabase/functions/_shared/arisa-manager.ts", root).href))
   .replaceAll('"../_shared/arisa-mail-runtime.ts"', JSON.stringify(new URL("supabase/functions/_shared/arisa-mail-runtime.ts", root).href))
+  .replaceAll('"../_shared/arisa-calendar.ts"', JSON.stringify(new URL("supabase/functions/_shared/arisa-calendar.ts", root).href))
+  .replaceAll('"../_shared/arisa-calendar-runtime.ts"', JSON.stringify(new URL("supabase/functions/_shared/arisa-calendar-runtime.ts", root).href))
   .replace("Deno.serve(handleRequest);", "");
 const { handleRequest } = await import(`data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(source, { mode: "strip" })).toString("base64")}`);
 const originalFetch = globalThis.fetch;

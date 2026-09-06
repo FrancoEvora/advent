@@ -70,9 +70,10 @@ export const GOOGLE_ERRORS: Record<string, string> = {
   GOOGLE_UNAVAILABLE: "Não foi possível concluir a comunicação com o Google. Isso não significa que a autorização expirou. Aguarde e tente novamente pelo painel; nenhum e-mail será reenviado automaticamente.",
   GOOGLE_INVALID_RESPONSE: "O Google retornou uma resposta incompleta ou inesperada. Tente novamente pelo painel; nenhum e-mail será reenviado automaticamente.",
 };
-export function authorizationUrl(clientId: string, state: string, challenge: string) {
+export function authorizationUrl(clientId: string, state: string, challenge: string, extraScopes: string[] = []) {
   const url = new URL("https://accounts.google.com/o/oauth2/v2/auth");
-  url.search = new URLSearchParams({ client_id: clientId, redirect_uri: GOOGLE_REDIRECT, response_type: "code", scope: GOOGLE_SCOPES.join(" "), access_type: "offline", prompt: "consent select_account", login_hint: ARISA_EMAIL, state, code_challenge: challenge, code_challenge_method: "S256" }).toString();
+  const scopes = [...new Set([...GOOGLE_SCOPES, ...extraScopes])];
+  url.search = new URLSearchParams({ client_id: clientId, redirect_uri: GOOGLE_REDIRECT, response_type: "code", scope: scopes.join(" "), access_type: "offline", prompt: "consent select_account", login_hint: ARISA_EMAIL, state, code_challenge: challenge, code_challenge_method: "S256" }).toString();
   return url.toString();
 }
 export async function googleToken(config: Obj, code?: string, verifier?: string, request: typeof fetch = fetch) {
@@ -131,7 +132,7 @@ export async function gmail(accessToken: string, path: string, options: RequestI
   return result;
 }
 
-export async function completeGoogleGrant(config: Obj, code: string, verifier: string, previous: () => Promise<Obj | null>, request: typeof fetch = fetch) {
+export async function completeGoogleGrant(config: Obj, code: string, verifier: string, previous: () => Promise<Obj | null>, request: typeof fetch = fetch, requiredScopes: string[] = GOOGLE_SCOPES) {
   const token = await googleToken(config, code, verifier, request);
   const scopes = typeof token.scope === "string" ? token.scope.split(/\s+/) : [];
   if (!GOOGLE_SCOPES.every(scope => scopes.includes(scope))) throw new ManagerError("GOOGLE_PERMISSIONS_MISSING", 409);

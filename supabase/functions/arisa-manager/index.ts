@@ -2,6 +2,8 @@ import { createClient, type SupabaseClient } from "npm:@supabase/supabase-js@2.1
 import { decodeDocument, sha256 } from "../_shared/arisa-document.ts";
 import { isObject, ManagerError, operationKey, runManager, UUID, type Obj, type ToolResult } from "../_shared/arisa-manager.ts";
 import { mailService, sendArisaMail } from "../_shared/arisa-mail-runtime.ts";
+import { runCalendarTool } from "../_shared/arisa-calendar-runtime.ts";
+import { CALENDAR_ERRORS } from "../_shared/arisa-calendar.ts";
 
 const HEADERS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type, x-client-info", "access-control-allow-methods": "POST, OPTIONS", "cache-control": "no-store", "content-type": "application/json; charset=utf-8", "x-content-type-options": "nosniff" };
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: HEADERS });
@@ -13,6 +15,7 @@ const ERRORS: Record<string, string> = {
   ARISA_PROVIDER_LIMIT: "O provedor de IA atingiu seu limite temporário. A conversa foi preservada para retomar depois.", ARISA_TIMEOUT: "A análise excedeu o tempo disponível. Você pode retomar esta mensagem; as ações já registradas serão preservadas.",
   ARISA_STEP_LIMIT: "A tarefa precisa de mais uma etapa. Retome a mensagem para continuar a partir das ações já registradas.", ARISA_PROVIDER_UNAVAILABLE: "A integração de IA está indisponível. A mensagem está salva e pode ser retomada.",
   ARISA_INCOMPLETE_RESPONSE: "A IA não concluiu a resposta. A mensagem está salva para uma nova tentativa.", ARISA_EMPTY_RESPONSE: "A IA não retornou uma resposta. Tente retomar a mensagem.",
+  ...CALENDAR_ERRORS,
   FILE_INVALID: "O arquivo está incompleto ou não corresponde ao documento enviado.", AUDIO_UNAVAILABLE: "A transcrição de áudio não está disponível no provedor configurado. Você pode digitar a mensagem.", SERVICE_UNAVAILABLE: "Não foi possível concluir esta etapa. A conversa está preservada; tente novamente.",
 };
 async function rpc(client: SupabaseClient, name: string, args: Obj): Promise<unknown> {
@@ -180,6 +183,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       if (name === "create_content") return {data:await rpc(caller,"arisa_create_content",{p_organization_id:org,p_title:args.title,p_content:args.content,p_format:args.format})};
       if (name === "email_status") return {data:await mailService(admin,"status",org,userId)};
       if (name === "send_email") return {data:await sendArisaMail(caller,admin,org,userId,args,{requestId:messageId,messageId,lease:activeLease})};
+      if (name === "calendar") return {data:await runCalendarTool(admin,org,userId,String(args.action||""),args,{requestId:messageId,messageId,lease:activeLease})};
       if (name === "process_document") {
         if (!["payable", "bank_statement"].includes(String(args.kind))) throw new Error("Escolha payable ou bank_statement.");
         const { file, blob } = await readFile(caller, args.file_id, org, userId, threadId);

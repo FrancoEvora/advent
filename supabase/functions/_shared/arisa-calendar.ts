@@ -10,6 +10,10 @@ export const CALENDAR_ERRORS: Record<string, string> = {
   CALENDAR_API_DISABLED: "Ative a Google Calendar API no mesmo projeto Google Cloud da conexão. Não é necessário cadastrar outra senha nem criar outro cliente OAuth.",
   CALENDAR_ACCESS_DENIED: "Esta conta não tem acesso à agenda solicitada. Confira o compartilhamento da agenda e as políticas do Google Workspace.",
   CALENDAR_INVALID: "Confira agenda, título, participantes, início e término. Use datas com fuso horário explícito, por exemplo 2026-09-08T10:00:00-03:00.",
+  CALENDAR_DESCRIPTION_REQUIRED: "Reuniões com convidados precisam de uma descrição contextualizada com objetivo ou pauta antes do envio do convite.",
+  CALENDAR_MEET_PENDING: "O Google ainda não concluiu a geração do Meet. Consulte o mesmo evento e envie o e-mail depois que o link real estiver disponível; não crie outra reunião.",
+  CALENDAR_LINK_MISMATCH: "O link de reunião informado não corresponde ao evento consultado no Google. Use somente o link real deste evento.",
+  CALENDAR_EVENT_CANCELLED: "Este compromisso foi cancelado. Não foi enviado um novo e-mail de convite para ele.",
   CALENDAR_NOT_FOUND: "Este evento não está disponível na agenda informada. Consulte a agenda antes de alterar ou cancelar.",
   CALENDAR_CHANGED: "O evento mudou desde a última consulta. Leia novamente antes de alterar ou cancelar.",
   CALENDAR_BUSY: "Esta operação já está em andamento ou precisa de conferência. Não crie outro evento: consulte o resultado pelo identificador da operação.",
@@ -54,6 +58,25 @@ export function participants(value: unknown) {
   if (!Array.isArray(value) || value.length > 50 || value.some(v => typeof v !== "string" || v.length > 254 || !EMAIL.test(v))) throw new ManagerError("CALENDAR_INVALID", 422);
   return [...new Set(value.map(v => (v as string).toLowerCase()))];
 }
+export function calendarPlainText(value: unknown): string {
+  if (typeof value !== "string") return "";
+  return value.replace(/<(script|style)\b[^>]*>[\s\S]*?<\/\1>/gi, "")
+    .replace(/<br\s*\/?\s*>|<\/(?:p|div|li)>/gi, "\n").replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;|&#(?:160|x0*a0);/gi, " ").replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/&quot;/gi, '"')
+    .replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
+}
+export function hasMeetingContext(value: unknown): boolean {
+  const prose = calendarPlainText(value).replace(/https?:\/\/\S+/gi, "")
+    .split(/\n/).filter(line => !/^\s*(?:(?:google\s+)?(?:meet|link|data|hor[aá]rio)\s*:|atenciosamente\b|arisa\s*$|[eé]vora urbanismo\s*$)/i.test(line))
+    .join(" ").replace(/\b(?:por favor|confirme?\s+(?:sua\s+)?(?:presen[cç]a|participa[cç][aã]o|recebimento)|aguardo\s+(?:sua\s+)?confirma[cç][aã]o|ol[aá]|prezad[oa]s?)\b/gi, "");
+  const words = prose.match(/[\p{L}]{2,}/gu) ?? [];
+  // A URL, greeting, RSVP request or invisible HTML is not an agenda or objective.
+  return words.length >= 3 && words.join("").length >= 12;
+}
+export function requireMeetingContext(event: Obj): void {
+  if (Array.isArray(event.attendees) && event.attendees.length > 0 && !hasMeetingContext(event.description)) throw new ManagerError("CALENDAR_DESCRIPTION_REQUIRED", 422);
+}
 export function eventInput(args: Obj, updating = false): Obj {
   const result: Obj = {};
   const summary = text(args.title, 250, !updating), description = text(args.description, 10000), location = text(args.location, 500);
@@ -65,6 +88,7 @@ export function eventInput(args: Obj, updating = false): Obj {
     result.start = { dateTime: times.start, timeZone: zone }; result.end = { dateTime: times.end, timeZone: zone };
   }
   if (args.attendees !== undefined || !updating) result.attendees = participants(args.attendees ?? []).map(email => ({ email }));
+  if (!updating && Array.isArray(result.attendees) && result.attendees.length > 0) requireMeetingContext(result);
   if (args.reminder_minutes !== undefined) {
     if (!Array.isArray(args.reminder_minutes) || args.reminder_minutes.length > 5 || args.reminder_minutes.some(n => !Number.isInteger(n) || Number(n) < 0 || Number(n) > 40320)) throw new ManagerError("CALENDAR_INVALID", 422);
     result.reminders = { useDefault: false, overrides: [...new Set(args.reminder_minutes)].map(minutes => ({ method: "popup", minutes })) };
@@ -101,7 +125,7 @@ export async function googleCalendar(access: string, path: string, options: Requ
 export function safeEvent(event: Obj, calendar: string): Obj {
   const conference = isObject(event.conferenceData) ? event.conferenceData : {}, create = isObject(conference.createRequest) ? conference.createRequest : {};
   const state = isObject(create.status) ? create.status.statusCode : null;
-  const video = Array.isArray(conference.entryPoints) ? conference.entryPoints.filter(isObject).find(p => p.entryPointType === "video")?.uri : event.hangoutLink;
+  const video = (Array.isArray(conference.entryPoints) ? conference.entryPoints.filter(isObject).find(p => p.entryPointType === "video")?.uri : null) ?? event.hangoutLink;
   const meet = typeof video === "string" && /^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/.test(video) ? video : null;
   let googleUrl: string | null = null;
   if (typeof event.htmlLink === "string") { try { const url = new URL(event.htmlLink); if (url.protocol === "https:" && ["calendar.google.com", "www.google.com"].includes(url.hostname)) googleUrl = url.href; } catch { /* ignore untrusted provider URL */ } }

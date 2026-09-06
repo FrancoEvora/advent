@@ -3,7 +3,9 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { client, errorText } from "./chat-client";
 import ArisaMailPanel from "./ArisaMailPanel";
+import ArisaWhatsAppPanel from "./ArisaWhatsAppPanel";
 import { displayDate, downloadText, workspaceCall, type WorkspacePanel } from "./workspace-client";
+import { workspaceLabels, workspacePanels } from "./workspace-navigation";
 import styles from "./workspace.module.css";
 
 type Archive = { id: string; title: string; content: string; kind: string; channel: string; source: string; author_type: string; subject_label: string; occurred_at: string; owner_user_id: string | null; payload: Record<string, unknown> };
@@ -11,20 +13,22 @@ type Memory = { id: string; source_event_id: string; subject_label: string; kind
 type KnowledgeStatus = { archive: number; memories: number; queue: Record<string, number> };
 const kindLabels: Record<string, string> = { fact: "Fato relatado", preference: "Preferência", commitment: "Compromisso", observation: "Percepção · hipótese", analysis: "Análise da IA", message: "Mensagem", file: "Arquivo", action: "Ação", email: "E-mail", log: "Registro de execução", content: "Conteúdo", insight: "Insight", operation: "Operação", review: "Revisão" };
 
-export default function ArisaWorkspace({ organizationId, userId, initialPanel, onClose }: { organizationId: string; userId: string; initialPanel: WorkspacePanel; onClose: () => void }) {
+export default function ArisaWorkspace({ organizationId, userId, initialPanel: tab, onPanelChange: setTab, onClose }: { organizationId: string; userId: string; initialPanel: WorkspacePanel; onPanelChange: (panel: WorkspacePanel) => void; onClose: () => void }) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [tab, setTab] = useState(initialPanel), [error, setError] = useState(""), [notice, setNotice] = useState(""), [busy, setBusy] = useState(false);
+  const [error, setError] = useState(""), [notice, setNotice] = useState(""), [busy, setBusy] = useState(false);
+  const knowledgePanel = tab === "archive" || tab === "memory";
   const [status, setStatus] = useState<KnowledgeStatus | null>(null), [archives, setArchives] = useState<Archive[]>([]), [total, setTotal] = useState(0), [memories, setMemories] = useState<Memory[]>([]);
   const [query, setQuery] = useState(""), [search, setSearch] = useState(""), [kind, setKind] = useState(""), [offset, setOffset] = useState(0), [memoryPage, setMemoryPage] = useState(0);
   const [selected, setSelected] = useState<Archive | null>(null), [revision, setRevision] = useState(0);
   useEffect(() => { const element = dialog.current; element?.showModal(); return () => element?.close(); }, []);
   useEffect(() => {
+    if (!knowledgePanel) return;
     let alive = true;
     void client().rpc("arisa_knowledge_status", { p_organization_id: organizationId }).then(result => { if (alive) { if (result.error) setError(errorText(result.error)); else setStatus(result.data); } });
     return () => { alive = false; };
-  }, [organizationId, revision]);
+  }, [organizationId, revision, knowledgePanel]);
   useEffect(() => {
-    if (tab === "email") return;
+    if (tab !== "archive" && tab !== "memory") return;
     let alive = true;
     const load = async () => {
       if (tab === "archive") {
@@ -43,7 +47,7 @@ export default function ArisaWorkspace({ organizationId, userId, initialPanel, o
   const showSource = useCallback(async (id: string) => {
     try { const result = await client().from("arisa_archive").select("*").eq("organization_id", organizationId).eq("id", id).single(); if (result.error) throw result.error; setSelected(result.data); setTab("archive"); }
     catch (error) { setError(errorText(error)); }
-  }, [organizationId]);
+  }, [organizationId, setTab]);
   async function process() {
     setBusy(true); setError(""); setNotice("");
     try { await workspaceCall("arisa-background", { organizationId }); setRevision(n => n + 1); setNotice("Ciclo concluído. O restante da fila continuará automaticamente."); }
@@ -52,9 +56,9 @@ export default function ArisaWorkspace({ organizationId, userId, initialPanel, o
   function archiveCard(row: Archive) {
     return <article className={styles.card} key={row.id}><div className={styles.meta}>{kindLabels[row.kind] || row.kind} · {row.channel} · {row.author_type} · {row.owner_user_id ? "Sua conversa privada" : "Organização"}</div><h3>{row.title}</h3><small>{row.subject_label} · {displayDate(row.occurred_at)}</small><pre className={styles.content}>{row.content || "Consulte os detalhes deste registro."}</pre><div className={styles.row}><button onClick={() => downloadText(`${row.title}.txt`, row.content)}>Baixar conteúdo</button><button onClick={() => downloadText(`${row.id}.json`, JSON.stringify(row, null, 2))}>Exportar registro</button></div><details><summary>Origem e detalhes</summary><small>{row.source} · {row.id}</small><pre className={styles.content}>{JSON.stringify(row.payload, null, 2)}</pre></details></article>;
   }
-  return <dialog ref={dialog} className={styles.dialog} onCancel={onClose} aria-labelledby="arisa-workspace-title"><header className={styles.header}><div><small>ARISA · ÉVORA URBANISMO</small><h2 id="arisa-workspace-title">E-mail e conhecimento</h2></div><button onClick={onClose} aria-label="Fechar e voltar à conversa">✕</button></header><nav className={styles.tabs} aria-label="Áreas da Arisa">{(["email", "archive", "memory"] as const).map(key => <button key={key} aria-current={tab === key ? "page" : undefined} onClick={() => { setTab(key); setError(""); setNotice(""); }}>{key === "email" ? "E-mail" : key === "archive" ? "Arquivo" : "Memória"}</button>)}</nav><div className={styles.body}>
+  return <dialog ref={dialog} className={styles.dialog} onCancel={onClose} aria-labelledby="arisa-workspace-title"><header className={styles.header}><div><small>ARISA · ÉVORA URBANISMO</small><h2 id="arisa-workspace-title">Canais e conhecimento</h2></div><button onClick={onClose} aria-label="Fechar e voltar à conversa">✕</button></header><nav className={styles.tabs} aria-label="Áreas da Arisa">{workspacePanels.map(key => <button key={key} aria-current={tab === key ? "page" : undefined} onClick={() => { setTab(key); setError(""); setNotice(""); }}>{workspaceLabels[key]}</button>)}</nav><div className={styles.body}>
     {error && <p role="alert" className={styles.error}>{error}</p>}{notice && <p role="status" className={styles.notice}>{notice}</p>}
-    {tab === "email" ? <ArisaMailPanel organizationId={organizationId} userId={userId} /> : <>
+    {tab === "email" || tab === "agenda" ? <ArisaMailPanel key={tab} organizationId={organizationId} userId={userId} section={tab} /> : tab === "whatsapp" ? <ArisaWhatsAppPanel organizationId={organizationId} /> : <>
       <div className={styles.stats}><span><strong>{status?.archive ?? "—"}</strong> registros no arquivo</span><span><strong>{status?.memories ?? "—"}</strong> memórias ativas</span><span><strong>{(status?.queue.pending || 0) + (status?.queue.processing || 0)}</strong> na fila de aprendizado</span></div>
       {tab === "archive" ? <><p>Mensagens, documentos, conteúdos e resultados das ações, com origem e versões preservadas.</p><form className={styles.row} onSubmit={event => { event.preventDefault(); setSearch(query); setOffset(0); setSelected(null); }}><label className={styles.grow}>Buscar no arquivo<input type="search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Pessoa, assunto ou conteúdo" /></label><label>Tipo<select value={kind} onChange={e => { setKind(e.target.value); setOffset(0); }}>{["", "message", "email", "content", "file", "action", "insight", "operation", "log", "review"].map(key => <option key={key} value={key}>{kindLabels[key] || "Todos"}</option>)}</select></label><button type="submit">Buscar</button></form>{selected && <section><div className={styles.row}><strong>Evidência selecionada</strong><button onClick={() => setSelected(null)}>Fechar evidência</button></div>{archiveCard(selected)}</section>}{archives.map(archiveCard)}{!archives.length && <p>Nenhum registro encontrado.</p>}<div className={styles.row}><button disabled={offset === 0} onClick={() => setOffset(n => Math.max(0, n - 20))}>Anteriores</button><small>{total} registros · Página {offset / 20 + 1}</small><button disabled={offset + 20 >= total} onClick={() => setOffset(n => n + 20)}>Próximos</button></div></> : <>
         <p>A Arisa consulta estes aprendizados em novas conversas. Percepções profissionais são hipóteses revisáveis; a evidência original permanece disponível.</p><div className={styles.row}><button disabled={busy} onClick={() => void process()}>{busy ? "Processando…" : "Processar memória agora"}</button><small>Atualização automática a cada 5 minutos.</small></div>{Boolean(status?.queue.failed) && <p role="status">{status?.queue.failed} registros precisam de revisão técnica. O conteúdo original está preservado.</p>}

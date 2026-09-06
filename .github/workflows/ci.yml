@@ -50,6 +50,10 @@ jobs:
           tests/arisa-viewport.test.mts
           tests/arisa-mail-memory.test.mts
           tests/arisa-mail-handler.test.mts
+          tests/arisa-contextual-communications.test.mts
+          tests/arisa-whatsapp-runtime.test.mts
+          tests/arisa-whatsapp-webhook.test.mts
+          tests/arisa-channels-ui.test.mjs
       - name: Validate Bia pure behavior contracts
         run: deno test tests/bia-professional-behavior.test.mts
       - name: Validate CRM conversation and archival contracts
@@ -69,6 +73,8 @@ jobs:
           supabase/functions/arisa-manager/index.ts
           supabase/functions/arisa-mail/index.ts
           supabase/functions/arisa-background/index.ts
+          supabase/functions/arisa-whatsapp/index.ts
+          supabase/functions/enterprise-whatsapp-webhook/index.ts
       - run: npm run build
       - name: Validate Arisa home-screen HTTP metadata
         run: node --test tests/arisa-installation-http.test.mjs

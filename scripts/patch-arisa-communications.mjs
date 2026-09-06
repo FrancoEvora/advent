@@ -35,3 +35,9 @@ patch("src/components/arisa/ArisaMailPanel.tsx",source=>{
   if(!source.includes('<ArisaWhatsAppPanel'))source=source.replace(calendar,calendar+'\n    <ArisaWhatsAppPanel organizationId={organizationId} />');
   return source;
 });
+
+patch("tests/arisa-manager-handler.test.mts",source=>{
+  const calendar='.replaceAll(\'"../_shared/arisa-calendar-runtime.ts"\', JSON.stringify(new URL("supabase/functions/_shared/arisa-calendar-runtime.ts", root).href))';expect(source.includes(calendar),"manager test calendar import");
+  if(!source.includes('arisa-whatsapp-runtime.ts'))source=source.replace(calendar,calendar+'\n  .replaceAll(\'"../_shared/arisa-whatsapp.ts"\', JSON.stringify(new URL("supabase/functions/_shared/arisa-whatsapp.ts", root).href))\n  .replaceAll(\'"../_shared/arisa-whatsapp-runtime.ts"\', JSON.stringify(new URL("supabase/functions/_shared/arisa-whatsapp-runtime.ts", root).href))');
+  return source;
+});

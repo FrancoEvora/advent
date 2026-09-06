@@ -1,0 +1,21 @@
+name: Calendar source review
+on:
+  push:
+    branches: [codex/arisa-google-calendar-20260906]
+    paths: [.github/workflows/calendar-source-check.yml]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Export tracked source only
+        run: git archive --format=tar.gz HEAD -o /tmp/advent-source.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: calendar-source-review
+          path: /tmp/advent-source.tar.gz
+          retention-days: 1

@@ -29,7 +29,11 @@ jobs:
       - name: Apply deterministic integration patch
         run: node scripts/patch-arisa-communications.mjs
       - name: Validate communications policy
-        run: node --test tests/arisa-communications-policy.test.mjs tests/arisa-manager-handler.test.mts tests/arisa-mail-handler.test.mts
+        run: node --test tests/arisa-communications-policy.test.mjs
+      - name: Validate Arisa manager handler
+        run: node --test tests/arisa-manager-handler.test.mts
+      - name: Validate Google Workspace handler
+        run: node --test tests/arisa-mail-handler.test.mts
       - name: Typecheck, lint and production build
         run: npm run typecheck && npm run lint && npm run build
       - name: Commit generated integration patch
@@ -37,6 +41,6 @@ jobs:
           if git diff --quiet; then exit 0; fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add supabase/functions/_shared/arisa-manager.ts supabase/functions/arisa-manager/index.ts supabase/functions/_shared/arisa-calendar.ts src/components/arisa/ArisaMailPanel.tsx
+          git add supabase/functions/_shared/arisa-manager.ts supabase/functions/arisa-manager/index.ts supabase/functions/_shared/arisa-calendar.ts src/components/arisa/ArisaMailPanel.tsx tests/arisa-manager-handler.test.mts
           git commit -m "feat(arisa): integrate WhatsApp and contextual meeting communications"
           git push origin HEAD:codex/arisa-communications-suite-20260906

@@ -1,0 +1,44 @@
+name: Diagnose Arisa communications
+on:
+  push:
+    branches: [codex/arisa-communications-suite-20260906]
+    paths:
+      - .github/workflows/arisa-communications-diagnostics.yml
+      - scripts/patch-arisa-communications.mjs
+      - tests/arisa-communications-policy.test.mjs
+      - tests/arisa-manager-handler.test.mts
+      - tests/arisa-mail-handler.test.mts
+permissions:
+  contents: read
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: node scripts/patch-arisa-communications.mjs
+      - name: Policy test
+        continue-on-error: true
+        run: node --test tests/arisa-communications-policy.test.mjs > policy.log 2>&1
+      - name: Manager handler test
+        continue-on-error: true
+        run: node --test tests/arisa-manager-handler.test.mts > manager.log 2>&1
+      - name: Mail handler test
+        continue-on-error: true
+        run: node --test tests/arisa-mail-handler.test.mts > mail.log 2>&1
+      - name: Collect status
+        run: |
+          for f in policy.log manager.log mail.log; do echo "===== $f ====="; cat "$f"; done | tee diagnostics.log
+      - uses: actions/upload-artifact@v4
+        with:
+          name: arisa-communications-diagnostics
+          path: |
+            policy.log
+            manager.log
+            mail.log
+            diagnostics.log
+          retention-days: 1

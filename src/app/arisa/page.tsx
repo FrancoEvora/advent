@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import ArisaChat from "@/components/arisa/ArisaChat";
+import { workspacePanel } from "@/components/arisa/workspace-navigation";
 
 // A separate manifest prevents an installed Arisa shortcut from launching the ERP root.
 export const metadata: Metadata = {
@@ -21,5 +22,5 @@ export const viewport: Viewport = {
 };
 export default async function Page({ searchParams }: { searchParams: Promise<{ conversa?: string; painel?: string }> }) {
   const params = await searchParams;
-  return <ArisaChat initialThreadId={typeof params.conversa === "string" ? params.conversa : null} initialPanel={params.painel === "email" || params.painel === "archive" || params.painel === "memory" ? params.painel : null} />;
+  return <ArisaChat initialThreadId={typeof params.conversa === "string" ? params.conversa : null} initialPanel={workspacePanel(params.painel)} />;
 }

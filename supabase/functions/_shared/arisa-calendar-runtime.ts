@@ -2,7 +2,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2.110.7";
 import { isObject, ManagerError, operationKey, UUID, type Obj } from "./arisa-manager.ts";
 import { googleToken } from "./arisa-mail.ts";
 import { mailService } from "./arisa-mail-runtime.ts";
-import { calendarId, eventId, eventInput, googleCalendar, participants, safeEvent, timeRange, timezone } from "./arisa-calendar.ts";
+import { calendarId, eventId, eventInput, googleCalendar, participants, requireMeetingContext, safeEvent, timeRange, timezone } from "./arisa-calendar.ts";
 
 type Context = { requestId: string; messageId?: string; lease?: string };
 export async function calendarService(admin: SupabaseClient, action: string, org: string, actor: string, args: Obj = {}): Promise<Obj> {
@@ -24,14 +24,23 @@ async function busyEvents(access: string, calendar: string, start: string, end: 
   throw new ManagerError("CALENDAR_LIMIT", 409); // Never schedule against an incomplete conflict scan.
 }
 async function finish(admin: SupabaseClient, org: string, actor: string, op: Obj, event: Obj) {
-  try { return await calendarService(admin, "finish", org, actor, { id: op.id, event: safeEvent(event, String(op.calendar_id)) }); }
+  const communication = calendarCommunication(event, String(op.action));
+  try { return { ...await calendarService(admin, "finish", org, actor, { id: op.id, event: safeEvent(event, String(op.calendar_id)) }), communication }; }
   catch {
     await calendarService(admin, "fail", org, actor, { id: op.id, status: "unknown", error: "CALENDAR_ARCHIVE_FAILED" }).catch(() => {});
-    return { ok: false, operation_id: op.id, status: "unknown", provider_confirmed: true, event: safeEvent(event, String(op.calendar_id)), message: "O evento existe no Google. Falta conferir o registro interno; não repita a criação." };
+    return { ok: false, operation_id: op.id, status: "unknown", provider_confirmed: true, event: safeEvent(event, String(op.calendar_id)), communication, message: "O evento existe no Google. Falta conferir o registro interno; não repita a criação." };
   }
 }
+function calendarCommunication(event: Obj, action: string): Obj {
+  return { kind: "calendar_invitation", action, provider: "Google Calendar", notifications_requested: Array.isArray(event.attendees) && event.attendees.length > 0,
+    email_sent: false, delivery_confirmed: false, attendee_acceptance_confirmed: false,
+    note: "Esta operação trata o convite da agenda. E-mail de acompanhamento é uma etapa separada: use send_email com calendar_event_id quando solicitado." };
+}
 async function reconcile(admin: SupabaseClient, org: string, actor: string, access: string, op: Obj) {
-  if (op.status === "completed") return { ...(isObject(op.result) ? op.result : {}), replayed: true };
+  if (op.status === "completed") {
+    const stored = isObject(op.result) ? op.result : {};
+    return { ...stored, communication: calendarCommunication(isObject(stored.event) ? stored.event : {}, String(op.action)), replayed: true };
+  }
   if (op.status === "running" && Date.now() - Date.parse(String(op.updated_at)) < 120000) return { ok: false, operation_id: op.id, status: "running", message: "Já existe uma operação em andamento. Aguarde; não repetir o evento ou convite." };
   try {
     const event = await googleCalendar(access, eventPath(String(op.calendar_id), String(op.provider_event_id)));
@@ -98,6 +107,9 @@ export async function runCalendarTool(admin: SupabaseClient, org: string, actor:
       if (before.etag !== args.etag) throw new ManagerError("CALENDAR_CHANGED", 412);
       if (before.recurrence) throw new ManagerError("CALENDAR_INVALID", 422); // Edit an occurrence, not an entire recurring series implicitly.
     }
+    // PATCH omits unchanged fields. Validate the effective event, including retained guests
+    // and description, before any provider write can trigger an empty invitation.
+    if (action !== "cancel") requireMeetingContext({ ...before, ...mutation });
     if (action !== "cancel" && mutation.start && mutation.end) {
       const busy = await busyEvents(access, calendar, String((mutation.start as Obj).dateTime), String((mutation.end as Obj).dateTime), action === "update" ? id : undefined);
       if (busy.length && args.allow_conflict !== true) {

@@ -2,6 +2,7 @@ import type { SupabaseClient } from "npm:@supabase/supabase-js@2.110.7";
 import { isObject, ManagerError, operationKey, UUID, type Obj } from "./arisa-manager.ts";
 import { sha256 } from "./arisa-document.ts";
 import { base64url, gmail, gmailContent, googleToken, mailInput, mimeMessage, unbase64, type MailAttachment } from "./arisa-mail.ts";
+import { calendarId, calendarPlainText, eventId, googleCalendar, hasMeetingContext, safeEvent, timeRange, timezone } from "./arisa-calendar.ts";
 
 export async function mailService(admin: SupabaseClient, action: string, org: string, actor: string | null, args: Obj = {}): Promise<Obj> {
   const { data, error } = await admin.rpc("arisa_mail_service", { p_action: action, p_org: org, p_actor: actor, p_args: args });
@@ -37,15 +38,52 @@ export async function outboundFiles(caller: SupabaseClient, org: string, actor: 
   return files;
 }
 
+export function meetingMailBody(event: Obj, calendar: string, introduction: unknown = ""): string {
+  if (typeof introduction !== "string" || introduction.length > 130000 || introduction.includes("\0")) throw new ManagerError("MAIL_INVALID", 422);
+  if (event.status === "cancelled") throw new ManagerError("CALENDAR_EVENT_CANCELLED", 409);
+  const current = safeEvent(event, calendar);
+  const description = calendarPlainText(current.description);
+  if (!hasMeetingContext(description)) throw new ManagerError("CALENDAR_DESCRIPTION_REQUIRED", 422);
+  if (current.meet_status === "pending") throw new ManagerError("CALENDAR_MEET_PENDING", 409);
+  if (current.meet_status === "failure") throw new ManagerError("CALENDAR_MEET_UNAVAILABLE", 409);
+  // Never forward a model-supplied or stale conference link in a meeting email.
+  const suppliedLinks = introduction.match(/https?:\/\/meet\.google\.com\/[^\s<>\]\)]+/gi) ?? [];
+  if (suppliedLinks.some(link => link.replace(/[.,;!?]+$/, "") !== current.meet_url)) throw new ManagerError("CALENDAR_LINK_MISMATCH", 422);
+  const start = isObject(event.start) ? event.start : {}, end = isObject(event.end) ? event.end : {};
+  const range = timeRange(start.dateTime, end.dateTime, 7), zone = timezone(start.timeZone ?? end.timeZone);
+  const format = (value: string) => new Intl.DateTimeFormat("pt-BR", { timeZone: zone, dateStyle: "full", timeStyle: "short" }).format(new Date(value));
+  const cleanDescription = description.replace(/https?:\/\/meet\.google\.com\/[^\s<>]+/gi, "").trim();
+  const details = [String(current.title), "Objetivo e pauta:\n" + cleanDescription,
+    "Início: " + format(range.start) + "\nTérmino: " + format(range.end) + "\nFuso horário: " + zone];
+  if (current.location) details.push("Local: " + calendarPlainText(current.location));
+  if (current.meet_url) details.push("Google Meet: " + current.meet_url);
+  if (current.google_url) details.push("Compromisso no Google Agenda: " + current.google_url);
+  return [introduction.trim() || "Olá,\n\nCompartilho os detalhes da nossa reunião.", ...details,
+    "Por favor, confirme sua participação pelo convite da agenda ou responda a este e-mail caso precise ajustar o horário."].join("\n\n");
+}
+
 export async function sendArisaMail(caller: SupabaseClient, admin: SupabaseClient, org: string, actor: string, args: Obj, context: { requestId: string; messageId?: string; lease?: string }) {
-  const input = mailInput(args);
+  let preparedArgs = args, calendarReference: Obj | null = null, connectedAccess: string | null = null;
+  if (args.calendar_event_id !== undefined) {
+    const calendar = calendarId(args.calendar_id ?? "primary"), id = eventId(args.calendar_event_id);
+    const status = await mailService(admin, "status", org, actor);
+    if (status.connected !== true || status.calendar_authorized !== true) throw new ManagerError("CALENDAR_AUTH_REQUIRED", 409);
+    const config = await mailService(admin, "runtime", org, actor), token = await googleToken(config);
+    connectedAccess = String(token.access_token);
+    const event = await googleCalendar(connectedAccess, `calendars/${encodeURIComponent(calendar)}/events/${encodeURIComponent(id)}`);
+    if (event.id !== id) throw new ManagerError("CALENDAR_UNAVAILABLE", 502);
+    preparedArgs = { ...args, body: meetingMailBody(event, calendar, args.body ?? "") };
+    const current = safeEvent(event, calendar);
+    calendarReference = { calendar_id: calendar, event_id: id, meet_url: current.meet_url, google_url: current.google_url, etag: current.etag };
+  }
+  const input = mailInput(preparedArgs);
   const files = await outboundFiles(caller,org,actor,input.fileIds,input.archiveIds);
   const descriptors = files.map(({bytes,...file})=>({...file,size:bytes.length}));
   // One message per explicit user request, including after a model retry changes wording.
   const key = await operationKey("send_email",{ actor,request_id:context.requestId });
   const draft = await mailService(admin,"prepare",org,actor,{operation_key:key,source_message_id:context.messageId ?? null,lease:context.lease ?? null,to:input.to,cc:input.cc,subject:input.subject,body:input.body,attachments:descriptors,crm_record_id:input.crmRecordId});
   const id = String(draft.id);
-  if (draft.status === "sent") return { ok:true,id,status:"sent",provider_message_id:draft.provider_message_id,replayed:true };
+  if (draft.status === "sent") return { ok:true,id,status:"sent",provider_message_id:draft.provider_message_id,replayed:true,communication:{kind:"email",accepted_by:"Gmail",delivery_confirmed:false} };
   if (["sending","unknown"].includes(String(draft.status))) return { ok:false,id,status:draft.status,message:"O resultado deste envio precisa ser conferido no Gmail. Não reenviar automaticamente." };
   if (draft.subject !== input.subject || draft.body !== input.body || JSON.stringify(draft.recipients) !== JSON.stringify(input.to) || JSON.stringify(draft.cc) !== JSON.stringify(input.cc)) throw new ManagerError("MAIL_REQUEST_CHANGED",409);
   const attachmentKeys=(items:Obj[])=>items.map(file=>file.file_id||file.archive_id||file.path||file.name);
@@ -62,13 +100,15 @@ export async function sendArisaMail(caller: SupabaseClient, admin: SupabaseClien
   // Preserve the original MIME and attachment copies even when OAuth needs renewal.
   const archived=await admin.from("arisa_mail_messages").update({raw_path:path,rfc_message_id:mime.messageId,attachments:copies}).eq("organization_id",org).eq("id",id).in("status",["draft","failed"]);
   if(archived.error)throw new ManagerError("MAIL_ARCHIVE_FAILED");
-  const config = await mailService(admin,"runtime",org,actor);
-  const token = await googleToken(config);
+  if (!connectedAccess) {
+    const config = await mailService(admin,"runtime",org,actor), token = await googleToken(config);
+    connectedAccess = String(token.access_token);
+  }
   const begin = await mailService(admin,"send_begin",org,actor,{id,raw_path:path,rfc_message_id:mime.messageId,lease:context.lease ?? null});
   if (begin.send !== true) return { ok:false,id,status:isObject(begin.message)?begin.message.status:"unknown",message:"Este envio já está registrado. Consulte o arquivo." };
   let result: Obj;
   try {
-    result = await gmail(String(token.access_token),"messages/send",{method:"POST",body:JSON.stringify({raw:base64url(mime.bytes)})});
+    result = await gmail(connectedAccess,"messages/send",{method:"POST",body:JSON.stringify({raw:base64url(mime.bytes)})});
     if (typeof result.id !== "string") throw new ManagerError("GOOGLE_INVALID_RESPONSE");
   } catch(error) {
     // A network error or 5xx may happen after Gmail accepted the message.
@@ -78,7 +118,8 @@ export async function sendArisaMail(caller: SupabaseClient, admin: SupabaseClien
   }
   try { await setMail(admin,org,id,{status:"sent",provider_message_id:result.id,provider_thread_id:result.threadId,sent_at:new Date().toISOString(),error_code:null}); }
   catch { return {ok:false,id,status:"unknown",message:"O Gmail aceitou a mensagem, mas o registro final precisa ser conciliado. Não reenviar."}; }
-  return {ok:true,id,status:"sent",provider_message_id:result.id,to:input.to,subject:input.subject,attachments:files.length,accepted_by:"Gmail",delivery_confirmed:false};
+  return {ok:true,id,status:"sent",provider_message_id:result.id,to:input.to,subject:input.subject,attachments:files.length,accepted_by:"Gmail",delivery_confirmed:false,
+    communication:{kind:"email",calendar:calendarReference,attendee_acceptance_confirmed:false}};
 }
 
 async function archiveGmailMessage(admin: SupabaseClient, org: string, access: string, providerId: string) {

@@ -1,4 +1,6 @@
 "use client";
+import AudioRecorder from "./AudioRecorder";
+import AudioAttachment from "./AudioAttachment";
 
 import Link from "next/link";
 import Image from "next/image";
@@ -93,7 +95,8 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
     window.history.replaceState({}, "", workspaceUrl(next, threadId));
   }, [threadId, voice.stop]);
   const pane = useRef<HTMLDivElement>(null), input = useRef<HTMLTextAreaElement>(null), fileInput = useRef<HTMLInputElement>(null), pinned = useRef(true), creating = useRef<Promise<string> | null>(null), activeThread = useRef(threadId), working = useRef(false);
-  const recorder = useRef<MediaRecorder | null>(null), recordTimer = useRef<ReturnType<typeof setTimeout> | null>(null), alive = useRef(true);
+  const alive = useRef(true);
+  const audioUpload = useRef<{ file: File; stored: ChatFile; messageId: string } | null>(null);
   const [clock, setClock] = useState(() => Date.now());
   const refreshThreads = useCallback(async () => { const value = await client().from("arisa_chat_threads").select("id,title,updated_at").eq("organization_id", organizationId).eq("owner_user_id", userId).order("updated_at", { ascending: false }).limit(100); if (value.error) throw value.error; if (alive.current) setThreads(value.data || []); }, [organizationId, userId]);
   const refresh = useCallback(async (id: string, olderThan?: string) => {
@@ -110,7 +113,7 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
     setActions(previous => olderThan ? [...actionResult.data as Action[], ...previous.filter(row => !actionResult.data?.some(item => item.id === row.id))] : actionResult.data as Action[]);
     setFiles(attached.data as ChatFile[]); setOlder(rows.length === 100); setClock(Date.now());
   }, []);
-  useEffect(() => { alive.current = true; void refreshThreads().catch(error => setError(errorText(error))); return () => { alive.current = false; if (recordTimer.current) clearTimeout(recordTimer.current); const value = recorder.current; if (value) { value.onstop = null; if (value.state !== "inactive") value.stop(); value.stream.getTracks().forEach(track => track.stop()); } }; }, [refreshThreads]);
+  useEffect(() => { alive.current = true; void refreshThreads().catch(error => setError(errorText(error))); return () => { alive.current = false;  }; }, [refreshThreads]);
   useEffect(() => {
     if (!threadId) return;
     let cancelled = false;
@@ -125,22 +128,28 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
     voice.stop(); setThreadId(id); activeThread.current = id; setLoading(Boolean(id)); setMessages([]); setActions([]); setFiles([]); setDraftFiles([]); setDraft(""); setError(""); setMenu(false); pinned.current = true;
     window.history.pushState({}, "", id ? `/arisa?conversa=${id}` : "/arisa");
   }
-  useEffect(() => { const pop = () => { if (working.current) return; voice.stop(); const params = new URL(window.location.href).searchParams; setPanel(workspacePanel(params.get("painel"))); const id = params.get("conversa"); const next = id && UUID.test(id) ? id : null; if (activeThread.current === next) return; activeThread.current = next; setThreadId(next); setLoading(Boolean(next)); setMessages([]); setDraft(""); setDraftFiles([]); }; window.addEventListener("popstate", pop); return () => window.removeEventListener("popstate", pop); }, [voice.stop]);
+  useEffect(() => { const pop = () => { if (working.current || recording) return; voice.stop(); const params = new URL(window.location.href).searchParams; setPanel(workspacePanel(params.get("painel"))); const id = params.get("conversa"); const next = id && UUID.test(id) ? id : null; if (activeThread.current === next) return; activeThread.current = next; setThreadId(next); setLoading(Boolean(next)); setMessages([]); setDraft(""); setDraftFiles([]); }; window.addEventListener("popstate", pop); return () => window.removeEventListener("popstate", pop); }, [voice.stop, recording]);
   async function ensureThread(): Promise<string> {
     if (activeThread.current) return activeThread.current;
     if (creating.current) return creating.current;
     creating.current = (async () => { const value = await client().rpc("arisa_chat_create_thread", { p_organization_id: organizationId }); if (value.error || !value.data?.id) throw value.error || new Error("Não foi possível iniciar a conversa."); const id = String(value.data.id); activeThread.current = id; setThreadId(id); window.history.replaceState({}, "", `/arisa?conversa=${id}`); await refreshThreads(); return id; })();
     try { return await creating.current; } finally { creating.current = null; }
   }
-  async function send(retry?: Message) {
-    if (working.current || recording || (!retry && !draft.trim() && !draftFiles.length)) return;
+  async function send(retry?: Message, audio?: { text: string; stored: ChatFile; messageId: string }) {
+    if (working.current || (!audio && recording) || (!audio && !retry && !draft.trim() && !draftFiles.length)) return;
     voice.prepare(); working.current = true; setBusy(true); setError(""); pinned.current = true;
-    let id: string | null = null;
+    let id: string | null = null; let accepted = false;
     try {
       id = await ensureThread(); let messageId = retry?.id;
       if (!messageId) {
-        messageId = crypto.randomUUID();
-        const saved = await client().rpc("arisa_chat_send", { p_thread_id: id, p_message_id: messageId, p_content: draft.trim(), p_file_ids: draftFiles.map(file => file.id) });
+        const texts = [audio?.text ?? draft.trim()];
+        if (!audio) for (const file of draftFiles.filter(file => file.mime_type.startsWith("audio/"))) {
+          const result = await callManager({ action: "transcribe", organizationId, fileId: file.id }); texts.push(result.text);
+        }
+        const content = texts.filter(Boolean).join("\n");
+        if (content.length > 6000) throw new Error("A mensagem com a transcrição ficou muito longa. Envie os áudios separadamente.");
+        messageId = audio?.messageId ?? crypto.randomUUID();
+        const saved = await client().rpc("arisa_chat_send", { p_thread_id: id, p_message_id: messageId, p_content: content, p_file_ids: audio ? [audio.stored.id] : draftFiles.map(file => file.id) });
         if (saved.error) {
           // A lost response is not proof of rollback: recover by this exact client-generated ID.
           const exists = await client().from("arisa_chat_messages").select("id").eq("id", messageId).maybeSingle();
@@ -148,10 +157,11 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
         }
         setDraft(""); setDraftFiles([]); if (input.current) input.current.style.height = "46px";
       }
+      accepted = true;
       voice.arm(messageId);
       await refresh(id);
       await callManager({ action: "chat", organizationId, messageId });
-    } catch (error) { if (alive.current) setError(errorText(error)); }
+    } catch (error) { if (alive.current) setError(errorText(error)); if (audio && !accepted) throw error; }
     finally { if (id) await refresh(id).catch(() => {}); await refreshThreads().catch(() => {}); working.current = false; if (alive.current) setBusy(false); }
   }
   async function attach(incoming: File[]) {
@@ -160,34 +170,16 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
     working.current = true; setBusy(true); setError("");
     try { const id = await ensureThread(); for (const file of incoming) { const stored = await uploadFile(file, organizationId, userId, id); if (alive.current) setDraftFiles(previous => [...previous, stored]); } } catch (error) { setError(errorText(error)); } finally { working.current = false; if (alive.current) setBusy(false); }
   }
-  async function startRecording() {
-    if (working.current || draftFiles.length >= 5) return;
-    voice.stop();
-    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") { setError("Este navegador não permite gravação. Você pode anexar um áudio ou digitar."); return; }
-    setError(""); working.current = true; setBusy(true);
-    try {
-      const id = await ensureThread();
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      if (!alive.current) { stream.getTracks().forEach(track => track.stop()); return; }
-      const mime = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"].find(type => MediaRecorder.isTypeSupported(type));
-      const value = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 64000 } : undefined); recorder.current = value;
-      const chunks: Blob[] = []; value.ondataavailable = event => { if (event.data.size) chunks.push(event.data); };
-      value.onerror = () => { stream.getTracks().forEach(track => track.stop()); setRecording(false); setError("A gravação foi interrompida. Tente novamente."); };
-      value.onstop = async () => {
-        stream.getTracks().forEach(track => track.stop()); if (recordTimer.current) clearTimeout(recordTimer.current); recorder.current = null;
-        if (!alive.current) return; setRecording(false); working.current = true; setBusy(true);
-        try {
-          const type = value.mimeType.split(";")[0] || "audio/webm", file = new File(chunks, `audio-${Date.now()}.${type === "audio/mp4" ? "m4a" : "webm"}`, { type });
-          const stored = await uploadFile(file, organizationId, userId, id); if (!alive.current) return; setDraftFiles(previous => [...previous, stored]);
-          const transcribed = await callManager({ action: "transcribe", organizationId, fileId: stored.id });
-          if (alive.current) { setDraft(previous => [previous, transcribed.text].filter(Boolean).join("\n").slice(0, 6000)); input.current?.focus(); }
-        } catch (error) { if (alive.current) setError(errorText(error)); } finally { working.current = false; if (alive.current) setBusy(false); }
-      };
-      value.start(500); setRecording(true); recordTimer.current = setTimeout(() => { if (value.state !== "inactive") value.stop(); }, 90000);
-    } catch (error) { setError(errorText(error)); } finally { working.current = false; setBusy(false); }
+  async function sendAudio(file: File) {
+    const id = await ensureThread();
+    if (audioUpload.current?.file !== file) audioUpload.current = { file, stored: await uploadFile(file, organizationId, userId, id), messageId: crypto.randomUUID() };
+    const stored = audioUpload.current.stored;
+    const transcribed = await callManager({ action: "transcribe", organizationId, fileId: stored.id });
+    await send(undefined, { text: transcribed.text, stored, messageId: audioUpload.current.messageId });
+    audioUpload.current = null;
   }
   const fileMap = new Map([...files, ...draftFiles].map(file => [file.id, file]));
-  const fileButton = (file: ChatFile) => <button className="arisa-file" key={file.id} onClick={() => void openFile(file).catch(error => setError(errorText(error)))}><Icon kind="attach" /><span>{file.file_name}<small>{Math.max(1, Math.round(file.size_bytes / 1024))} KB{file.operation_item_id ? " · Na fila documental" : ""}</small></span></button>;
+  const fileButton = (file: ChatFile) => file.mime_type.startsWith("audio/") ? <AudioAttachment key={file.id} file={file} /> : <button className="arisa-file" key={file.id} onClick={() => void openFile(file).catch(error => setError(errorText(error)))}><Icon kind="attach" /><span>{file.file_name}<small>{Math.max(1, Math.round(file.size_bytes / 1024))} KB{file.operation_item_id ? " · Na fila documental" : ""}</small></span></button>;
   return <main id="conteudo-principal" className="public-agent-page bia-whatsapp arisa-chat">{panel && <ArisaWorkspace organizationId={organizationId} userId={userId} initialPanel={panel} onPanelChange={openPanel} onClose={() => openPanel(null)} />}<div className="public-agent-shell"><section className="public-agent-chat-card"><Header menu={() => setMenu(previous => !previous)} voice={voice} recording={recording} />
     {menu && <aside className="arisa-conversations" aria-label="Conversas"><div className="arisa-menu-head"><strong>Suas conversas</strong><button onClick={() => setMenu(false)} aria-label="Fechar menu"><Icon kind="close" /></button></div><small>{organizationName}</small><button onClick={() => switchThread(null)} disabled={busy || recording}>+ Nova conversa</button><nav>{threads.map(thread => <button key={thread.id} aria-current={threadId === thread.id ? "page" : undefined} onClick={() => switchThread(thread.id)} disabled={busy || recording}>{thread.title}</button>)}</nav><div className="arisa-menu-links">{workspacePanels.map(key => <button key={key} disabled={busy || recording} onClick={() => openPanel(key)}>{workspaceLabels[key]} da Arisa</button>)}<Link href="/">Abrir plataforma</Link><Link href="/?view=arisa">Fila de documentos</Link><Link href="/agenda">Agenda da plataforma</Link><button disabled={busy || recording} onClick={() => void client().auth.signOut()}>Sair da conta</button></div></aside>}
     <VoiceBar voice={voice} />
@@ -201,7 +193,7 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
     {error && <div className="public-agent-alert" role="alert">{error}<button onClick={() => setError("")} aria-label="Fechar aviso">×</button></div>}
     {!!draftFiles.length && <div className="arisa-draft-files">{draftFiles.map(file => <div key={file.id}>{fileButton(file)}<button disabled={busy} onClick={() => setDraftFiles(previous => previous.filter(item => item.id !== file.id))} aria-label={`Remover ${file.file_name} da mensagem`}>×</button></div>)}</div>}
     <input type="file" ref={fileInput} hidden multiple accept=".pdf,.png,.jpg,.jpeg,.webp,.xml,.csv,.ofx,.txt,.mp3,.m4a,.wav,.webm" onChange={event => { const selected = Array.from(event.target.files || []); event.target.value = ""; void attach(selected); }} />
-    {recording ? <div className="arisa-recording" role="status"><span>● Gravando áudio · até 90 segundos</span><button onClick={() => recorder.current?.stop()} aria-label="Concluir gravação"><Icon kind="stop" /></button></div> : <form className="public-agent-composer arisa-composer" onSubmit={event => { event.preventDefault(); void send(); }}><button className="arisa-attach" type="button" disabled={busy} onClick={() => fileInput.current?.click()} aria-label="Anexar documento"><Icon kind="attach" /></button><textarea ref={input} value={draft} maxLength={6000} rows={1} aria-label="Mensagem para Arisa" placeholder="Mensagem" disabled={busy} onChange={event => { setDraft(event.target.value); event.target.style.height = "46px"; event.target.style.height = Math.min(112, event.target.scrollHeight) + "px"; }} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && window.matchMedia("(pointer:fine)").matches) { event.preventDefault(); void send(); } }} />{draft.trim() || draftFiles.length ? <button type="submit" disabled={busy} aria-label="Enviar mensagem"><Icon kind="send" /></button> : <button type="button" disabled={busy} onClick={() => void startRecording()} aria-label="Gravar mensagem de voz"><Icon kind="mic" /></button>}</form>}
-    <details className="bia-chat-privacy"><summary>Gestão com IA · Acesso privado</summary><div><p>Conversas e documentos ficam vinculados à sua conta e organização. Os pedidos são executados com sua alçada administrativa e registrados na auditoria.</p><p>Não envie senhas. A Arisa registra e programa operações financeiras; não realiza transferências bancárias. Revise a transcrição de voz antes de enviar.</p><Link href="/">Évora Gestão · Versão 6.29</Link></div></details>
+    {<form className="public-agent-composer arisa-composer" onSubmit={event => { event.preventDefault(); void send(); }}><button className="arisa-attach" type="button" disabled={busy || recording} hidden={recording} onClick={() => fileInput.current?.click()} aria-label="Anexar documento"><Icon kind="attach" /></button><textarea hidden={recording} ref={input} value={draft} maxLength={6000} rows={1} aria-label="Mensagem para Arisa" placeholder="Mensagem" disabled={busy} onChange={event => { setDraft(event.target.value); event.target.style.height = "46px"; event.target.style.height = Math.min(112, event.target.scrollHeight) + "px"; }} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing && window.matchMedia("(pointer:fine)").matches) { event.preventDefault(); void send(); } }} />{!recording && (draft.trim() || draftFiles.length) ? <button type="submit" disabled={busy} aria-label="Enviar mensagem"><Icon kind="send" /></button> : <AudioRecorder disabled={busy} onStart={voice.stop} onActive={setRecording} onSend={sendAudio} />}</form>}
+    <details className="bia-chat-privacy"><summary>Gestão com IA · Acesso privado</summary><div><p>Conversas e documentos ficam vinculados à sua conta e organização. Os pedidos são executados com sua alçada administrativa e registrados na auditoria.</p><p>Não envie senhas. A Arisa registra e programa operações financeiras; não realiza transferências bancárias. Você pode ouvir sua gravação antes de enviar.</p><Link href="/">Évora Gestão · Versão 6.29</Link></div></details>
   </section></div></main>;
 }

@@ -33,8 +33,8 @@ test('only completed assistant text and valid protocol parts can be synthesized'
  assert.throws(()=>partForReply(reply,0,'old'),/INVALID/);
 });
 test('voice has fixed gentle adult pt-BR direction, exact input and no user-selectable endpoint',async()=>{
- assert.equal(VOICE,'coral');assert.match(VOICE_INSTRUCTIONS,/profissional, delicada, doce/);
- const request=async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/audio/speech');const body=JSON.parse(options.body);assert.equal(body.input,'Olá, Franco.');assert.equal(body.voice,'coral');assert.equal(body.speed,.96);return new Response(new Uint8Array(128),{headers:{'content-type':'audio/mpeg'}})};
+ assert.equal(VOICE,'marin');assert.match(VOICE_INSTRUCTIONS,/profissional, delicada, doce/);
+ const request=async(url,options)=>{assert.equal(url,'https://api.openai.com/v1/audio/speech');const body=JSON.parse(options.body);assert.equal(body.input,'Olá, Franco.');assert.equal(body.voice,'marin');assert.equal(body.speed,1.12);return new Response(new Uint8Array(128),{headers:{'content-type':'audio/mpeg'}})};
  assert.equal((await synthesize('Olá, Franco.','test-key',request)).byteLength,128);
 });
 test('provider failures do not leak sensitive error bodies',async()=>{

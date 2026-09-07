@@ -64,11 +64,11 @@ test("home-screen icon preserves the original Evora logomark and accessible bran
 
 test("Arisa uses the supplied portrait as her accessible profile photo", () => {
   assert.match(chat, /import Image from "next\/image"/);
-  assert.match(chat, /src="\/arisa-profile\.webp" alt="Foto de perfil da Arisa" width=\{42\} height=\{42\} priority/);
+  assert.match(chat, /src="\/arisa-profile-ed010d3ade95\.webp" alt="Foto de perfil da Arisa" width=\{42\} height=\{42\} priority/);
   assert.doesNotMatch(chat, /className="public-agent-avatar arisa-avatar" aria-hidden="true">A/);
-  assert.match(css, /\.arisa-chat \.arisa-avatar img\{[^}]*object-fit:cover[^}]*object-position:center 42%/);
-  const portrait = readFileSync(new URL("../public/arisa-profile.webp", import.meta.url));
+  assert.match(css, /\.arisa-chat \.arisa-avatar img\{[^}]*object-fit:cover[^}]*object-position:center 20%/);
+  const portrait = readFileSync(new URL("../public/arisa-profile-ed010d3ade95.webp", import.meta.url));
   assert.equal(portrait.subarray(0, 4).toString(), "RIFF");
   assert.equal(portrait.subarray(8, 12).toString(), "WEBP");
-  assert.ok(statSync(new URL("../public/arisa-profile.webp", import.meta.url)).size < 100_000);
+  assert.ok(statSync(new URL("../public/arisa-profile-ed010d3ade95.webp", import.meta.url)).size < 100_000);
 });

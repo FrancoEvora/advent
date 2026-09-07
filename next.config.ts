@@ -25,6 +25,13 @@ const nextConfig: NextConfig = {
           { key: "Service-Worker-Allowed", value: "/" },
         ],
       },
+      {
+        source: "/integrations/meta/:path*",
+        headers: [
+          { key: "Cache-Control", value: "private, no-store, max-age=0" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+        ],
+      },
       ...["/cliente/:path*", "/proposta/:path*", "/contrato/:path*", "/parceiro/:path*", "/atendimento/:path*"].map((source) => ({
         source,
         headers: [

@@ -1,0 +1,37 @@
+"use client";
+import { useMemo, useState } from "react";
+import type { CrmRecord, ErpData } from "../types";
+import type { CrmEnterpriseData, CrmSection } from "./types";
+import { LeadConversationHistory } from "./lead-conversation-history";
+import { MetaConnectionPanel } from "./meta-connection-panel";
+import { QuickReplies } from "./quick-replies";
+import styles from "./communication-hub.module.css";
+
+export function CommunicationHub({ data, crm, can, reload, openLead, openActivity, setSection }: { data: ErpData; crm: CrmEnterpriseData; can: (permission: string) => boolean; reload: () => Promise<void>; openLead: (lead: CrmRecord) => void; openActivity: (lead: CrmRecord) => void; setSection: (section: CrmSection) => void }) {
+  const [tab, setTab] = useState<"channels" | "queue" | "replies">("channels");
+  const [query, setQuery] = useState(""), [origin, setOrigin] = useState(""), [tag, setTag] = useState(""), [queue, setQueue] = useState("all"), [selectedId, setSelectedId] = useState("");
+  const tags = useMemo(() => [...new Set(crm.records.flatMap(lead => lead.tags || []))].sort(), [crm.records]);
+  const [now, setNow] = useState(() => Date.now());
+  const late = (lead: CrmRecord) => lead.record_status === "aberta" && Boolean(lead.next_action_at && Date.parse(lead.next_action_at) < now);
+  const records = crm.records.filter(lead => `${lead.person_name} ${lead.phone || ""} ${lead.email || ""}`.toLocaleLowerCase("pt-BR").includes(query.toLocaleLowerCase("pt-BR")) && (!origin || lead.source_channel === origin) && (!tag || lead.tags?.includes(tag)) && (queue === "all" || queue === "mine" && [lead.owner_user_id, lead.sdr_user_id, lead.broker_user_id].includes(data.session.user.id) || queue === "unanswered" && lead.record_status === "aberta" && !lead.first_response_at || queue === "late" && late(lead))).sort((a,b) => Number(late(b))-Number(late(a)) || Date.parse(b.updated_at)-Date.parse(a.updated_at));
+  const selected = records.find(lead => lead.id === selectedId) || records[0];
+  const owner = selected ? data.profiles.find(profile => profile.id === (selected.owner_user_id || selected.sdr_user_id)) : null;
+  return <div className={styles.stack}>
+    <header className={styles.header}><div><small className={styles.eyebrow}>ÉVORA ENTERPRISE · COMUNICAÇÃO</small><h2>Canais e atendimento</h2><p>Conexões oficiais, histórico dos leads e respostas da equipe.</p></div><button onClick={() => { setNow(Date.now()); void reload(); }}>Atualizar dados</button></header>
+    <div className={styles.tabs} aria-label="Áreas de comunicação"><button aria-pressed={tab === "channels"} onClick={() => setTab("channels")}>Canais e assistentes</button><button aria-pressed={tab === "queue"} onClick={() => setTab("queue")}>Fila de atendimento</button><button aria-pressed={tab === "replies"} onClick={() => setTab("replies")}>Respostas rápidas</button><button onClick={() => setSection("automations")}>Automações e cadências</button></div>
+    {tab === "channels" && <>
+      <div className={styles.cards}><article className={`${styles.card} ${styles.profile}`}><small className={styles.eyebrow}>GESTÃO ADMINISTRATIVA</small><h3>Arisa · Évora Urbanismo</h3><p>Gestão, documentos, agenda e comunicações administrativas. Seu histórico e seus poderes de administrador permanecem separados do atendimento comercial.</p><a href="/arisa">Abrir Arisa</a></article><article className={`${styles.card} ${styles.profile}`}><small className={styles.eyebrow}>RELACIONAMENTO COMERCIAL</small><h3>Bia · Futura Casa</h3><p>Especialista imobiliária digital da Futura Casa, parceira da Évora. Mantém sua identidade, supervisão e consultas ao estoque, propostas e regras comerciais.</p><button onClick={() => setSection("settings")}>Configurações da Bia</button></article></div>
+      <MetaConnectionPanel key={`${data.organization.id}:${can("crm.integrations.manage")}`} organizationId={data.organization.id} canManage={can("crm.integrations.manage")} />
+      <div className={styles.row}><button onClick={() => setSection("settings")}>Configurações avançadas e Meta Leads</button><button onClick={() => setSection("teams")}>Equipes e distribuição</button></div>
+    </>}
+    {tab === "queue" && <>
+      <div className={styles.cards}><article className={styles.card}><small>Leads abertos sem primeira resposta registrada</small><p className={styles.stat}>{crm.records.filter(lead => lead.record_status === "aberta" && !lead.first_response_at).length}</p></article><article className={styles.card}><small>Leads abertos com retorno vencido</small><p className={styles.stat}>{crm.records.filter(late).length}</p></article></div>
+      <div className={styles.toolbar}><label>Buscar lead<input value={query} onChange={event => setQuery(event.target.value)} placeholder="Nome, telefone ou e-mail" /></label><label>Fila<select value={queue} onChange={event => setQueue(event.target.value)}><option value="all">Todos os leads</option><option value="mine">Meus atendimentos</option><option value="unanswered">Sem primeira resposta</option><option value="late">Retorno vencido</option></select></label><label>Origem do lead<select value={origin} onChange={event => setOrigin(event.target.value)}><option value="">Todas</option>{[...new Set(crm.records.map(lead => lead.source_channel).filter((value): value is string => Boolean(value)))].sort().map(value => <option key={value}>{value}</option>)}</select></label><label>Tag<select value={tag} onChange={event => setTag(event.target.value)}><option value="">Todas</option>{tags.map(value => <option key={value}>{value}</option>)}</select></label></div>
+      <small>{records.length} leads na seleção. Indicadores calculados sobre os registros carregados e as atividades registradas.</small>
+      <div className={styles.inbox}><div className={styles.list}>{records.map(lead => <button key={lead.id} className={styles.lead} aria-pressed={selected?.id === lead.id} onClick={() => setSelectedId(lead.id)}><strong>{lead.person_name}</strong><small>{lead.source_channel || lead.source || "Origem não informada"} · {crm.stages.find(stage => stage.id === lead.stage_id)?.name || lead.stage}</small><small>{late(lead) ? "Retorno vencido" : lead.next_action_at ? `Retorno: ${new Date(lead.next_action_at).toLocaleDateString("pt-BR")}` : "Sem retorno agendado"}</small></button>)}{!records.length && <p className={styles.empty}>Nenhum lead corresponde aos filtros.</p>}</div>
+        {selected && <section className={styles.card} key={selected.id}><h3>{selected.person_name}</h3><p>{data.projects.find(project => project.id === selected.project_id)?.name || "Empreendimento não definido"}</p><p>Responsável: {owner?.full_name || owner?.email || "Não atribuído"}</p><div className={styles.row}>{selected.tags?.map(value => <span className={styles.badge} key={value}>{value}</span>)}</div><div className={styles.actions}><button onClick={() => openLead(selected)}>Ficha, tags e responsável</button><button className="primary" onClick={() => openActivity(selected)}>Registrar atendimento / retorno</button><button onClick={() => setSection("sdr")}>Distribuição e pré-vendas</button></div><LeadConversationHistory organizationId={data.organization.id} crmRecordId={selected.id} accessToken={data.session.access_token} leadName={selected.person_name} /></section>}
+      </div>
+    </>}
+    {tab === "replies" && <QuickReplies data={data} templates={crm.templates} reload={reload} />}
+  </div>;
+}

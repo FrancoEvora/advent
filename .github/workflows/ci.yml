@@ -36,6 +36,7 @@ jobs:
           tests/crm-broker-bia-knowledge.test.mjs
           tests/weekly-platform-audit-hardening.test.mjs
           tests/weekly-platform-audit-2026-08-31.test.mjs
+          tests/platform-audit-2026-09-07.test.mjs
       - name: Validate Bia execution regressions
         run: node --test tests/bia-runtime-execution.test.mjs
       - name: Validate Arisa financial and CRM operations

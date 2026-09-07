@@ -43,7 +43,7 @@ export default function ArisaWhatsAppPanel({ organizationId }: { organizationId:
         const rows = Array.isArray(data.templates) ? data.templates as WhatsAppTemplate[] : [];
         setTemplates(rows); setTemplatesLoaded(true); setNotice(`${rows.length} template(s) aprovado(s) encontrado(s) na Meta.`);
       } else {
-        if (action === "configure") setNotice(args.enabled ? "O envio de WhatsApp pela Arisa foi habilitado." : "O envio pela Arisa foi pausado. O histórico continua disponível.");
+        if (action === "configure") setNotice(typeof args.auto_reply_enabled === "boolean" ? args.auto_reply_enabled ? "Respostas automáticas ativadas." : "Respostas automáticas pausadas." : args.enabled ? "O envio de WhatsApp pela Arisa foi habilitado." : "O envio pela Arisa foi pausado. O histórico continua disponível.");
         else setNotice(whatsappReconcileLabel(data));
         refresh();
       }
@@ -59,10 +59,12 @@ export default function ArisaWhatsAppPanel({ organizationId }: { organizationId:
       <div className={styles.meta}>WHATSAPP BUSINESS PLATFORM</div><h3 id="arisa-whatsapp-title">WhatsApp da Arisa</h3>
       <p>{!status ? loading ? "Verificando o canal…" : "Não foi possível verificar o canal. Atualize para consultar o estado." : status.ready ? `Envio habilitado${status.display_phone_number ? ` em ${status.display_phone_number}` : ""}.` : status.configured ? "A conexão está cadastrada. O envio pela Arisa ainda está pausado ou exige concluir a configuração." : "A configuração do WhatsApp precisa ser concluída antes de habilitar os envios."}</p>
       {status && <p>{whatsappReceptionLabel(status)}{status.last_inbound_at && <><br /><small>Última mensagem recebida: {displayDate(status.last_inbound_at)}</small></>}</p>}
+      {status && <p>Respostas automáticas: {status.enabled && status.auto_reply_enabled ? "ativas. A Arisa responde usando o histórico de cada conversa." : "pausadas."}</p>}
       <p><small>Uma mensagem recebida abre 24 horas para texto livre. Para iniciar ou retomar a conversa fora dessa janela, a Arisa precisa de um template aprovado pela Meta. As preferências e os bloqueios do contato são respeitados.</small></p>
       <div className={styles.row}>
         <button disabled={busy || loading} onClick={refresh}>{loading ? "Atualizando…" : "Atualizar canal e histórico"}</button>
         <button disabled={busy || loading || !status?.configured} onClick={() => void perform("templates")}>Consultar templates aprovados</button>
+        {status?.enabled && !status.legacy_crm_enabled && <button disabled={busy || loading} onClick={() => void perform("configure", { enabled: true, auto_reply_enabled: !status.auto_reply_enabled })}>{status.auto_reply_enabled ? "Pausar respostas automáticas" : "Ativar respostas automáticas"}</button>}
         {status?.enabled && <button disabled={busy || loading} onClick={() => void perform("configure", { enabled: false })}>Pausar envios da Arisa</button>}
       </div>
     </div>

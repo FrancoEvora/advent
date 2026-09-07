@@ -1,4 +1,5 @@
 export type WhatsAppChannelStatus = {
+  auto_reply_enabled?: boolean; legacy_crm_enabled?: boolean;
   enabled?: boolean; configured?: boolean; ready?: boolean; display_phone_number?: string;
   phone_number_id?: string; graph_api_version?: string; webhook_path?: string; webhook_url?: string;
   webhook_confirmed?: boolean; webhook_verified_at?: string | null; last_inbound_at?: string | null;

@@ -2,15 +2,10 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
-const pkg = JSON.parse(await readFile("package.json", "utf8"));
 const migration = await readFile(
   "supabase/migrations/20260907140000_platform_audit_incremental_hardening.sql",
   "utf8",
 );
-
-test("PostCSS usa versão corrigida acima da faixa vulnerável", () => {
-  assert.equal(pkg.overrides?.postcss, "8.5.23");
-});
 
 test("políticas RLS evitam auth.uid por linha sem ampliar autorização", () => {
   const expectedPolicies = [

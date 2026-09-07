@@ -4,7 +4,7 @@ import {usePathname} from "next/navigation";
 
 export function GlobalModuleNav(){
  const path=usePathname();
- if(path==="/arisa"||path.startsWith("/cliente/")||path.startsWith("/parceiro")||path.startsWith("/proposta/")||path.startsWith("/contrato/")||path.startsWith("/verificar/")||path.startsWith("/atendimento/"))return null;
+ if(path==="/privacidade"||path==="/politica-de-privacidade"||path==="/arisa/privacidade"||path==="/arisa"||path.startsWith("/cliente/")||path.startsWith("/parceiro")||path.startsWith("/proposta/")||path.startsWith("/contrato/")||path.startsWith("/verificar/")||path.startsWith("/atendimento/"))return null;
  const erpActive=path==="/"||path.startsWith("/crm")||path.startsWith("/pos-venda");
  const marketingActive=path==="/marketing"||path.startsWith("/marketing/");
  const agendaActive=path.startsWith("/agenda");

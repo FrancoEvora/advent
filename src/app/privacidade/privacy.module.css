@@ -1,0 +1,38 @@
+.page{min-height:100vh;background:#fafbf8;color:#273b36;font-family:Arial,Helvetica,sans-serif;line-height:1.75}
+.page a{color:#285b3f;text-underline-offset:4px}
+.page a:focus-visible{outline:3px solid #477c27;outline-offset:5px;border-radius:2px}
+.header{max-width:1200px;margin:auto;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:25px 40px;border-bottom:1px solid #dce3d8}
+.header img{display:block;object-fit:contain}
+.header nav{display:flex;gap:28px;font-size:14px;font-weight:600}
+.header a{text-decoration:none}
+.hero{max-width:1200px;margin:auto;padding:72px 40px 56px}
+.eyebrow{font-size:11px;font-weight:700;letter-spacing:.17em;color:#477032}
+.hero h1{margin:22px 0;color:#183b2d;font-size:clamp(44px,6vw,74px);font-weight:500;line-height:1.06;letter-spacing:-.045em}
+.hero .lead{margin:24px 0 8px;font-size:clamp(19px,2.2vw,24px);color:#324e3d}
+.hero>p:not(.eyebrow){max-width:650px}
+.stamp{margin-top:28px;font-size:12px;color:#5a685e}
+.layout{display:grid;grid-template-columns:260px minmax(0,1fr);gap:64px;max-width:1200px;margin:auto;padding:12px 40px 80px}
+.index{align-self:start;position:sticky;top:28px;font-size:13px}
+.index nav{display:grid;gap:10px}
+.index nav a{display:flex;gap:12px;text-decoration:none;line-height:1.4;padding:4px 0}
+.index nav a:hover{text-decoration:underline}
+.index nav span{color:#77866c;font-size:11px;min-width:18px}
+.index .contactLink{display:block;margin-top:28px;padding-top:20px;border-top:1px solid #dce3d8;font-weight:600}
+.article{min-width:0}
+.article section{scroll-margin-top:24px;border-top:1px solid #dce3d8;padding:26px 0 28px}
+.article h2{font-size:23px;line-height:1.3;letter-spacing:-.025em;color:#183b2d;margin:0 0 20px}
+.article p{margin:0 0 16px;font-size:15px}
+.article ul{padding-left:22px;margin:8px 0 20px;font-size:15px}
+.article li{margin-bottom:10px}
+.note{background:#edf2e5;border-left:3px solid #6c912e;padding:22px;margin:24px 0 4px;border-radius:0 8px 8px 0}
+.note p{margin:8px 0 0}
+.tableWrap{overflow-x:auto;margin:22px 0}
+.tableWrap table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:13px;line-height:1.6;background:#fff}
+.tableWrap caption{text-align:left;font-size:12px;color:#5a685e;padding-bottom:10px}
+.tableWrap th,.tableWrap td{white-space:normal;overflow-wrap:anywhere;padding:16px;text-align:left;vertical-align:top;border:1px solid #dce3d8}
+.tableWrap th{background:#edf2e5;color:#25442f}
+.article .email{display:inline-block;font-size:clamp(15px,2.5vw,22px);font-weight:600;overflow-wrap:anywhere;margin:0 0 20px}
+.footer{max-width:1120px;margin:auto;padding:28px 0 40px;border-top:1px solid #dce3d8;display:flex;justify-content:space-between;gap:20px;font-size:12px}
+@media(max-width:850px){.layout{grid-template-columns:1fr;gap:36px}.index{position:static}.index nav{grid-template-columns:1fr 1fr;column-gap:24px}.index .eyebrow{grid-column:1/-1}.footer{margin:0 40px}}
+@media(max-width:520px){.header{padding:20px;gap:16px}.header img{width:118px;height:auto}.header nav{gap:14px;font-size:12px}.hero{padding:45px 22px 36px}.layout{padding:8px 22px 40px}.index nav{grid-template-columns:1fr}.article h2{font-size:21px}.tableWrap th,.tableWrap td{padding:10px}.footer{margin:0 22px;flex-direction:column;gap:8px}.note{padding:16px}.page{overflow-wrap:break-word}}
+@media print{.page{background:#fff;color:#111}.header nav,.index,.footer{display:none}.hero{padding:20px 0}.hero h1{font-size:36px}.layout{display:block;padding:0}.article section{break-inside:avoid}.page a{color:inherit}.note{background:#fff}.tableWrap{overflow:visible}}

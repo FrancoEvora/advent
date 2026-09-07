@@ -102,7 +102,7 @@ export function WhatsAppRuntimeSettings({ data, canManage }: { data: ErpData; ca
     }
   }
 
-  return <section className="crm5-panel" id="whatsapp-cloud-setup">
+  return <details className="crm5-panel" id="whatsapp-cloud-setup"><summary>WhatsApp — configuração técnica e ativação comercial</summary>
     <header><div><small>WHATSAPP CLOUD API</small><h3>Atendimento bidirecional supervisionado</h3><p>Recebe mensagens pelo webhook oficial da Meta, registra a conversa no CRM e permite enviar respostas aprovadas pela Bia e pelo Supervisor.</p></div></header>
     <div className="crm5-policy-grid">
       <article><strong>{status.ready ? "Pronto" : "Pendente"}</strong><span>Runtime WhatsApp</span></article>
@@ -126,5 +126,5 @@ export function WhatsAppRuntimeSettings({ data, canManage }: { data: ErpData; ca
       <button type="button" disabled={!canManage || busy} onClick={() => void save(false)}>Salvar sem ativar</button>
       <button className="primary" type="button" disabled={!canManage || busy || !wabaId || !phoneNumberId || !graphApiVersion} onClick={() => void save(!status.enabled)}>{status.enabled ? "Desativar WhatsApp Cloud" : "Salvar e ativar supervisionado"}</button>
     </footer>
-  </section>;
+  </details>;
 }

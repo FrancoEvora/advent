@@ -9,6 +9,7 @@ import { BiaKnowledgeBase } from "./bia-knowledge-base";
 import { CrmSectionHeader, Status } from "./shared";
 import { MetaCampaignControlSettings } from "./meta-campaign-control-settings";
 import { WhatsAppRuntimeSettings } from "./whatsapp-runtime-settings";
+import { MetaConnectionPanel } from "./meta-connection-panel";
 
 export function SettingsView({ data, crm, reload, can = () => false }: { data: ErpData; crm: CrmEnterpriseData; reload: () => Promise<void>; can?: (permission: string) => boolean }) {
   const providers = ["whatsapp", "meta", "site_forms", "email", "google_calendar", "maps", "webhook"];
@@ -20,7 +21,8 @@ export function SettingsView({ data, crm, reload, can = () => false }: { data: E
     if (result.error) throw result.error; await reload();
   }
   return <div className="crm5-stack">
-    <CrmSectionHeader eyebrow="CONFIGURAÇÃO" title="Parâmetros e integrações" description="Canais de entrada, comunicação, SLAs, distribuição, inteligência comercial e governança do CRM. A conexão Meta usa exatamente o mesmo processo do Évora Campaign Control." />
+    <CrmSectionHeader eyebrow="CONFIGURAÇÃO" title="Parâmetros e integrações" description="Conecte os canais oficiais e gerencie a operação comercial. Arisa e Bia mantêm suas funções e permissões." />
+    <MetaConnectionPanel key={`${data.organization.id}:${canManage}`} organizationId={data.organization.id} canManage={canManage} />
     <section className="crm5-panel crm5-version"><Image src="/evora-brand.svg" alt="Évora Urbanismo" width={310} height={90} /><div><small>PLATAFORMA PROPRIETÁRIA</small><h3>Évora Gestão CRM</h3><strong>Versão 6.26 Enterprise</strong><p>© 2026 Évora Urbanismo. Uso interno e titularidade exclusiva da Évora Urbanismo.</p></div></section>
     <section className="crm5-integrations">{providers.map((provider) => {
       const current = crm.integrations.find((item) => item.provider === provider);

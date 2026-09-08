@@ -8,7 +8,7 @@ A interface compartilha cabeçalho, apresentação de mensagens, cálculo de vie
 
 As tabelas `crm_private.bia_whatsapp_*` guardam o canal, associação entre remetente e sessão comercial, mensagens e fila de respostas. As chaves ficam no Vault. A credencial do aplicativo Meta pode ser compartilhada por referência; a conta WhatsApp, o telefone, o token de verificação e o segredo do worker são próprios da Bia.
 
-- `bia-whatsapp-webhook`: recebe a conta da Bia pelo callback alternativo da WABA. Reutiliza o validador HMAC da Arisa com o modo `bia`; rejeita telefone ou organização diferentes.
+- `bia-whatsapp-webhook`: recebe a conta da Bia pelo callback alternativo do telefone ou da WABA. Reutiliza o validador HMAC da Arisa com o modo `bia`; rejeita telefone ou organização diferentes.
 - `bia-whatsapp-replies`: worker autenticado por segredo exclusivo. Reutiliza o gateway comercial com sessão opaca e estável por remetente.
 - `enterprise-bia-agent-gateway`: perfil comercial v6, com contexto de canal obtido no banco. Áudios do WhatsApp são baixados apenas de hosts da Meta e transcritos antes de passar pelo mesmo fluxo comercial.
 
@@ -21,8 +21,8 @@ Pedidos registrados de atendimento humano pausam as respostas automáticas. A ce
 1. Aplicar as migrações de canal e de contato/retomada.
 2. Configurar a experiência, telefone, WABA e referências do Vault com o canal desabilitado.
 3. Publicar o gateway e os dois novos endpoints com suas dependências relativas. Todos têm autenticação própria; `verify_jwt` permanece desabilitado.
-4. Registrar o callback alternativo em `/{WABA_ID}/subscribed_apps`, incluindo `organizationId` e o token de verificação da Bia. O token da Meta precisa ter acesso à WABA e permissões de gerenciamento e mensagens.
-5. Somente depois da verificação do callback, habilitar o canal e enviar uma mensagem de teste a partir de outro WhatsApp.
+4. Assinar a WABA no aplicativo e registrar o callback alternativo no telefone (`/{PHONE_NUMBER_ID}`, campo `webhook_configuration`) ou em `/{WABA_ID}/subscribed_apps`, incluindo `organizationId` e o token de verificação da Bia. O usuário de sistema da credencial Meta precisa estar atribuído à conta da Bia, com acesso ao gerenciamento do telefone e às mensagens.
+5. Consultar `/{PHONE_NUMBER_ID}?fields=webhook_configuration` e confirmar que o callback efetivo aponta para a Bia. Um desafio GET bem-sucedido, isoladamente, não confirma que a Meta salvou a configuração. Somente depois dessa confirmação, habilitar o canal e enviar uma mensagem de teste a partir de outro WhatsApp.
 
 Para interromper respostas, desabilitar o canal da Bia. Isso preserva histórico, contatos e oportunidades e não altera a Arisa. As funções e as tabelas da Arisa não precisam ser desabilitadas ou removidas.
 

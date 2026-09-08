@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { prepareWhatsAppConversation, redactIdentity, financeHistory } from "../supabase/functions/_shared/arisa-whatsapp-finance.ts";
-import { MANAGER_TOOLS, managerInstructions } from "../supabase/functions/_shared/arisa-manager.ts";
+import { runManager } from "../supabase/functions/_shared/arisa-manager.ts";
 const config={enabled:true,api_key:"test-only",agent_model:"gpt-test"};
 const job={id:"job",lease:"lease",organization_id:"org"};
 function fakeRequest(kind="financial",requires_authorization=false){
@@ -49,6 +49,18 @@ test("failed verification is escalated only with a confirmed internal notice and
  const result=await prepareWhatsAppConversation(admin as never,job,[{content:"secret"}],config);
  assert.match(result.content!,/Encaminhei/);assert.ok(!JSON.stringify(recorded).includes("secret"));
 });
-test("news tool is read-only and the manager must check real notifications",()=>{
- const tool=MANAGER_TOOLS.find(tool=>tool.name==="notifications");assert.ok(tool);assert.ok(!JSON.stringify(tool).includes("recipient_user_id"));assert.match(managerInstructions({}),/consulte notifications antes de responder/);assert.match(managerInstructions({}),/não marca avisos como lidos/);
+test("a news request runs the notification tool and preserves the actual request in the answer context",async()=>{
+ let round=0;const executed:string[]=[];
+ const result=await runManager({apiKey:"test-only",model:"gpt-test",context:{organization_id:"org"},input:[{role:"user",content:"Tem alguma novidade para mim?"}],
+  request:async(_url,init)=>{
+   if(!round++)return Response.json({status:"completed",output:[{type:"function_call",name:"notifications",arguments:JSON.stringify({unread_only:true}),call_id:"notice-1"}]});
+   const body=JSON.parse(String(init?.body));
+   const returned=JSON.parse(body.input.find((item:{type:string})=>item.type==="function_call_output").output);
+   assert.equal(returned.items[0].message,"Pessoa solicita reunião às 10h; horário não confirmado.");
+   assert.equal(returned.unread_count,1);
+   return Response.json({status:"completed",output:[{type:"message",content:[{type:"output_text",text:"Há um pedido de reunião às 10h, aguardando sua confirmação."}]}]});
+  },
+  execute:async(name,args)=>{executed.push(name);assert.equal(args.unread_only,true);return {data:{unread_count:1,items:[{message:"Pessoa solicita reunião às 10h; horário não confirmado."}]}};}
+ });
+ assert.deepEqual(executed,["notifications"]);assert.equal(result.tool_count,1);assert.match(result.text,/aguardando sua confirmação/);
 });

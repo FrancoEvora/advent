@@ -9,7 +9,7 @@ export function redactIdentity(text: string): string {
 }
 export function financeHistory(history: Obj[], state: Obj): Obj[] {
   const hidden = new Set(Array.isArray(state.redacted_message_ids) ? state.redacted_message_ids : []);
-  const result = history.filter(row => !hidden.has(row.id)).map(row => ({ ...row, content: redactIdentity(String(row.content || "")) }));
+  const result: Obj[] = history.filter(row => !hidden.has(row.id)).map(row => ({ ...row, content: redactIdentity(String(row.content || "")) }));
   if (state.just_verified === true && typeof state.request === "string") result.push({ direction: "inbound", content: redactIdentity(state.request) });
   return result;
 }

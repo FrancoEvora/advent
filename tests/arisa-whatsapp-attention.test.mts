@@ -5,9 +5,9 @@ import {generateWhatsAppReply} from "../supabase/functions/_shared/arisa-whatsap
 const config={enabled:true,api_key:"test-only",agent_model:"gpt-test"};
 const completed=(value:unknown)=>({status:"completed",output:[{type:"message",content:[{type:"output_text",text:JSON.stringify(value)}]}]});
 test("triage extracts names without access to the staff directory or privileged tools",async()=>{
- const history=[{direction:"inbound",content:"Quero uma reunião com Franco amanhã às 10h."}];
+ const history=[{direction:"inbound",content:"Uma pergunta financeira antiga."},{direction:"inbound",content:"Quero uma reunião com Franco amanhã às 10h."}];
  const value={needs_notification:true,target_names:["Franco"],kind:"meeting",summary:"Pedido de reunião com Franco amanhã às 10h.",requires_authorization:false};
- const result=await analyzeWhatsAppAttention(history,config,(async(_url,init)=>{const body=JSON.parse(String(init?.body));assert.equal(body.tools,undefined);assert.equal(body.store,false);assert.equal(body.text.format.strict,true);assert.ok(!JSON.stringify(body).includes("recipient_user_id"));return Response.json(completed(value));}) as typeof fetch);
+ const result=await analyzeWhatsAppAttention(history,config,(async(_url,init)=>{const body=JSON.parse(String(init?.body));assert.equal(body.tools,undefined);assert.equal(body.store,false);assert.equal(body.text.format.strict,true);assert.ok(!JSON.stringify(body).includes("recipient_user_id"));assert.equal(JSON.parse(body.input[0].content).latest_inbound,history[1].content);assert.match(body.instructions,/Não misture assuntos antigos/);return Response.json(completed(value));}) as typeof fetch);
  assert.deepEqual(result.analysis,value);
 });
 test("invalid routing output and excessive targets fail before database notification",async()=>{
@@ -30,3 +30,4 @@ test("WhatsApp notice waits for the exact approved template outside 24h and expo
  await processWhatsAppNotices(admin as never,(async(_url,init)=>{if(init?.method==="POST")posts++;return Response.json({data:[{name:"hello_world",language:"en_US",status:"APPROVED"}]});}) as typeof fetch);
  assert.equal(deferred,true);assert.equal(posts,0);assert.ok(!NOTICE_TEXT.includes("summary"));assert.match(NOTICE_TEXT,/Acesse sua conta/);
 });
+

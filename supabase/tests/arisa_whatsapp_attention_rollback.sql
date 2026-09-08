@@ -3,13 +3,13 @@ begin;
 set local statement_timeout='120s';
 set local lock_timeout='5s';
 do $test$
-declare org uuid;actor uuid;full_name text;th uuid;msg uuid;req uuid;token uuid:=gen_random_uuid();result jsonb;again jsonb;args jsonb;count_before bigint;phone text:='551198'||lpad(floor(random()*10000000)::bigint::text,7,'0');refused boolean;
+declare org uuid;actor uuid;full_name text;th uuid;msg uuid;req uuid;notice_id uuid;token uuid:=gen_random_uuid();result jsonb;again jsonb;args jsonb;v_phone text:='551198'||lpad(floor(random()*10000000)::bigint::text,7,'0');refused boolean;
 begin
  select c.organization_id,c.updated_by,p.full_name into org,actor,full_name from crm_private.arisa_whatsapp_channel c join public.profiles p on p.id=c.updated_by where c.enabled and c.auto_reply_enabled and private.arisa_actor_admin(c.organization_id,c.updated_by) limit 1;
  if org is null then raise exception 'Enabled channel fixture required';end if;
  perform set_config('request.jwt.claims',jsonb_build_object('role','service_role','sub',actor)::text,true);
  if has_function_privilege('authenticated','public.arisa_whatsapp_attention(uuid,uuid,jsonb)','EXECUTE') or has_function_privilege('anon','public.arisa_my_whatsapp_notifications(uuid,text,boolean)','EXECUTE') or has_table_privilege('authenticated','crm_private.arisa_whatsapp_authorizations','SELECT') then raise exception 'Private routing or authorization exposed';end if;
- insert into public.arisa_whatsapp_threads(organization_id,phone_number_id,phone,last_inbound_at) select org,phone_number_id,phone,now() from crm_private.whatsapp_runtime_settings where organization_id=org returning id into th;
+ insert into public.arisa_whatsapp_threads(organization_id,phone_number_id,phone,last_inbound_at) select org,phone_number_id,v_phone,now() from crm_private.whatsapp_runtime_settings where organization_id=org returning id into th;
  insert into public.arisa_whatsapp_messages(organization_id,thread_id,direction,content,provider_message_id,delivery_status) values(org,th,'inbound','Quero uma reunião com '||full_name||' amanhã às 10h.','wamid.fixture.'||gen_random_uuid()::text,'delivered') returning id into msg;
  update crm_private.arisa_whatsapp_reply_jobs set status='processing',lease=token,lease_until=now()+interval '3 minutes' where id=msg;
  args=jsonb_build_object('needs_notification',true,'target_names',jsonb_build_array(full_name),'kind','meeting','summary','Pedido de reunião amanhã às 10h.','requires_authorization',false);
@@ -32,18 +32,29 @@ begin
  refused=false;begin perform public.arisa_whatsapp_attention_admin('authorize',org,gen_random_uuid(),jsonb_build_object('id',req,'content','Não autorizado'));exception when insufficient_privilege then refused=true;end;
  if not refused then raise exception 'Non-admin authorized disclosure';end if;
  result=public.arisa_whatsapp_attention_admin('authorize',org,actor,jsonb_build_object('id',req,'content','Texto específico aprovado para o contato.'));
- if result->>'phone'<>phone or result->>'content'<>'Texto específico aprovado para o contato.' then raise exception 'Approval recipient or text changed';end if;
+ if result->>'phone'<>v_phone or result->>'content'<>'Texto específico aprovado para o contato.' then raise exception 'Approval recipient or text changed';end if;
  refused=false;begin perform public.arisa_whatsapp_attention_admin('authorize',org,actor,jsonb_build_object('id',req,'content','Outro texto'));exception when others then refused=true;end;
  if not refused then raise exception 'Approval reused for different data';end if;
  -- Self-service settings are tied to auth.uid(), never a supplied recipient.
  perform set_config('request.jwt.claims',jsonb_build_object('role','authenticated','sub',actor)::text,true);
- result=public.arisa_my_whatsapp_notifications(org,phone,true);
- if result->>'phone'<>phone then raise exception 'Own phone not saved';end if;
- refused=false;begin perform public.arisa_my_whatsapp_notifications(gen_random_uuid(),phone,true);exception when insufficient_privilege then refused=true;end;
+ result=public.arisa_my_whatsapp_notifications(org,v_phone,true);
+  if result->>'phone'<>v_phone then raise exception 'Own v_phone not saved';end if;
+  perform set_config('request.jwt.claims',jsonb_build_object('role','service_role','sub',actor)::text,true);
+  result=public.arisa_whatsapp_attention_admin('attention',org,actor,'{}');
+  if jsonb_typeof(result->'recipients')<>'array' or jsonb_typeof(result->'requests')<>'array' then raise exception 'Admin panel unavailable';end if;
+  select n.id into notice_id from public.activity_notifications n where n.metadata->>'source_message_id'=msg::text and recipient_user_id=actor;
+  update crm_private.arisa_whatsapp_notice_jobs set status='processing',phone=v_phone,lease=token,lease_until=now()+interval '3 minutes' where id=notice_id;
+  result=public.arisa_whatsapp_notice_worker('send',jsonb_build_object('id',notice_id,'lease',token));
+  if result->>'proceed'<>'true' or result->>'phone'<>v_phone then raise exception 'Verified notice recipient not claimable';end if;
+  perform public.arisa_whatsapp_notice_worker('fail',jsonb_build_object('id',notice_id,'lease',token,'error','AMBIGUOUS_FIXTURE'));
+  if (select status from crm_private.arisa_whatsapp_notice_jobs where id=notice_id)<>'unknown' then raise exception 'Ambiguous notice queued for resend';end if;
+  perform set_config('request.jwt.claims',jsonb_build_object('role','authenticated','sub',actor)::text,true);
+ refused=false;begin perform public.arisa_my_whatsapp_notifications(gen_random_uuid(),v_phone,true);exception when insufficient_privilege then refused=true;end;
  if not refused then raise exception 'Cross-organization self-service accepted';end if;
  perform set_config('request.jwt.claims','{"role":"anon"}',true);
  refused=false;begin perform public.arisa_my_whatsapp_notifications(org);exception when insufficient_privilege then refused=true;end;
- if not refused then raise exception 'Anonymous phone read accepted';end if;
+ if not refused then raise exception 'Anonymous v_phone read accepted';end if;
  raise notice 'PASS: internal and WhatsApp queue routing, deduplication, ambiguity, scoped administrator approval, self-service ownership and tenant isolation';
 end $test$;
 rollback;
+

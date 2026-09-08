@@ -66,3 +66,5 @@ As respostas distinguem pagamento registrado de previsão. Consulta sem referên
 Propostas de desconto/prazo/parcelamento geram notificação e aviso pelo WhatsApp para aprovação administrativa, com verified_contact_id na auditoria. Não há ferramenta de alteração financeira no atendimento externo.
 Dados usados na confirmação são omitidos do contexto enviado ao modelo; as mensagens originais continuam no registro restrito de comunicações, e os eventos privados guardam apenas o resultado da conferência.
 O teste supabase/tests/arisa_whatsapp_finance_rollback.sql verifica isolamento, três dados, vinculação do número, expiração, revogação, idempotência, bloqueio de tentativas e notificações próprias, com ROLLBACK integral.
+
+Datas relativas nos avisos usam o horário original da mensagem, em America/Sao_Paulo. A consulta retorna requested_at e reference_dates; ler amanhã em um pedido de 07/09 significa 08/09. O worker preserva id e occurred_at de cada mensagem, inclusive para omitir os dados de confirmação e manter a referência temporal do pedido financeiro. Títulos abertos são apresentados pelos vencimentos mais antigos primeiro.

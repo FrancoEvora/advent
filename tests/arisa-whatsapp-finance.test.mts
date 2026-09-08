@@ -11,7 +11,7 @@ test("identity payloads are removed before either AI request",()=>{
  const raw="Nome: Pessoa Teste; CPF 123.456.789-09; CNPJ 11.222.333/0001-81; email pessoa@example.test; 12345678909";
  const redacted=redactIdentity(raw);
  for(const secret of ["123.456.789-09","11.222.333/0001-81","pessoa@example.test","12345678909"])assert.ok(!redacted.includes(secret));
- assert.deepEqual(financeHistory([{id:"credential",direction:"inbound",content:raw}],{redacted_message_ids:["credential"],just_verified:true,request:"Quero negociar a parcela."}),[{direction:"inbound",content:"Quero negociar a parcela."}]);
+ assert.deepEqual(financeHistory([{id:"credential",direction:"inbound",content:raw}],{redacted_message_ids:["credential"],just_verified:true,request:"Quero negociar a parcela.",request_at:"2026-09-07T23:59:00-03:00"}),[{direction:"inbound",occurred_at:"2026-09-07T23:59:00-03:00",content:"Quero negociar a parcela."}]);
 });
 test("a pending identity check never calls the model or queries financial entries",async()=>{
  const actions=[];

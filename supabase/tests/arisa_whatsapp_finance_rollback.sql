@@ -23,6 +23,7 @@ begin
   values(v_org,v_actor,'entrada','Internal description not for external disclosure',123.45,123.45,current_date+7,'pendente','aprovado',v_contact,'OWN-1','INTERNAL_SECRET_FIXTURE') returning id into v_entry;
  insert into public.financial_entries(organization_id,user_id,type,description,amount,open_amount,due_date,status,approval_status,contact_id,document_number)
   values(v_org,v_actor,'entrada','Other contact',99999,99999,current_date+7,'pendente','aprovado',v_other,'OTHER-SECRET'),
+  (v_org,v_actor,'entrada','Second own installment',200,200,current_date+14,'pendente','aprovado',v_contact,'OWN-2'),
   (v_org,v_actor,'entrada','Draft',555,555,current_date+7,'rascunho','pendente',v_contact,'DRAFT-SECRET'),
   (v_org,v_actor,'saida','Other direction',888,888,current_date+7,'pendente','aprovado',v_contact,'WRONG-DIRECTION'),
   (v_org,v_actor,'saida','Supplier invoice',456,0,current_date-1,'pago','aprovado',v_supplier,'SUPPLIER-1');
@@ -50,7 +51,7 @@ update crm_private.arisa_whatsapp_reply_jobs set status='processing',lease=v_lea
  if v_result->>'verified'<>'true' or v_result->>'just_verified'<>'true' then raise exception 'Three matching facts rejected: %',v_result;end if;
  if not v_result->'redacted_message_ids' @> jsonb_build_array(v_message) then raise exception 'Identity message not redacted';end if;
  v_result=public.arisa_whatsapp_finance(v_message,v_lease,'consult');
- if v_result->>'total'<>'1' or v_result->'entries'->0->>'document_number'<>'OWN-1' or v_result::text ~ 'OTHER-SECRET|DRAFT-SECRET|WRONG-DIRECTION|INTERNAL_SECRET_FIXTURE|description|bank_account_id' then raise exception 'Financial scope leaked: %',v_result;end if;
+ if v_result->>'total'<>'2' or v_result->'entries'->0->>'document_number'<>'OWN-1' or v_result::text ~ 'OTHER-SECRET|DRAFT-SECRET|WRONG-DIRECTION|INTERNAL_SECRET_FIXTURE|description|bank_account_id' then raise exception 'Financial scope leaked: %',v_result;end if;
  v_result=public.arisa_whatsapp_finance(v_message,v_lease,'consult','OTHER-SECRET');
  if v_result->>'total'<>'0' then raise exception 'Reference bypassed contact boundary';end if;
  update crm_private.arisa_whatsapp_reply_jobs set status='skipped' where thread_id=v_thread and status in('pending','processing');
@@ -123,7 +124,9 @@ update crm_private.arisa_whatsapp_reply_jobs set status='processing',lease=v_lea
    values(v_org,v_other_user,'arisa_whatsapp','Private other inbox','OTHER_INBOX_SECRET',jsonb_build_object('source','arisa_whatsapp')) returning id into v_other_notice;
  end if;
  perform set_config('request.jwt.claims',jsonb_build_object('role','authenticated','sub',v_actor)::text,true);
+ update public.arisa_whatsapp_messages set occurred_at='2026-09-07 22:30:00-03' where id=(select (metadata->>'source_message_id')::uuid from public.activity_notifications where id=v_notice);
  v_result=public.arisa_my_notifications(v_org,100);
+ if not exists(select 1 from jsonb_array_elements(v_result->'items') n where n->>'id'=v_notice::text and n->'reference_dates'->>'tomorrow'='2026-09-08') then raise exception 'Relative date moved to the day of reading';end if;
  if not v_result->'items' @> jsonb_build_array(jsonb_build_object('id',v_notice)) or v_result::text like '%OTHER_INBOX_SECRET%' then raise exception 'Inbox recipient boundary failed';end if;
  if v_other_notice is not null and public.arisa_mark_notifications_read(v_org,array[v_other_notice])<>0 then raise exception 'Marked another recipient notice';end if;
  if public.arisa_mark_notifications_read(v_org,array[v_notice])<>1 then raise exception 'Own notice not marked';end if;

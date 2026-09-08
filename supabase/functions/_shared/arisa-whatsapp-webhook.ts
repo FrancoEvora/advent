@@ -197,16 +197,16 @@ export function normalizeWhatsAppWebhook(payload: unknown, phoneNumberId: string
   return { messages, statuses };
 }
 
-export async function handleWhatsAppWebhook(request: Request, rpc: WebhookRpc, mode: "shared" | "arisa" = "shared"): Promise<Response> {
+export async function handleWhatsAppWebhook(request: Request, rpc: WebhookRpc, mode: "shared" | "arisa" | "bia" = "shared"): Promise<Response> {
   try {
     const url = new URL(request.url), organizationId = url.searchParams.get("organizationId") || "";
     if (request.method === "GET") {
       const token = url.searchParams.get("hub.verify_token") || "", challenge = url.searchParams.get("hub.challenge") || "";
       if (url.searchParams.get("hub.mode") !== "subscribe" || !UUID.test(organizationId) || !token || token.length > 512 || !challenge || challenge.length > 2048) return json({ ok: false, error: "FORBIDDEN" }, 403);
       // Setup must work with both delivery switches disabled.
-      const stored = runtime(await rpc("arisa_whatsapp_credentials", { p_organization_id: organizationId }));
+      const stored = runtime(await rpc(mode === "bia" ? "bia_whatsapp_credentials" : "arisa_whatsapp_credentials", { p_organization_id: organizationId }));
       if (!stored || stored.organization_id !== organizationId || !secureEqual(token, stored.verify_token)) return json({ ok: false, error: "FORBIDDEN" }, 403);
-      await rpc("arisa_whatsapp_verify_webhook", { p_organization_id: stored.organization_id, p_phone_number_id: stored.phone_number_id });
+      await rpc(mode === "bia" ? "bia_whatsapp_verify_webhook" : "arisa_whatsapp_verify_webhook", { p_organization_id: stored.organization_id, p_phone_number_id: stored.phone_number_id });
       return new Response(challenge, { headers: { ...HEADERS, "content-type": "text/plain; charset=utf-8" } });
     }
     if (request.method !== "POST") return json({ ok: false, error: "METHOD_NOT_ALLOWED" }, 405);
@@ -219,9 +219,9 @@ export async function handleWhatsAppWebhook(request: Request, rpc: WebhookRpc, m
     if (ids.size !== 1) return json({ ok: false, error: "WHATSAPP_PHONE_CONTEXT_INVALID" }, 400);
     const phoneNumberId = [...ids][0];
     let stored: Runtime | null;
-    if (mode === "arisa") {
+    if (mode === "arisa" || mode === "bia") {
       if (!UUID.test(organizationId)) return json({ ok: false, error: "WHATSAPP_PHONE_CONTEXT_INVALID" }, 400);
-      stored = runtime(await rpc("arisa_whatsapp_credentials", { p_organization_id: organizationId }));
+      stored = runtime(await rpc(mode === "bia" ? "bia_whatsapp_credentials" : "arisa_whatsapp_credentials", { p_organization_id: organizationId }));
     } else stored = runtime(await rpc("arisa_whatsapp_credentials_by_phone_number_id", { p_phone_number_id: phoneNumberId }));
     if (!stored) return json({ ok: false, error: "WHATSAPP_RUNTIME_NOT_FOUND" }, 404);
     if ((organizationId && stored.organization_id !== organizationId) || stored.phone_number_id !== phoneNumberId) return json({ ok: false, error: "WHATSAPP_PHONE_CONTEXT_INVALID" }, 403);
@@ -229,7 +229,7 @@ export async function handleWhatsAppWebhook(request: Request, rpc: WebhookRpc, m
     const normalized = normalizeWhatsAppWebhook(payload, stored.phone_number_id, stored.waba_id);
     // The Arisa flag controls sending. Receiving remains available so signed replies are retained
     // and an administrative contact cannot fall through to Bia while Arisa sending is disabled.
-    const result = await rpc("arisa_whatsapp_webhook", { p_organization_id: stored.organization_id, p_phone_number_id: stored.phone_number_id, p_payload: normalized });
+    const result = await rpc(mode === "bia" ? "bia_whatsapp_webhook" : "arisa_whatsapp_webhook", { p_organization_id: stored.organization_id, p_phone_number_id: stored.phone_number_id, p_payload: normalized });
     if (!object(result) || !Array.isArray(result.handled_message_ids) || !Array.isArray(result.handled_status_ids)) throw new WebhookError("WHATSAPP_WEBHOOK_UNAVAILABLE", 503);
     const handledMessages = new Set(result.handled_message_ids.filter((id): id is string => typeof id === "string"));
     const handledStatuses = new Set(result.handled_status_ids.filter((id): id is string => typeof id === "string"));
@@ -254,7 +254,7 @@ export async function handleWhatsAppWebhook(request: Request, rpc: WebhookRpc, m
         statuses++;
       }
     }
-    return json({ ok: true, inbound, statuses, arisa_inbound: handledMessages.size, arisa_statuses: handledStatuses.size });
+    return json(mode === "bia" ? { ok: true, bia_inbound: handledMessages.size, bia_statuses: handledStatuses.size } : { ok: true, inbound, statuses, arisa_inbound: handledMessages.size, arisa_statuses: handledStatuses.size });
   } catch (error) {
     const code = error instanceof WebhookError ? error.code : "WHATSAPP_WEBHOOK_UNAVAILABLE", status = error instanceof WebhookError ? error.status : 503;
     // Never log message bodies, contact data, tokens, or database response bodies.

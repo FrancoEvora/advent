@@ -28,10 +28,12 @@ test("perfil público usa o retrato fotográfico otimizado da Bia", () => {
   assert.equal(existsSync(legacyAvatarPath), false);
   assert.match(component, /DEFAULT_VITORIA_AVATAR = "\/vitoria\/vitoria-avatar\.webp"/);
   assert.match(component, /source === LEGACY_VITORIA_AVATAR \? DEFAULT_VITORIA_AVATAR : source/);
-  assert.match(component, /<Image/);
+  assert.match(component, /<AssistantHeader/);
+  const header=readFileSync(new URL('../src/components/assistants/AssistantHeader.tsx',import.meta.url),'utf8');
+  assert.match(header, /<Image/);
   assert.match(component, /setFailedAvatarSources/);
   assert.match(component, /PUBLIC_AGENT_DISPLAY_NAME = "Bia"/);
-  assert.match(component, /\) : "B"}/);
+  assert.match(header, /name\.charAt\(0\)/);
 });
 
 test("contrato e configuração persistem a foto sem apagar metadados do perfil", () => {

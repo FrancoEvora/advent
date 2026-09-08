@@ -63,8 +63,10 @@ test("home-screen icon preserves the original Evora logomark and accessible bran
 });
 
 test("Arisa uses the supplied portrait as her accessible profile photo", () => {
-  assert.match(chat, /import Image from "next\/image"/);
-  assert.match(chat, /src="\/arisa-profile-ed010d3ade95\.webp" alt="Foto de perfil da Arisa" width=\{42\} height=\{42\} priority/);
+  const header = read('../src/components/assistants/AssistantHeader.tsx');
+  assert.match(header, /import Image from 'next\/image'/);
+  assert.match(chat, /<AssistantHeader name="Arisa"[^>]+avatar="\/arisa-profile-ed010d3ade95\.webp"/);
+  assert.ok(header.includes('alt={`Foto de perfil da ${name}`} width={42} height={42} priority'));
   assert.doesNotMatch(chat, /className="public-agent-avatar arisa-avatar" aria-hidden="true">A/);
   assert.match(css, /\.arisa-chat \.arisa-avatar img\{[^}]*object-fit:cover[^}]*object-position:center 20%/);
   const portrait = readFileSync(new URL("../public/arisa-profile-ed010d3ade95.webp", import.meta.url));

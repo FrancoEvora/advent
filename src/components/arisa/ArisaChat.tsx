@@ -4,7 +4,7 @@ import AudioRecorder from "./AudioRecorder";
 import AudioAttachment from "./AudioAttachment";
 
 import Link from "next/link";
-import Image from "next/image";
+import { AssistantHeader } from "../assistants/AssistantHeader";
 import dynamic from "next/dynamic";
 import { MessageText } from "./MessageText";
 import { useArisaVoice, type ArisaVoice } from "./use-arisa-voice";
@@ -50,7 +50,7 @@ function useChatViewport() {
   }, []);
 }
 function Header({ menu, voice, recording, organizationId }: { menu?: () => void; voice?: ArisaVoice; recording?: boolean; organizationId?: string }) {
-  return <header className="public-agent-chat-head"><div className="public-agent-avatar arisa-avatar"><Image src="/arisa-profile-ed010d3ade95.webp" alt="Foto de perfil da Arisa" width={42} height={42} priority /></div><div><strong>Arisa</strong><span>Administradora da plataforma</span><small>Évora Urbanismo</small></div>{organizationId && <ArisaNotificationBell organizationId={organizationId} />}{voice && <VoiceToggle voice={voice} disabled={recording} />}{menu && <button className="arisa-icon-button" onClick={menu} aria-label="Abrir conversas e opções"><Icon kind="menu" /></button>}</header>;
+  return <AssistantHeader name="Arisa" subtitle="Administradora da plataforma" organization="Évora Urbanismo" avatar="/arisa-profile-ed010d3ade95.webp">{organizationId && <ArisaNotificationBell organizationId={organizationId} />}{voice && <VoiceToggle voice={voice} disabled={recording} />}{menu && <button className="arisa-icon-button" onClick={menu} aria-label="Abrir conversas e opções"><Icon kind="menu" /></button>}</AssistantHeader>;
 }
 type Membership = { organization_id: string; organizations: { name: string; trade_name: string | null; active: boolean } | null };
 export default function ArisaChat({ initialThreadId, initialPanel = null }: { initialThreadId: string | null; initialPanel?: WorkspacePanel | null }) {

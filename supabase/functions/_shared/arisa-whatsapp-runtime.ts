@@ -44,6 +44,19 @@ async function operationState(admin: SupabaseClient, org: string, actor: string,
   return service(admin, "get", org, actor, { id });
 }
 export async function runWhatsAppTool(admin: SupabaseClient, org: string, actor: string, action: string, args: Obj = {}, context?: Context, deps: Dependencies = {}): Promise<Obj> {
+  if (["attention", "save_recipient", "authorize", "deny"].includes(action)) {
+    const call = async (operation: string, input: Obj) => {
+      const r = await admin.rpc("arisa_whatsapp_attention_admin", { p_action: operation, p_org: org, p_actor: actor, p_args: input });
+      if (r.error || !isObject(r.data)) throw new ManagerError(r.error?.code === "42501" ? "ADMIN_REQUIRED" : /^[A-Z_]+$/.test(String(r.error?.message)) ? String(r.error?.message) : "WHATSAPP_UNAVAILABLE", 409);
+      return r.data;
+    };
+    const authorized = await call(action, args);
+    if (action !== "authorize") return authorized;
+    // Only the exact text and recipient approved by an authenticated administrator are sent.
+    const result = await runWhatsAppTool(admin, org, actor, "send", { phone: authorized.phone, contact_id: authorized.contact_id, content: authorized.content }, { requestId: String(authorized.id) }, deps);
+    await call("authorization_result", { id: authorized.id, result });
+    return result;
+  }
   if (action === "status") {
     const state = await service(admin, "status", org, actor);
     return { ...state, configuration: "/arisa?painel=whatsapp", window_rule: "Texto livre somente dentro de 24h da última mensagem recebida; fora da janela, template aprovado pela Meta." };

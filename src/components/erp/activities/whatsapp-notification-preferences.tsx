@@ -1,0 +1,9 @@
+"use client";
+import {useEffect,useState} from "react";
+import {getSupabase} from "@/lib/supabase";
+export default function WhatsAppNotificationPreferences({organizationId}:{organizationId:string}){
+ const [phone,setPhone]=useState(""),[enabled,setEnabled]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
+ useEffect(()=>{let alive=true;const db=getSupabase();if(db)void db.rpc("arisa_my_whatsapp_notifications",{p_organization_id:organizationId}).then(({data,error})=>{if(!alive)return;if(error)setMessage("Não foi possível consultar seu WhatsApp.");else{setPhone(data?.phone||"");setEnabled(data?.enabled===true);}});return()=>{alive=false};},[organizationId]);
+ async function save(){const db=getSupabase();if(!db||busy)return;setBusy(true);setMessage("");const {error}=await db.rpc("arisa_my_whatsapp_notifications",{p_organization_id:organizationId,p_phone:phone,p_enabled:enabled});setMessage(error?(error.message.includes("ALREADY_LINKED")?"Este número já está vinculado a outro usuário.":"Confira o número com código do país e DDD."):"Preferência salva. Os avisos internos continuam disponíveis.");setBusy(false);}
+ return <details className="agenda-card"><summary>Meu WhatsApp para avisos da Arisa</summary><p>Receba um aviso quando houver um assunto para você. Os detalhes ficam na sua conta da plataforma.</p><label>Seu número, com código do país e DDD<input type="tel" value={phone} placeholder="+55 DDD e número" onChange={e=>setPhone(e.target.value)}/></label><label><input type="checkbox" checked={enabled} onChange={e=>setEnabled(e.target.checked)}/>Receber avisos também pelo WhatsApp</label><button disabled={busy||!phone.trim()} onClick={()=>void save()}>{busy?"Salvando…":"Salvar meu WhatsApp"}</button>{message&&<p role="status">{message}</p>}</details>;
+}

@@ -11,6 +11,7 @@ import {
   type SignalArea,
 } from "./activity-intelligence";
 import { getActivityRelatedLink } from "./activity-links";
+import WhatsAppNotificationPreferences from "./whatsapp-notification-preferences";
 
 type Ctx = {
   organization: Organization;
@@ -606,8 +607,9 @@ export function ActivityPlanner({ context }: { context: Ctx }) {
     </section>}
 
     {mode === "notifications" && <section className="agenda-card">
+      <WhatsAppNotificationPreferences organizationId={organizationId} />
       <div className="activity-notifications">
-        <header><div><strong>Central de notificações</strong><span>Designações, alterações, progresso, contratos e atrasos.</span></div>{unread > 0 && <button onClick={markAllRead}>Marcar todas como lidas</button>}</header>
+        <header><div><strong>Central de notificações</strong><span>Solicitações da Arisa, designações, progresso, contratos e atrasos.</span></div>{unread > 0 && <button onClick={markAllRead}>Marcar todas como lidas</button>}</header>
         {notifications.map(notification => {
           const relatedLink = notificationRelatedLink(notification);
           return <article key={notification.id} className={notification.read_at ? "read" : "unread"} onClick={() => !notification.read_at && markRead(notification.id)}>

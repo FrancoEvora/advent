@@ -5,6 +5,7 @@ import { errorText } from "./chat-client";
 import { displayDate, workspaceCall } from "./workspace-client";
 import { whatsappDeliveryLabel, whatsappReceptionLabel, whatsappReconcileLabel, whatsappTemplateText, type WhatsAppChannelStatus, type WhatsAppMessage, type WhatsAppTemplate } from "./whatsapp-display";
 import styles from "./workspace.module.css";
+import ArisaWhatsAppAttention from "./ArisaWhatsAppAttention";
 
 export default function ArisaWhatsAppPanel({ organizationId }: { organizationId: string }) {
   const [status, setStatus] = useState<WhatsAppChannelStatus | null>(null), [templates, setTemplates] = useState<WhatsAppTemplate[]>([]), [messages, setMessages] = useState<WhatsAppMessage[]>([]);
@@ -104,6 +105,7 @@ export default function ArisaWhatsAppPanel({ organizationId }: { organizationId:
       </article>)}
       <div className={styles.row}><button disabled={busy || loading || offset === 0} onClick={() => { setLoading(true); setOffset(value => Math.max(0, value - 20)); }}>Anteriores</button><small>Página {Math.floor(offset / 20) + 1}</small><button disabled={busy || loading || !hasMore} onClick={() => { setLoading(true); setOffset(nextOffset); }}>Próximas</button></div>
     </section>
+    <ArisaWhatsAppAttention organizationId={organizationId} />
     <p className={styles.notice}>Peça no chat: “Arisa, avise o fornecedor sobre a reunião pelo WhatsApp e envie o link do Meet”. A Arisa consulta o contato e registra o resultado de cada envio.</p>
   </section>;
 }

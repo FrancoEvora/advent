@@ -215,7 +215,13 @@ export async function handleRequest(request: Request): Promise<Response> {
       if (name === "email_status") return {data:await mailService(admin,"status",org,userId)};
       if (name === "send_email") return {data:await sendArisaMail(caller,admin,org,userId,args,{requestId:messageId,messageId,lease:activeLease})};
       if (name === "calendar") return {data:await runCalendarTool(admin,org,userId,String(args.action||""),args,{requestId:messageId,messageId,lease:activeLease})};
-      if (name === "whatsapp") return {data:await runWhatsAppTool(admin,org,userId,String(args.action||""),args,{requestId:messageId,messageId,lease:activeLease})};
+      if (name === "whatsapp") {
+        try { return {data:await runWhatsAppTool(admin,org,userId,String(args.action||""),args,{requestId:messageId,messageId,lease:activeLease,inputCountry:"BR"})}; }
+        catch (error) {
+          if (!(error instanceof ManagerError) || error.status === 403) throw error;
+          return {data:{ok:false,error:error.code,message:WHATSAPP_ERRORS[error.code] || "Não foi possível concluir a operação de WhatsApp. Não presuma a causa sem um diagnóstico específico."}};
+        }
+      }
       if (name === "process_document") {
         if (!["payable", "bank_statement"].includes(String(args.kind))) throw new Error("Escolha payable ou bank_statement.");
         const { file, blob } = await readFile(caller, args.file_id, org, userId, threadId);

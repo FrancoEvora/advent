@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { runWhatsAppTool } from "../supabase/functions/_shared/arisa-whatsapp-runtime.ts";
-import { templateComponents, renderedTemplate, metaWhatsApp, normalizeWhatsAppPhone } from "../supabase/functions/_shared/arisa-whatsapp.ts";
+import { templateComponents, renderedTemplate, metaWhatsApp, normalizeWhatsAppPhone, normalizeWhatsAppRecipientInput } from "../supabase/functions/_shared/arisa-whatsapp.ts";
 
 type Obj = Record<string, unknown>;
 const org = "11111111-1111-4111-8111-111111111111", actor = "22222222-2222-4222-8222-222222222222", contact = "33333333-3333-4333-8333-333333333333", id = "44444444-4444-4444-8444-444444444444", requestId = "55555555-5555-4555-8555-555555555555";
@@ -114,3 +114,48 @@ test("delivery status reconciliation reflects latest webhook, not original accep
 test("Meta window error remains distinct from undeliverable", async () => {
   await assert.rejects(metaWhatsApp(runtime, "87654321/messages", {}, async () => Response.json({ error: { code: 131047 } }, { status: 400 })), /WHATSAPP_TEMPLATE_REQUIRED/);
 });
+
+test("an approved initial template sends without a redundant content field and archives its actual text", async () => {
+  const text = "Olá. Aqui é a Arisa, da Évora Urbanismo. Pode conversar comigo neste momento?";
+  const approved = { name: "arisa", language: "pt_BR", status: "APPROVED", components: [{ type: "BODY", text }] };
+  const f = fixture({ provider: async (_url, body) => Response.json(body ? { messages: [{ id: "wamid.initial-template" }] } : { data: [approved] }) });
+  const input = { phone: "34993401159", contact_id: contact, template_name: "arisa", template_language: "pt_BR", template_components: [] };
+  const inputContext = { ...context, inputCountry: "BR" as const };
+  const result = await runWhatsAppTool(f.db, org, actor, "send", input, inputContext, { request: f.request });
+  assert.equal(result.accepted_by_meta, true);
+  assert.equal(f.calls.find(c => c.action === "resolve")?.args.phone, "5534993401159");
+  assert.equal(f.calls.find(c => c.action === "prepare")?.args.content, text);
+  assert.equal(f.calls.find(c => c.action === "prepare")?.args.requested_content, text);
+  assert.equal(f.posts.length, 1);
+  assert.equal(f.posts[0].type, "template");
+  assert.equal(f.posts[0].text, undefined);
+  assert.deepEqual(f.posts[0].template, { name: "arisa", language: { code: "pt_BR" }, components: [] });
+  await runWhatsAppTool(f.db, org, actor, "send", { ...input, content: text }, inputContext, { request: f.request });
+  assert.equal(f.posts.length, 1, "repeating with rendered content must not duplicate the send");
+});
+
+test("missing freeform content is rejected locally with a specific diagnosis", async () => {
+  const f = fixture();
+  await assert.rejects(runWhatsAppTool(f.db, org, actor, "send", { phone }, context, { request: f.request }), /WHATSAPP_CONTENT_REQUIRED/);
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.posts.length, 0);
+});
+
+test("templates without content still enforce approval and required parameters before writing", async () => {
+  for (const [status, text, expected] of [["PENDING", "Olá", /WHATSAPP_TEMPLATE_NOT_FOUND/], ["APPROVED", "Olá, {{1}}", /WHATSAPP_INVALID/]] as const) {
+    const f = fixture({ provider: async () => Response.json({ data: [{ name: "arisa", language: "pt_BR", status, components: [{ type: "BODY", text }] }] }) });
+    await assert.rejects(runWhatsAppTool(f.db, org, actor, "send", { phone, template_name: "arisa" }, context, { request: f.request }), expected);
+    assert.equal(f.posts.length, 0);
+    assert.equal(f.calls.some(c => c.action === "prepare"), false);
+  }
+});
+
+test("Brazilian administrative input gains only the country code; provider identifiers are untouched", () => {
+  assert.equal(normalizeWhatsAppRecipientInput("(34) 99340-1159"), "5534993401159");
+  assert.equal(normalizeWhatsAppRecipientInput("3497825597"), "553497825597");
+  assert.equal(normalizeWhatsAppRecipientInput("+55 34 99340-1159"), "5534993401159");
+  assert.equal(normalizeWhatsAppRecipientInput("+1 415 555 0123"), "14155550123");
+  assert.equal(normalizeWhatsAppRecipientInput("+44 20 7946 0958"), "442079460958");
+  assert.equal(normalizeWhatsAppPhone("14155550123"), "14155550123");
+});
+

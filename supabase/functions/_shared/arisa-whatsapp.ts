@@ -10,7 +10,8 @@ export const WHATSAPP_ERRORS: Record<string, string> = {
   WHATSAPP_CONTACT_PHONE_MISMATCH: "O telefone informado difere do cadastro do contato. Confira o destinatário antes de enviar.",
   WHATSAPP_CONTACT_AMBIGUOUS: "Mais de um contato usa esse telefone. Identifique o cadastro correto antes de enviar.",
   WHATSAPP_CONTACT_BLOCKED: "Este contato está bloqueado para comunicação na plataforma.",
-  WHATSAPP_INVALID: "A mensagem do WhatsApp está incompleta ou inválida.",
+  WHATSAPP_INVALID: "Os dados da solicitação de WhatsApp estão incompletos ou inválidos. Esse erro não comprova número inválido nem rejeição do destinatário pela Meta.",
+  WHATSAPP_CONTENT_REQUIRED: "Falta o texto da mensagem livre. Para um modelo aprovado, informe template_name e template_language; o próprio texto do modelo será usado.",
   WHATSAPP_REQUEST_CHANGED: "Esta solicitação já foi registrada com outro conteúdo. Consulte o envio anterior antes de criar outro.",
   WHATSAPP_NOT_FOUND: "O envio do WhatsApp não foi encontrado.",
   WHATSAPP_BUSY: "Este envio já está em andamento. Consulte o resultado antes de tentar novamente.",
@@ -24,6 +25,12 @@ export function normalizeWhatsAppPhone(value: unknown) {
   if (typeof value !== "string") throw new ManagerError("WHATSAPP_PHONE_INVALID", 422);
   const phone = value.replace(/\D/g, "");
   if (!/^[1-9][0-9]{7,14}$/.test(phone)) throw new ManagerError("WHATSAPP_PHONE_INVALID", 422);
+  return phone;
+}
+/** The administrative input accepts Brazilian DDD + number; explicit international numbers retain their country code. */
+export function normalizeWhatsAppRecipientInput(value: unknown) {
+  const phone = normalizeWhatsAppPhone(value);
+  if (typeof value === "string" && !value.trim().startsWith("+") && /^(?:[1-9][0-9])(?:[2-9][0-9]{7}|9[0-9]{8})$/.test(phone)) return "55" + phone;
   return phone;
 }
 function invalid(): never { throw new ManagerError("WHATSAPP_INVALID", 422); }

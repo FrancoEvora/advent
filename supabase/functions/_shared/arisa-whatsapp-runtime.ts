@@ -1,8 +1,8 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.110.7";
 import { isObject, ManagerError, operationKey, UUID, type Obj } from "./arisa-manager.ts";
-import { metaWhatsApp, normalizeWhatsAppPhone, renderedTemplate, templateComponents, whatsappRuntime } from "./arisa-whatsapp.ts";
+import { metaWhatsApp, normalizeWhatsAppPhone, normalizeWhatsAppRecipientInput, renderedTemplate, templateComponents, whatsappRuntime } from "./arisa-whatsapp.ts";
 
-type Context = { requestId: string; messageId?: string; lease?: string };
+type Context = { requestId: string; messageId?: string; lease?: string; inputCountry?: "BR" };
 type Dependencies = { request?: typeof fetch };
 async function service(admin: SupabaseClient, action: string, org: string, actor: string, args: Obj = {}): Promise<Obj> {
   const result = await admin.rpc("arisa_whatsapp_service", { p_action: action, p_org: org, p_actor: actor, p_args: args });
@@ -76,15 +76,16 @@ export async function runWhatsAppTool(admin: SupabaseClient, org: string, actor:
   if (action !== "send" || !context || !UUID.test(context.requestId)) throw new ManagerError("WHATSAPP_INVALID", 422);
   const contactId = typeof args.contact_id === "string" && UUID.test(args.contact_id) ? args.contact_id : null;
   if (args.contact_id && !contactId) throw new ManagerError("WHATSAPP_INVALID", 422);
-  const inputPhone = args.phone ? normalizeWhatsAppPhone(args.phone) : "";
+  const inputPhone = args.phone ? (context.inputCountry === "BR" ? normalizeWhatsAppRecipientInput(args.phone) : normalizeWhatsAppPhone(args.phone)) : "";
   if (!inputPhone && !contactId) throw new ManagerError("WHATSAPP_PHONE_INVALID", 422);
-  if (typeof args.content !== "string" || !args.content.trim() || args.content.length > 12000) throw new ManagerError("WHATSAPP_INVALID", 422);
+  const templateName = typeof args.template_name === "string" && args.template_name.trim() ? args.template_name.trim() : undefined;
+  if (args.content != null && (typeof args.content !== "string" || args.content.length > 12000)) throw new ManagerError("WHATSAPP_INVALID", 422);
+  let requestedContent = typeof args.content === "string" ? args.content.trim() : "";
+  if (!templateName && !requestedContent) throw new ManagerError("WHATSAPP_CONTENT_REQUIRED", 422);
   const resolved = await service(admin, "resolve", org, actor, { phone: inputPhone, contact_id: contactId });
   const phone = normalizeWhatsAppPhone(resolved.phone);
   const resolvedContactId = typeof resolved.contact_id === "string" && UUID.test(resolved.contact_id) ? resolved.contact_id : null;
-  const requestedContent = args.content.trim();
   let content = requestedContent;
-  const templateName = typeof args.template_name === "string" && args.template_name.trim() ? args.template_name.trim() : undefined;
   const templateLanguage = typeof args.template_language === "string" && args.template_language.trim() ? args.template_language.trim() : "pt_BR";
   const components = templateComponents(args.template_components);
   if (templateName) {
@@ -92,6 +93,8 @@ export async function runWhatsAppTool(admin: SupabaseClient, org: string, actor:
     const approved = templates.find(row => row.name === templateName && row.language === templateLanguage);
     if (!approved) throw new ManagerError("WHATSAPP_TEMPLATE_NOT_FOUND", 422);
     content = renderedTemplate(approved, components);
+    // A template's authoritative text comes from Meta; no duplicate freeform body is required.
+    if (!requestedContent) requestedContent = content;
   } else if (components.length || content.length > 4096) throw new ManagerError("WHATSAPP_INVALID", 422);
   // A stable request/destination identity is distinct from the content hash.
   const key = await operationKey("whatsapp_send", { actor, request: context.requestId, destination: phone });

@@ -35,7 +35,7 @@ jobs:
           tests/bia-language-visit-scheduling.test.mjs
       - name: Validate Arisa WhatsApp replies
         run: |
-          node --test tests/arisa-whatsapp-runtime.test.mts tests/arisa-whatsapp-webhook.test.mts tests/arisa-whatsapp-replies.test.mts tests/arisa-whatsapp-attention.test.mts
+          node --test tests/arisa-whatsapp-runtime.test.mts tests/arisa-whatsapp-webhook.test.mts tests/arisa-whatsapp-replies.test.mts tests/arisa-whatsapp-attention.test.mts tests/arisa-whatsapp-finance.test.mts
           deno check supabase/functions/arisa-whatsapp-replies/index.ts supabase/functions/arisa-whatsapp-notifications/index.ts supabase/functions/arisa-whatsapp/index.ts
       - name: Validate Bia Edge Functions
         run: >-

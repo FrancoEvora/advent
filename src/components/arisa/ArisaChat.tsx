@@ -1,4 +1,5 @@
 "use client";
+import ArisaNotificationBell from "./ArisaNotificationBell";
 import AudioRecorder from "./AudioRecorder";
 import AudioAttachment from "./AudioAttachment";
 
@@ -48,8 +49,8 @@ function useChatViewport() {
     };
   }, []);
 }
-function Header({ menu, voice, recording }: { menu?: () => void; voice?: ArisaVoice; recording?: boolean }) {
-  return <header className="public-agent-chat-head"><div className="public-agent-avatar arisa-avatar"><Image src="/arisa-profile-ed010d3ade95.webp" alt="Foto de perfil da Arisa" width={42} height={42} priority /></div><div><strong>Arisa</strong><span>Administradora da plataforma</span><small>Évora Urbanismo</small></div>{voice && <VoiceToggle voice={voice} disabled={recording} />}{menu && <button className="arisa-icon-button" onClick={menu} aria-label="Abrir conversas e opções"><Icon kind="menu" /></button>}</header>;
+function Header({ menu, voice, recording, organizationId }: { menu?: () => void; voice?: ArisaVoice; recording?: boolean; organizationId?: string }) {
+  return <header className="public-agent-chat-head"><div className="public-agent-avatar arisa-avatar"><Image src="/arisa-profile-ed010d3ade95.webp" alt="Foto de perfil da Arisa" width={42} height={42} priority /></div><div><strong>Arisa</strong><span>Administradora da plataforma</span><small>Évora Urbanismo</small></div>{organizationId && <ArisaNotificationBell organizationId={organizationId} />}{voice && <VoiceToggle voice={voice} disabled={recording} />}{menu && <button className="arisa-icon-button" onClick={menu} aria-label="Abrir conversas e opções"><Icon kind="menu" /></button>}</header>;
 }
 type Membership = { organization_id: string; organizations: { name: string; trade_name: string | null; active: boolean } | null };
 export default function ArisaChat({ initialThreadId, initialPanel = null }: { initialThreadId: string | null; initialPanel?: WorkspacePanel | null }) {
@@ -180,7 +181,7 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
   }
   const fileMap = new Map([...files, ...draftFiles].map(file => [file.id, file]));
   const fileButton = (file: ChatFile) => file.mime_type.startsWith("audio/") ? <AudioAttachment key={file.id} file={file} /> : <button className="arisa-file" key={file.id} onClick={() => void openFile(file).catch(error => setError(errorText(error)))}><Icon kind="attach" /><span>{file.file_name}<small>{Math.max(1, Math.round(file.size_bytes / 1024))} KB{file.operation_item_id ? " · Na fila documental" : ""}</small></span></button>;
-  return <main id="conteudo-principal" className="public-agent-page bia-whatsapp arisa-chat">{panel && <ArisaWorkspace organizationId={organizationId} userId={userId} initialPanel={panel} onPanelChange={openPanel} onClose={() => openPanel(null)} />}<div className="public-agent-shell"><section className="public-agent-chat-card"><Header menu={() => setMenu(previous => !previous)} voice={voice} recording={recording} />
+  return <main id="conteudo-principal" className="public-agent-page bia-whatsapp arisa-chat">{panel && <ArisaWorkspace organizationId={organizationId} userId={userId} initialPanel={panel} onPanelChange={openPanel} onClose={() => openPanel(null)} />}<div className="public-agent-shell"><section className="public-agent-chat-card"><Header organizationId={organizationId} menu={() => setMenu(previous => !previous)} voice={voice} recording={recording} />
     {menu && <aside className="arisa-conversations" aria-label="Conversas"><div className="arisa-menu-head"><strong>Suas conversas</strong><button onClick={() => setMenu(false)} aria-label="Fechar menu"><Icon kind="close" /></button></div><small>{organizationName}</small><button onClick={() => switchThread(null)} disabled={busy || recording}>+ Nova conversa</button><nav>{threads.map(thread => <button key={thread.id} aria-current={threadId === thread.id ? "page" : undefined} onClick={() => switchThread(thread.id)} disabled={busy || recording}>{thread.title}</button>)}</nav><div className="arisa-menu-links">{workspacePanels.map(key => <button key={key} disabled={busy || recording} onClick={() => openPanel(key)}>{workspaceLabels[key]} da Arisa</button>)}<Link href="/">Abrir plataforma</Link><Link href="/?view=arisa">Fila de documentos</Link><Link href="/agenda">Agenda da plataforma</Link><button disabled={busy || recording} onClick={() => void client().auth.signOut()}>Sair da conta</button></div></aside>}
     <VoiceBar voice={voice} />
     <div ref={pane} className="public-agent-messages" role="log" aria-label="Conversa com a Arisa" aria-live={voice.state.enabled ? "off" : "polite"} onScroll={() => { const value = pane.current; if (value) pinned.current = value.scrollHeight - value.scrollTop - value.clientHeight < 90; }}>

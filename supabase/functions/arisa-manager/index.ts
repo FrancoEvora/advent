@@ -174,6 +174,7 @@ export async function handleRequest(request: Request): Promise<Response> {
     const messageId = body.messageId;
     const execute = async (name: string, args: Obj): Promise<ToolResult> => {
       if (Date.now() >= deadline) throw new ManagerError("ARISA_TIMEOUT");
+      if (name === "notifications") return { data: await rpc(caller, "arisa_my_notifications", { p_organization_id: org, p_limit: args.limit ?? 20, p_offset: args.offset ?? 0, p_unread_only: args.unread_only === true }) };
       if (name === "catalog") return { data: await rpc(caller, "arisa_admin_catalog", { p_organization_id: org, p_entity: args.entity ?? null }) };
       if (name === "operations") return { data: await rpc(caller, "arisa_admin_operations", { p_organization_id: org }) };
       if (name === "query") return { data: await rpc(caller, "arisa_admin_query", { p_organization_id: org, p_entity: args.entity, p_filters: args.filters ?? [], p_search: args.search ?? null, p_limit: args.limit ?? 50, p_offset: args.offset ?? 0, p_sum_column: args.sum_column ?? null, p_group_column: args.group_column ?? null }) };

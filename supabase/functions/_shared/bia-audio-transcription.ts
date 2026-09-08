@@ -15,7 +15,7 @@ export async function transcribeBiaAudio(input: {
   diagnose: (value: AudioDiagnostic) => Promise<void>;
 }): Promise<AudioTranscription> {
   const model = input.model?.trim() || "gpt-4o-mini-transcribe";
-  const extension = input.mime.includes("mp4") ? "m4a" : input.mime.includes("mpeg") ? "mp3" : input.mime.includes("wav") ? "wav" : "webm";
+  const extension = input.mime.includes("ogg") ? "ogg" : input.mime.includes("aac") ? "aac" : input.mime.includes("mp4") ? "m4a" : input.mime.includes("mpeg") ? "mp3" : input.mime.includes("wav") ? "wav" : "webm";
   const form = new FormData();
   form.append("file", new Blob([new Uint8Array(input.bytes)], { type: input.mime }), `mensagem.${extension}`);
   form.append("model", model);

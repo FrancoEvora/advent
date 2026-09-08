@@ -1,9 +1,12 @@
 "use client";
 
-import Image from "next/image";
+import { AssistantHeader } from "../assistants/AssistantHeader";
+import { MessageText } from "../arisa/MessageText";
+import { chatViewport } from "../arisa/chat-viewport";
+import { BiaConversationPanel } from "../bia/BiaConversationPanel";
 import { CommercialUnitsView } from "./ChatLotOptions";
 import { AudioMessageView, ChatVoicePlayer, ChatPrivacyNote } from "./ChatVoiceMessage";
-import { KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
   PublicAgentAttachment,
@@ -385,6 +388,10 @@ function AttachmentView({ attachment }: { attachment: PublicAgentAttachment }) {
 }
 
 export function PublicAgentExperience({ slug, experience }: Props) {
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const closeDetails = useCallback(() => setDetailsOpen(false), []);
+  const [profile, setProfile] = useState<PublicAgentProfile>({});
+  const [protocol, setProtocol] = useState<string | null>(null);
   const theme = experience.theme || {};
   const agentName = publicAgentName(experience.agentName);
   const availableAvatarSources = useMemo(() => avatarSources(experience), [experience]);
@@ -448,6 +455,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         setMessages(restoredMessages);
         setStage(payload.stage || "welcome");
         setConverted(Boolean(payload.converted));
+        setProfile(payload.profile || {});
+        setProtocol(payload.leadProtocol || null);
         setQuickReplies(
           payload.quickReplies?.length
             ? payload.quickReplies
@@ -470,7 +479,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
     return () => {
       active = false;
     };
-  }, [slug]);
+  }, [slug, experience]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -482,7 +491,9 @@ export function PublicAgentExperience({ slug, experience }: Props) {
     const syncHeight = () => {
       window.cancelAnimationFrame(animationFrame);
       animationFrame = window.requestAnimationFrame(() => {
-        const height = Math.round(viewport?.height || window.innerHeight);
+        const editing = document.activeElement instanceof HTMLTextAreaElement;
+        const frame = chatViewport({ layoutHeight: Math.max(innerHeight, root.clientHeight), visualHeight: viewport?.height || innerHeight, offsetTop: viewport?.offsetTop || 0, scale: viewport?.scale || 1, editing });
+        const height = frame.height.endsWith("px") ? Number.parseFloat(frame.height) : Math.round(viewport?.height || window.innerHeight);
         const width = Math.round(viewport?.width || window.innerWidth);
         const top = Math.max(0, Math.round(viewport?.offsetTop || 0));
         const left = Math.max(0, Math.round(viewport?.offsetLeft || 0));
@@ -663,6 +674,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
       setStage(payload.stage || "discovery");
       setQuickReplies(payload.quickReplies || []);
       setConverted(Boolean(payload.converted));
+      setProfile(payload.profile || {});
+      setProtocol(payload.leadProtocol || null);
       analytics("AgentReplyReceived", slug, {
         stage: payload.stage,
         contact_requested: Boolean(payload.requestContact),
@@ -955,30 +968,14 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   } as React.CSSProperties;
 
   return (
-    <main id="conteudo-principal" className="public-agent-page bia-whatsapp" style={style}>
+    <main id="conteudo-principal" className="public-agent-page bia-whatsapp arisa-chat bia-commercial" style={style}>
       <h1 className="public-agent-sr-only">Conversa com a {agentName}, {PUBLIC_AGENT_ACCESSIBLE_IDENTITY}, para atendimento do Solaris Residencial Resort em Monte Carmelo</h1>
       <section className="public-agent-shell">
         <section className="public-agent-chat-card" aria-label={`Conversa com a ${agentName}`} aria-busy={initializing || sending || audioBusy} data-identified={converted}>
-          <div className="public-agent-chat-head">
-            <div className="public-agent-avatar" aria-hidden="true">
-              {activeAvatarSource ? (
-                <Image
-                  alt=""
-                  height={44}
-                  priority
-                  src={activeAvatarSource}
-                  unoptimized
-                  width={44}
-                  onError={() => setFailedAvatarSources((current) => new Set(current).add(activeAvatarSource))}
-                />
-              ) : "B"}
-            </div>
-            <div>
-              <strong>{agentName}</strong>
-              <span title={PUBLIC_AGENT_BRAND_LINE}>{sending ? "digitando…" : audioBusy ? "Transcrevendo áudio…" : "Especialista da Futura Casa"}</span>
-              <small>Parceira da Évora Urbanismo</small>
-            </div>
-          </div>
+          <AssistantHeader name={agentName} subtitle={sending ? "digitando…" : audioBusy ? "Transcrevendo áudio…" : "Vendas e atendimento ao cliente"} organization={PUBLIC_AGENT_BRAND_LINE} avatar={activeAvatarSource} onAvatarError={() => activeAvatarSource && setFailedAvatarSources(current => new Set(current).add(activeAvatarSource))}>
+            <button className="arisa-icon-button" onClick={() => setDetailsOpen(true)} aria-label="Abrir detalhes do atendimento" aria-expanded={detailsOpen}>☰</button>
+          </AssistantHeader>
+          {detailsOpen && <BiaConversationPanel onClose={closeDetails} profile={profile} protocol={protocol} simulations={messages.flatMap(message => message.simulation ? [message.simulation] : [])} attachments={messages.flatMap(message => message.attachments || []).filter((a, i, all) => a.url && all.findIndex(b => b.url === a.url) === i)} />}
 
           <div ref={messagesRef} onScroll={(event) => { const pane = event.currentTarget; pinnedToBottomRef.current = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 100; }} className="public-agent-messages" role="log" aria-label="Histórico da conversa" aria-live="off">
             {visibleMessages.map((message) => (
@@ -991,7 +988,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
                       onRetry={(messageId) => void transcribeAndSend(messageId)}
                     />
                   ) : (
-                    <p>{message.content}</p>
+                    <MessageText content={message.content} />
                   )}
                   {message.simulation && <SimulationView simulation={message.simulation} />}
                   {message.commercial && !message.simulation && (

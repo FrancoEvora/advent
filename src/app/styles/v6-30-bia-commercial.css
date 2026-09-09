@@ -5,6 +5,13 @@
 .bia-commercial .public-agent-chat-head small{white-space:normal}
 .bia-commercial .public-agent-composer{background:var(--arisa-surface)}
 .bia-conversation-panel{overflow-y:auto}
+.bia-panel-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.bia-panel-content blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid #d3e9de;background:#f5f8f5}
+.bia-panel-content button{min-height:44px;padding:10px;border:0;border-radius:7px;background:var(--arisa-soft);color:var(--arisa-link);text-align:left}
+.bia-panel-content .public-agent-simulation-card{max-width:100%;box-sizing:border-box}
+.bia-commercial .arisa-conversations{overflow-y:auto}
+.bia-commercial .arisa-conversations nav{min-height:80px}
+.bia-commercial .arisa-menu-links{flex-shrink:0}
 .bia-conversation-panel section{border-top:1px solid #dde7df;padding:12px 0}
 .bia-conversation-panel h2{font-size:15px;margin:0 0 8px;color:#173f33}
 .bia-conversation-panel p,.bia-conversation-panel a{font-size:13px;line-height:1.6;color:#345e50;overflow-wrap:anywhere}

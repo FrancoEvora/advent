@@ -73,6 +73,10 @@ export type PublicAgentAudio = {
 };
 
 export type PublicAgentSessionPayload = {
+  sessionId: string;
+  conversations: PublicAgentConversation[];
+  hasOlderMessages: boolean;
+  resources: PublicAgentResources[];
   stage: PublicAgentStage;
   profile: PublicAgentProfile;
   converted: boolean;
@@ -81,6 +85,9 @@ export type PublicAgentSessionPayload = {
   quickReplies?: string[];
   messages: PublicAgentMessage[];
 };
+
+export type PublicAgentConversation = { id: string; title: string; updatedAt: string };
+export type PublicAgentResources = { simulation?: PublicAgentSimulation | null; attachments?: PublicAgentAttachment[] };
 
 export type PublicAgentContextPayload = {
   organizationId: string;
@@ -228,4 +235,4 @@ export type PublicAgentTranscriptionResponse = {
   audio?: PublicAgentAudio;
 };
 
-export type PublicAgentAction = "experience" | "session" | "message" | "transcribe";
+export type PublicAgentAction = "experience" | "session" | "conversation" | "history" | "message" | "transcribe";

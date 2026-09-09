@@ -2,7 +2,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2.110.7';
 import { isObject as obj, text as str, finite as num, unitCode, phone, cleanReply, replyText, replayOutput, toolCalls, evidencedContact, safeExternalUrl, safeFilters, compactCommercial, cheapestUnit, simulationSummary, errorKind, dateWithZone } from './core.ts';
 import type { Obj, ToolCall } from './core.ts';
 
-const RELEASE='bia-commercial-v6';
+const RELEASE='bia-commercial-v7';
 const MAX_BYTES=3_500_000, TURN_BUDGET_MS=70_000, MODEL_TIMEOUT_MS=24_000;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH=/^[a-f0-9]{64}$/i;
@@ -168,7 +168,21 @@ export async function handleRequest(request:Request){
   if(b.action==='experience')return json({ok:true,data:await rpc(admin,'get_public_agent_experience',{p_slug:b.slug})});
   if(b.action==='session'){
    if(!HASH.test(String(b.tokenHash))||!HASH.test(String(b.fingerprintHash)))return json({ok:false,error:'BIA_INPUT_INVALID'},400);
-   return json({ok:true,data:await rpc(admin,'open_public_agent_session_v4',{...sessionArgs(b),p_utm:obj(b.attribution)?b.attribution:{},p_landing_page:str(b.landingPage),p_referrer:str(b.referrer),p_user_agent:str(b.userAgent)})});
+   return json({ok:true,data:await rpc(admin,'open_bia_conversation_v1',{...sessionArgs(b),p_utm:obj(b.attribution)?b.attribution:{},p_landing_page:str(b.landingPage),p_referrer:str(b.referrer),p_user_agent:str(b.userAgent)})});
+  }
+  if(b.action==='conversation'||b.action==='history'){
+   if(!HASH.test(String(b.tokenHash))||!HASH.test(String(b.fingerprintHash)))return json({ok:false,error:'BIA_INPUT_INVALID'},400);
+   if(b.action==='conversation'){
+    if(!HASH.test(String(b.newTokenHash))||(b.conversationId!=null&&!UUID.test(String(b.conversationId))))return json({ok:false,error:'BIA_INPUT_INVALID'},400);
+    return json({ok:true,data:await rpc(admin,'switch_bia_conversation_v1',{...sessionArgs(b),p_new_token_hash:b.newTokenHash,p_conversation_id:b.conversationId??null})});
+   }
+   if(!/^[1-9][0-9]{0,18}$/.test(String(b.beforeId)))return json({ok:false,error:'BIA_INPUT_INVALID'},400);
+   return json({ok:true,data:await rpc(admin,'get_bia_conversation_workspace_v1',{...sessionArgs(b),p_before_id:b.beforeId})});
+  }
+  if((b.action==='message'||b.action==='transcribe')&&b.conversationId!=null){
+   if(!UUID.test(String(b.conversationId))||!HASH.test(String(b.tokenHash))||!HASH.test(String(b.fingerprintHash)))return json({ok:false,error:'BIA_INPUT_INVALID'},400);
+   const active=await rpc(admin,'get_public_agent_gateway_context_v1',sessionArgs(b));
+   if(!obj(active)||active.sessionId!==b.conversationId)return json({ok:false,error:'PUBLIC_AGENT_CONVERSATION_CHANGED'},409);
   }
   if(b.action!=='message'||b.source==='audio')return await delegateInfrastructure(request,bytes);
   const message=str(b.message);if(!message||message.length>800||!UUID.test(String(b.clientMessageId))||!HASH.test(String(b.tokenHash))||!HASH.test(String(b.fingerprintHash)))return json({ok:false,error:'BIA_INPUT_INVALID'},400);b.message=message;

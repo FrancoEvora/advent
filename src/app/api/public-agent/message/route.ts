@@ -150,6 +150,7 @@ export async function POST(request: NextRequest) {
       || typeof body.message !== "string"
       || typeof body.clientMessageId !== "string"
       || !CLIENT_MESSAGE_ID.test(body.clientMessageId)
+      || body.conversationId != null && (typeof body.conversationId !== "string" || !CLIENT_MESSAGE_ID.test(body.conversationId))
       || (
         body.source === "audio"
         && (
@@ -171,6 +172,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = normalizePresentation(await respondPublicAgentMessage({
+      conversationId: typeof body.conversationId === "string" ? body.conversationId : undefined,
       slug: body.slug,
       token,
       fingerprint: publicAgentFingerprint(request),

@@ -1,14 +1,20 @@
 "use client";
+import Link from "next/link";
 
 import { AssistantHeader } from "../assistants/AssistantHeader";
 import { MessageText } from "../arisa/MessageText";
 import { chatViewport } from "../arisa/chat-viewport";
-import { BiaConversationPanel } from "../bia/BiaConversationPanel";
+import { BiaWorkspacePanel, type BiaPanel } from "../bia/BiaWorkspacePanel";
+import { AssistantConversationMenu } from "../assistants/AssistantConversationMenu";
+import { SimulationView } from "./ChatSimulation";
+import { collectBiaResources } from "../bia/conversation-resources";
 import { CommercialUnitsView } from "./ChatLotOptions";
 import { AudioMessageView, ChatVoicePlayer, ChatPrivacyNote } from "./ChatVoiceMessage";
 import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
+  PublicAgentConversation,
+  PublicAgentResources,
   PublicAgentAttachment,
   PublicAgentAudio,
   PublicAgentCommercialContext,
@@ -25,6 +31,10 @@ type Props = {
 };
 
 type SessionResponse = {
+  sessionId?: string;
+  conversations?: PublicAgentConversation[];
+  hasOlderMessages?: boolean;
+  resources?: PublicAgentResources[];
   ok: boolean;
   error?: string;
   stage?: PublicAgentStage;
@@ -103,6 +113,7 @@ type AnalyticsWindow = Window & {
 };
 
 const ERROR_TEXT: Record<string, string> = {
+  PUBLIC_AGENT_CONVERSATION_CHANGED: "A conversa foi alterada em outra aba. Atualize esta página antes de enviar novamente.",
   PUBLIC_AGENT_AUDIO_MODEL_UNAVAILABLE: "A transcrição de áudio precisa ser habilitada na integração. Por enquanto, envie sua mensagem por escrito.",
   PUBLIC_AGENT_AUDIO_PROVIDER_QUOTA: "A transcrição está temporariamente indisponível na integração. Seu áudio foi mantido para tentar novamente.",
   PUBLIC_AGENT_AUDIO_PROVIDER_BUSY: "A transcrição está ocupada agora. Aguarde um momento e tente novamente com o mesmo áudio.",
@@ -146,10 +157,6 @@ function object(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value);
 }
 
-const currency = new Intl.NumberFormat("pt-BR", {
-  style: "currency",
-  currency: "BRL",
-});
 
 const clock = new Intl.DateTimeFormat("pt-BR", {
   hour: "2-digit",
@@ -323,33 +330,6 @@ function PublicAgentIcon({ name }: { name: "mic" | "send" | "stop" | "trash" }) 
   );
 }
 
-function SimulationView({ simulation }: { simulation: PublicAgentSimulation }) {
-  return (
-    <section className="public-agent-simulation-card">
-      <span>Simulação · {simulation.unitCode}</span>
-      <strong>{currency.format(simulation.price)}</strong>
-      <p>
-        Entrada de {new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 1 }).format(simulation.downPaymentPct * 100)}%
-        {simulation.downPaymentInstallments > 1
-          ? ` em ${simulation.downPaymentInstallments}x de ${currency.format(simulation.downPaymentInstallmentAmount)}`
-          : ` (${currency.format(simulation.downPayment)})`}
-      </p>
-      <div>
-        {simulation.scenarios.map((scenario) => (
-          <small key={scenario.months}>
-            {scenario.months} meses <b>{currency.format(scenario.monthlyPayment)}/mês</b>
-          </small>
-        ))}
-      </div>
-      {simulation.balloonCount > 0 && (
-        <em>
-          {simulation.balloonCount} balões de {currency.format(simulation.balloonAmount)} a cada {simulation.balloonFrequencyMonths} meses
-        </em>
-      )}
-    </section>
-  );
-}
-
 function AttachmentView({ attachment }: { attachment: PublicAgentAttachment }) {
   if (attachment.type === "image" && attachment.url) {
     return (
@@ -389,7 +369,14 @@ function AttachmentView({ attachment }: { attachment: PublicAgentAttachment }) {
 
 export function PublicAgentExperience({ slug, experience }: Props) {
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const closeDetails = useCallback(() => setDetailsOpen(false), []);
+  const [activePanel, setActivePanel] = useState<BiaPanel | null>(null);
+  const closeDetails = useCallback(() => { setDetailsOpen(false); setActivePanel(null); }, []);
+  const [conversations, setConversations] = useState<PublicAgentConversation[]>([]);
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [resources, setResources] = useState<PublicAgentResources[]>([]);
+  const [hasOlder, setHasOlder] = useState(false);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const navigationInFlightRef = useRef(false);
   const [profile, setProfile] = useState<PublicAgentProfile>({});
   const [protocol, setProtocol] = useState<string | null>(null);
   const theme = experience.theme || {};
@@ -434,6 +421,63 @@ export function PublicAgentExperience({ slug, experience }: Props) {
 
   const activeAvatarSource = availableAvatarSources.find((source) => !failedAvatarSources.has(source));
 
+  const applySession = useCallback((payload: SessionResponse) => {
+    const restoredMessages = mapStoredMessages(payload.messages || [], experience);
+    setMessages(restoredMessages);
+    setStage(payload.stage || "welcome");
+    setConverted(Boolean(payload.converted));
+    setProfile(payload.profile || {});
+    setProtocol(payload.leadProtocol || null);
+    setQuickReplies(
+      payload.quickReplies?.length
+        ? payload.quickReplies
+        : restoredMessages.length
+        ? []
+        : initialQuickRepliesRef.current,
+    );
+    setConversationId(payload.sessionId || null);
+    setConversations(payload.conversations || []);
+    setResources(payload.resources || []);
+    setHasOlder(Boolean(payload.hasOlderMessages));
+  }, [experience]);
+
+  async function navigateConversation(operation: "new" | "select" | "older", id?: string) {
+    if (navigationInFlightRef.current || sending || audioBusy || initializing || isRecording || microphonePending || audioDraft) return;
+    navigationInFlightRef.current = true;
+    const older = operation === "older";
+    if (older) setLoadingOlder(true); else setInitializing(true);
+    setPageError(null);
+    try {
+      const response = await fetch("/api/public-agent/session", { method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, operation, conversationId: id, beforeId: older ? messages[0]?.id : undefined }) });
+      const payload = await response.json() as SessionResponse;
+      if (!response.ok || !payload.ok) throw new Error(payload.error || "PUBLIC_AGENT_SESSION_UNAVAILABLE");
+      if (older) {
+        if (payload.sessionId !== conversationId) throw new Error("PUBLIC_AGENT_CONVERSATION_CHANGED");
+        const pane = messagesRef.current;
+        const previousHeight = pane?.scrollHeight || 0;
+        const previousTop = pane?.scrollTop || 0;
+        pinnedToBottomRef.current = false;
+        setMessages(current => [...mapStoredMessages(payload.messages || [], experience).filter(m => !current.some(c => c.id === m.id)), ...current]);
+        setHasOlder(Boolean(payload.hasOlderMessages));
+        window.requestAnimationFrame(() => { if (pane) pane.scrollTop = previousTop + pane.scrollHeight - previousHeight; });
+      } else {
+        applySession(payload);
+        setInput("");
+        audioPayloadsRef.current.clear();
+        pinnedToBottomRef.current = true;
+        closeDetails();
+      }
+    } catch {
+      closeDetails();
+      setPageError(older ? "Não foi possível carregar as mensagens anteriores. Tente novamente." : "Não foi possível abrir a conversa. Aguarde a resposta em andamento ou atualize a página para tentar novamente.");
+    } finally {
+      navigationInFlightRef.current = false;
+      setLoadingOlder(false);
+      if (!older) setInitializing(false);
+    }
+  }
+
   useEffect(() => {
     let active = true;
     async function start() {
@@ -451,19 +495,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         const payload = (await response.json()) as SessionResponse;
         if (!response.ok || !payload.ok) throw new Error(payload.error || "PUBLIC_AGENT_SESSION_UNAVAILABLE");
         if (!active) return;
-        const restoredMessages = mapStoredMessages(payload.messages || [], experience);
-        setMessages(restoredMessages);
-        setStage(payload.stage || "welcome");
-        setConverted(Boolean(payload.converted));
-        setProfile(payload.profile || {});
-        setProtocol(payload.leadProtocol || null);
-        setQuickReplies(
-          payload.quickReplies?.length
-            ? payload.quickReplies
-            : restoredMessages.length
-            ? []
-            : initialQuickRepliesRef.current,
-        );
+        applySession(payload);
         if (!startedRef.current) {
           startedRef.current = true;
           analytics("AgentStarted", slug, { resumed: Boolean(payload.messages?.length) });
@@ -479,7 +511,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
     return () => {
       active = false;
     };
-  }, [slug, experience]);
+  }, [slug, applySession]);
 
   useEffect(() => {
     const viewport = window.visualViewport;
@@ -624,6 +656,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
             body: JSON.stringify({
               slug,
               message,
+              conversationId,
               clientMessageId,
               source: options.source || "text",
               transcriptionRequestId: options.transcriptionRequestId || null,
@@ -671,6 +704,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         },
       ]);
       if (options.source === "audio") audioPayloadsRef.current.delete(userMessageId);
+      setResources(current => [...current, { simulation: payload.simulation, attachments: payload.attachments }]);
+      setConversations(current => current.map(item => item.id === conversationId ? { ...item, title: item.title === "Nova conversa" ? message.slice(0, 80) : item.title, updatedAt: new Date().toISOString() } : item));
       setStage(payload.stage || "discovery");
       setQuickReplies(payload.quickReplies || []);
       setConverted(Boolean(payload.converted));
@@ -710,6 +745,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
     while (nowMs() < deadline) {
       const form = new FormData();
       form.set("slug", slug);
+      if (conversationId) form.set("conversationId", conversationId);
       form.set("clientMessageId", audio.transcriptionRequestId);
       form.set("durationSeconds", String(audio.duration));
       form.set("audio", audio.blob, audio.filename);
@@ -960,6 +996,9 @@ export function PublicAgentExperience({ slug, experience }: Props) {
     }
   }
 
+  const workspaceResources = collectBiaResources(resources);
+  const conversationBusy = initializing || sending || audioBusy || isRecording || microphonePending || Boolean(audioDraft) || loadingOlder;
+
   const style = {
     "--pa-accent": theme.accent || "#2f6d4f",
     "--pa-accent-strong": theme.accentStrong || "#1f4f3a",
@@ -973,11 +1012,20 @@ export function PublicAgentExperience({ slug, experience }: Props) {
       <section className="public-agent-shell">
         <section className="public-agent-chat-card" aria-label={`Conversa com a ${agentName}`} aria-busy={initializing || sending || audioBusy} data-identified={converted}>
           <AssistantHeader name={agentName} subtitle={sending ? "digitando…" : audioBusy ? "Transcrevendo áudio…" : "Vendas e atendimento ao cliente"} organization={PUBLIC_AGENT_BRAND_LINE} avatar={activeAvatarSource} onAvatarError={() => activeAvatarSource && setFailedAvatarSources(current => new Set(current).add(activeAvatarSource))}>
-            <button className="arisa-icon-button" onClick={() => setDetailsOpen(true)} aria-label="Abrir detalhes do atendimento" aria-expanded={detailsOpen}>☰</button>
+            <button className="arisa-icon-button" onClick={() => setDetailsOpen(true)} aria-label="Abrir conversas e opções" aria-expanded={detailsOpen || Boolean(activePanel)}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h14" /></svg></button>
           </AssistantHeader>
-          {detailsOpen && <BiaConversationPanel onClose={closeDetails} profile={profile} protocol={protocol} simulations={messages.flatMap(message => message.simulation ? [message.simulation] : [])} attachments={messages.flatMap(message => message.attachments || []).filter((a, i, all) => a.url && all.findIndex(b => b.url === a.url) === i)} />}
+          {detailsOpen && !activePanel && <AssistantConversationMenu organization={PUBLIC_AGENT_BRAND_LINE} conversations={conversations} selectedId={conversationId} busy={conversationBusy} onClose={closeDetails} onNew={() => void navigateConversation("new")} onSelect={id => id === conversationId ? closeDetails() : void navigateConversation("select", id)}>
+            <button onClick={() => setActivePanel("memory")}>O que já conversamos</button>
+            <button onClick={() => setActivePanel("simulations")}>Simulações da Bia</button>
+            <button onClick={() => setActivePanel("archive")}>Arquivo da Bia</button>
+            <a href="https://wa.me/message/VKQEMBC7WOQSB1" target="_blank" rel="noopener noreferrer">WhatsApp da Bia</a>
+            <Link href="/">Abrir plataforma</Link>
+            <a href="/privacidade" target="_blank" rel="noopener noreferrer">Política de Privacidade</a>
+          </AssistantConversationMenu>}
+          {activePanel && <BiaWorkspacePanel activePanel={activePanel} onClose={closeDetails} onBack={() => setActivePanel(null)} busy={conversationBusy} onRequestSimulation={() => { closeDetails(); setInput("Quero fazer uma simulação de pagamento."); window.requestAnimationFrame(() => inputRef.current?.focus()); }} profile={profile} protocol={protocol} simulations={workspaceResources.simulations} attachments={workspaceResources.attachments} messages={messages} />}
 
           <div ref={messagesRef} onScroll={(event) => { const pane = event.currentTarget; pinnedToBottomRef.current = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 100; }} className="public-agent-messages" role="log" aria-label="Histórico da conversa" aria-live="off">
+            {hasOlder && <button className="arisa-load-older" disabled={conversationBusy} onClick={() => void navigateConversation("older")}>{loadingOlder ? "Carregando…" : "Carregar mensagens anteriores"}</button>}
             {visibleMessages.map((message) => (
               <article key={message.id} className={`public-agent-message ${message.direction}`}>
                 <div className="public-agent-message-content">

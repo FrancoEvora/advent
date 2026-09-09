@@ -46,6 +46,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description: experience.subtitle,
     applicationName: "Bia — Futura Casa",
     manifest: "/atendimento/manifest.webmanifest",
+    icons: { icon: [{ url: "/bia/icon-192-v1.png", sizes: "192x192", type: "image/png" }], apple: [{ url: "/bia/apple-touch-icon-v1.png", sizes: "180x180", type: "image/png" }] },
     appleWebApp: {
       capable: true,
       statusBarStyle: "default",

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   enforcePublicAgentOrigin,
   newPublicAgentToken,
+  navigateBiaConversation,
   openPublicAgentSession,
   publicAgentCookieName,
   publicAgentDeviceCookieName,
@@ -39,6 +40,12 @@ export async function POST(request: NextRequest) {
       throw new PublicAgentServerError("PUBLIC_AGENT_INPUT_INVALID", 400);
     }
     const slug = body.slug;
+    const operation = body.operation ?? "resume";
+    if (!["resume", "new", "select", "older"].includes(String(operation))
+      || operation === "select" && (typeof body.conversationId !== "string" || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(body.conversationId))
+      || operation === "older" && (typeof body.beforeId !== "string" || !/^[1-9][0-9]{0,18}$/.test(body.beforeId))) {
+      throw new PublicAgentServerError("PUBLIC_AGENT_INPUT_INVALID", 400);
+    }
 
     const cookieName = publicAgentCookieName(slug);
     const existing = request.cookies.get(cookieName)?.value || "";
@@ -59,12 +66,22 @@ export async function POST(request: NextRequest) {
       userAgent: request.headers.get("user-agent"),
     });
     let payload: Awaited<ReturnType<typeof openPublicAgentSession>>;
-    try {
+    if (operation !== "resume") {
+      if (!/^[A-Za-z0-9_-]{40,100}$/.test(existing) || !/^[A-Za-z0-9_-]{40,100}$/.test(existingDevice)) {
+        throw new PublicAgentServerError("PUBLIC_AGENT_SESSION_NOT_FOUND", 401);
+      }
+      const nextToken = operation === "older" ? undefined : newPublicAgentToken();
+      payload = await navigateBiaConversation({ slug, token: existing,
+        fingerprint: publicAgentFingerprint(request, existingDevice), newToken: nextToken,
+        conversationId: operation === "select" ? String(body.conversationId) : null,
+        beforeId: operation === "older" ? String(body.beforeId) : undefined });
+      if (nextToken) token = nextToken;
+    } else try {
       payload = await openPublicAgentSession(sessionInput());
     } catch (error) {
       const canRotate = error instanceof PublicAgentServerError
         && (
-          error.code.includes("SESSION")
+          ["PUBLIC_AGENT_SESSION_INACTIVE", "PUBLIC_AGENT_SESSION_NOT_FOUND"].includes(error.code)
           || error.code === "PUBLIC_AGENT_NOT_FOUND"
           || error.status === 404
         );
@@ -74,7 +91,7 @@ export async function POST(request: NextRequest) {
     }
 
     const response = NextResponse.json({ ok: true, ...payload }, { headers: HEADERS });
-    response.cookies.set(cookieName, token, {
+    if (operation !== "older") response.cookies.set(cookieName, token, {
       httpOnly: true,
       secure: request.nextUrl.protocol === "https:",
       sameSite: "lax",

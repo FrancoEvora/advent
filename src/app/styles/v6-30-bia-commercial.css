@@ -4,6 +4,12 @@
 .bia-commercial .public-agent-chat-head>div:nth-child(2){flex:1;min-width:0}
 .bia-commercial .public-agent-chat-head small{white-space:normal}
 .bia-commercial .public-agent-composer{background:var(--arisa-surface)}
+.bia-commercial{--arisa-viewport-top:var(--public-agent-viewport-top,0px);--arisa-viewport-height:var(--public-agent-viewport-height,100dvh)}
+.bia-commercial .public-agent-composer.arisa-composer{display:flex;align-items:flex-end}
+.bia-commercial .public-agent-composer.arisa-composer textarea{flex:1;min-width:0;min-height:48px;padding-block:11px}
+.bia-commercial .public-agent-composer .arisa-attach{flex:0 0 44px;background:transparent;color:var(--arisa-link);box-shadow:none}
+.bia-file-status{margin:0;padding:8px 16px;color:var(--arisa-ink);font-size:12px;background:var(--arisa-surface)}
+@media(max-width:420px){.bia-commercial .public-agent-chat-head button[aria-pressed] span{display:none}}
 .bia-conversation-panel{overflow-y:auto}
 .bia-panel-content{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .bia-panel-content blockquote{margin:8px 0;padding:8px 12px;border-left:3px solid #d3e9de;background:#f5f8f5}

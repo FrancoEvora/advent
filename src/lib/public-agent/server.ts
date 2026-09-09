@@ -223,6 +223,7 @@ export async function openPublicAgentSession(input: {
 }
 
 export async function respondPublicAgentMessage(input: {
+  fileIds?: string[];
   conversationId?: string;
   slug: string;
   token: string;
@@ -237,6 +238,7 @@ export async function respondPublicAgentMessage(input: {
     tokenHash: hashPublicAgentValue(input.token),
     fingerprintHash: input.fingerprint,
     message: input.message.trim(),
+    fileIds: input.fileIds,
     conversationId: input.conversationId,
     clientMessageId: input.clientMessageId,
     source: input.source,
@@ -274,5 +276,14 @@ export async function navigateBiaConversation(input: {
     slug: safeSlug(input.slug), tokenHash: hashPublicAgentValue(input.token), fingerprintHash: input.fingerprint,
     newTokenHash: input.newToken ? hashPublicAgentValue(input.newToken) : undefined,
     conversationId: input.conversationId, beforeId: input.beforeId,
+  });
+}
+
+export async function requestBiaCustomerTool(input: { slug: string; token: string; fingerprint: string; conversationId: string; operation: string; args: JsonObject; signal?: AbortSignal }) {
+  return fetch(edgeEndpoint(), {
+    method: "POST", headers: { apikey: publishableKey(), "Content-Type": "application/json" }, cache: "no-store",
+    body: JSON.stringify({ action: "customer_tool", slug: safeSlug(input.slug), tokenHash: hashPublicAgentValue(input.token), fingerprintHash: input.fingerprint,
+      conversationId: input.conversationId, operation: input.operation, args: input.args }),
+    signal: AbortSignal.any([AbortSignal.timeout(65_000), ...(input.signal ? [input.signal] : [])]),
   });
 }

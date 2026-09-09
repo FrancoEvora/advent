@@ -1,14 +1,15 @@
 import { useEffect, useRef } from "react";
 import { MessageText } from "../arisa/MessageText";
 import { SimulationView } from "../public-agent/ChatSimulation";
-import type { PublicAgentAttachment, PublicAgentProfile, PublicAgentSimulation } from "@/lib/public-agent/types";
+import type { BiaCustomerFile, PublicAgentAttachment, PublicAgentProfile, PublicAgentSimulation } from "@/lib/public-agent/types";
 
 export type BiaPanel = "memory" | "simulations" | "archive";
 export const biaPanelLabels = { memory: "O que já conversamos", simulations: "Suas simulações", archive: "Materiais recebidos" };
 
-export function BiaWorkspacePanel({ activePanel, onClose, onBack, onRequestSimulation, busy, profile, protocol, simulations, attachments, messages }: {
+export function BiaWorkspacePanel({ activePanel, onClose, onBack, onRequestSimulation, busy, profile, protocol, simulations, attachments, customerFiles, onOpenFile, messages }: {
   activePanel: BiaPanel; onClose: () => void; onBack: () => void; onRequestSimulation: () => void; busy: boolean;
   profile: PublicAgentProfile; protocol: string | null; simulations: PublicAgentSimulation[];
+  customerFiles: BiaCustomerFile[]; onOpenFile: (file: BiaCustomerFile) => void;
   attachments: PublicAgentAttachment[]; messages: { id: string; direction: string; content: string }[];
 }) {
   const panel = useRef<HTMLElement>(null);
@@ -48,7 +49,7 @@ export function BiaWorkspacePanel({ activePanel, onClose, onBack, onRequestSimul
         {simulations.length ? [...simulations].reverse().map((simulation, i) => <div key={`${simulation.unitCode}:${simulation.generatedAt}:${i}`}><SimulationView simulation={simulation} /><p><small>{simulation.disclaimer || "Simulação indicativa, sujeita à confirmação das condições comerciais."}</small></p></div>) : <p>Você ainda não pediu uma simulação nesta conversa.</p>}
         <button disabled={busy} onClick={onRequestSimulation}>Solicitar nova simulação</button>
       </section>}
-      {activePanel === "archive" && <section>{attachments.length ? attachments.map((attachment, i) => <a key={`${attachment.id}:${i}`} href={attachment.url || undefined} target="_blank" rel="noopener noreferrer">{attachment.title}</a>) : <p>Os materiais enviados pela Bia nesta conversa aparecerão aqui.</p>}</section>}
+      {activePanel === "archive" && <section>{customerFiles.map(file => <button className="arisa-file" type="button" key={file.id} onClick={() => onOpenFile(file)}><span>{file.name}<small>Arquivo enviado por você</small></span></button>)}{attachments.length ? attachments.map((attachment, i) => <a key={`${attachment.id}:${i}`} href={attachment.url || undefined} target="_blank" rel="noopener noreferrer">{attachment.title}</a>) : !customerFiles.length ? <p>Os arquivos que você enviar e os materiais da Bia aparecerão aqui.</p> : null}</section>}
     </div>
   </aside>;
 }

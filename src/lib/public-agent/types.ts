@@ -88,6 +88,7 @@ export type PublicAgentSessionPayload = {
 
 export type PublicAgentConversation = { id: string; title: string; updatedAt: string };
 export type PublicAgentResources = { simulation?: PublicAgentSimulation | null; attachments?: PublicAgentAttachment[] };
+export type BiaCustomerFile = { id: string; name: string; mime: string; size: number; messageId?: string | null };
 
 export type PublicAgentContextPayload = {
   organizationId: string;

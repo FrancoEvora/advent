@@ -6,13 +6,15 @@ import { SPEECH_VERSION } from "../../../supabase/functions/_shared/arisa-speech
 import { toolError, type BiaTool } from "./customer-tools-client";
 
 export function useBiaVoice(tool: BiaTool, messages: Message[]) {
+  const toolRef=useRef(tool);
+  useEffect(()=>{toolRef.current=tool;},[tool]);
   const [state,setState]=useState<VoiceState>(initialVoiceState);
   const queue=useRef<VoiceQueue<AudioBuffer>|null>(null), armed=useRef<string|null>(null), intent=useRef(0);
   const [fullText,setFullText]=useState<string|null>(null);
   useEffect(()=>{
     let live=true;
     const current=new VoiceQueue(browserVoiceAudio(),async(messageId,partIndex,signal)=>{
-      const response=await tool('speech',{messageId,partIndex,version:SPEECH_VERSION},signal);
+      const response=await toolRef.current('speech',{messageId,partIndex,version:SPEECH_VERSION},signal);
       if(!response.ok)throw await toolError(response,'Não foi possível gerar a voz agora. A resposta escrita está preservada.');
       if(!response.headers.get('content-type')?.startsWith('audio/'))throw new Error('O áudio não está disponível agora.');
       const bytes=await response.arrayBuffer();
@@ -24,7 +26,7 @@ export function useBiaVoice(tool: BiaTool, messages: Message[]) {
     const leaving=()=>{intent.current++;armed.current=null;current.stop();};
     document.addEventListener('visibilitychange',background);window.addEventListener('pagehide',leaving);
     return()=>{live=false;leaving();current.destroy();queue.current=null;document.removeEventListener('visibilitychange',background);window.removeEventListener('pagehide',leaving);};
-  },[tool]);
+  },[]);
   const stop=useCallback(()=>{intent.current++;armed.current=null;queue.current?.stop();},[]);
   const toggle=useCallback(()=>{const current=queue.current;if(!current)return;if(current.state.enabled){intent.current++;armed.current=null;current.stop(true);}else void current.enable();},[]);
   const prepare=useCallback(()=>{intent.current++;armed.current=null;const current=queue.current;if(!current)return;current.stop();if(current.state.enabled)void current.enable();},[]);
@@ -45,3 +47,4 @@ export function useBiaVoice(tool: BiaTool, messages: Message[]) {
   const reveal=useCallback((id:string)=>setFullText(id),[]);
   return {state,toggle,prepare,arm,stop,read,pause,resume,fullText,reveal};
 }
+

@@ -223,6 +223,7 @@ export async function openPublicAgentSession(input: {
 }
 
 export async function respondPublicAgentMessage(input: {
+  conversationId?: string;
   slug: string;
   token: string;
   fingerprint: string;
@@ -236,6 +237,7 @@ export async function respondPublicAgentMessage(input: {
     tokenHash: hashPublicAgentValue(input.token),
     fingerprintHash: input.fingerprint,
     message: input.message.trim(),
+    conversationId: input.conversationId,
     clientMessageId: input.clientMessageId,
     source: input.source,
     transcriptionRequestId: input.transcriptionRequestId || null,
@@ -243,6 +245,7 @@ export async function respondPublicAgentMessage(input: {
 }
 
 export async function transcribePublicAgentAudio(input: {
+  conversationId?: string;
   slug: string;
   token: string;
   fingerprint: string;
@@ -259,5 +262,17 @@ export async function transcribePublicAgentAudio(input: {
     mimeType: input.mimeType,
     durationSeconds: input.durationSeconds,
     audioBase64: Buffer.from(input.bytes).toString("base64"),
+    conversationId: input.conversationId,
   }, 65_000);
+}
+
+export async function navigateBiaConversation(input: {
+  slug: string; token: string; fingerprint: string; newToken?: string;
+  conversationId?: string | null; beforeId?: string;
+}): Promise<PublicAgentSessionPayload> {
+  return edgeRequest<PublicAgentSessionPayload>(input.newToken ? "conversation" : "history", {
+    slug: safeSlug(input.slug), tokenHash: hashPublicAgentValue(input.token), fingerprintHash: input.fingerprint,
+    newTokenHash: input.newToken ? hashPublicAgentValue(input.newToken) : undefined,
+    conversationId: input.conversationId, beforeId: input.beforeId,
+  });
 }

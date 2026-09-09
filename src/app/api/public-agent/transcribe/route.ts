@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
     const audio = form?.get("audio");
     const slug = String(form?.get("slug") || "").trim();
     const clientMessageId = String(form?.get("clientMessageId") || "").trim();
+    const conversationId = String(form?.get("conversationId") || "").trim();
     const durationSeconds = Number(form?.get("durationSeconds"));
     if (
       !(audio instanceof File)
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
       || audio.size > MAX_AUDIO_BYTES
       || !slug
       || !CLIENT_MESSAGE_ID.test(clientMessageId)
+      || conversationId !== "" && !CLIENT_MESSAGE_ID.test(conversationId)
       || !Number.isFinite(durationSeconds)
       || durationSeconds <= 0
       || durationSeconds > 90
@@ -71,6 +73,7 @@ export async function POST(request: NextRequest) {
 
     const bytes = new Uint8Array(await audio.arrayBuffer());
     const result = await transcribePublicAgentAudio({
+      conversationId: conversationId || undefined,
       slug,
       token,
       fingerprint: publicAgentFingerprint(request),

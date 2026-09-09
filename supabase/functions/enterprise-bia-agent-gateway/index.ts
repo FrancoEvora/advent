@@ -1,8 +1,9 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.110.7';
 import { isObject as obj, text as str, finite as num, unitCode, phone, cleanReply, replyText, replayOutput, toolCalls, evidencedContact, safeExternalUrl, safeFilters, compactCommercial, cheapestUnit, simulationSummary, errorKind, dateWithZone } from './core.ts';
 import type { Obj, ToolCall } from './core.ts';
+import { handleCustomerTool, loadCustomerFiles } from './customer-tools.ts';
 
-const RELEASE='bia-commercial-v7';
+const RELEASE='bia-commercial-v8';
 const MAX_BYTES=3_500_000, TURN_BUDGET_MS=70_000, MODEL_TIMEOUT_MS=24_000;
 const UUID=/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HASH=/^[a-f0-9]{64}$/i;
@@ -148,8 +149,9 @@ async function commit(admin:any,b:Obj,context:Obj,gateway:Obj,state:State,reply:
  if(/prefiro.{0,35}(?:n[aã]o|conversar|por aqui)|n[aã]o.{0,25}(?:informar|passar|fornecer|dar).{0,25}(?:telefone|contato|whatsapp|nome)/i.test(String(b.message)))profile.contact_capture_declined=true;
  const response={status:'completed',reply:cleanReply(reply),stage:state.handoff?'handoff':state.simulation?'qualification':context.stage==='welcome'?'discovery':context.stage||'discovery',profile,contactCapture:contact,serviceConsented:gateway.serviceConsented===true,marketingConsented:gateway.marketingConsented===true,requestContact:false,handoffRequested:state.handoff,quickReplies:[],action:state.action,selectedUnitCode:state.selectedUnitCode,commercial:state.commercial,simulation:state.simulation,attachments:state.attachments,visit:state.visit,followup:state.followup,holdStatus:gateway.holdStatus||null,converted:gateway.converted===true,leadProtocol:gateway.leadProtocol||null,degraded:state.degraded,metadata:{runtime_contract:RELEASE,openai_request_id:requestId,ai_first:true,legacy_conversation_pipeline:false,tool_calls:state.toolCalls,tool_rounds:state.toolRounds,failure_code:state.failure}};
  if(response.reply.length>1200)throw new GatewayError('BIA_REPLY_TOO_LONG');
- return await rpc(admin,'finish_bia_turn_v1',{...sessionArgs(b),p_client_request_id:b.clientMessageId,p_lease_token:lease,p_payload:{message:b.message,source:'text'},p_response:response});
+ return await rpc(admin,Array.isArray(b.fileIds)&&b.fileIds.length?'finish_bia_turn_with_files_v1':'finish_bia_turn_v1',{...sessionArgs(b),p_client_request_id:b.clientMessageId,p_lease_token:lease,p_payload:turnPayload(b),p_response:response});
 }
+function turnPayload(b:Obj){return {message:b.message,source:'text',...(Array.isArray(b.fileIds)&&b.fileIds.length?{fileIds:b.fileIds}: {})};}
 async function delegateInfrastructure(request:Request,bytes:Uint8Array){
  const base=Deno.env.get('SUPABASE_URL')||'';const r=await fetch(new URL('/functions/v1/enterprise-vitoria-agent-gateway',base),{method:'POST',headers:{apikey:request.headers.get('apikey')||'','content-type':'application/json'},body:new TextDecoder().decode(bytes),signal:AbortSignal.timeout(65_000)});
  return new Response(await r.arrayBuffer(),{status:r.status,headers:HEADERS});
@@ -165,6 +167,7 @@ export async function handleRequest(request:Request){
   if(!str(b.slug)||!/^[a-z0-9][a-z0-9-]{1,62}$/.test(String(b.slug)))return json({ok:false,error:'BIA_INPUT_INVALID'},400);
   const url=Deno.env.get('SUPABASE_URL')||'',key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';if(!url||!key)throw new GatewayError('BIA_CONFIG_INVALID');
   admin=createClient(url,key,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false}});
+  if(b.action==='customer_tool')return await handleCustomerTool(admin,b,request);
   if(b.action==='experience')return json({ok:true,data:await rpc(admin,'get_public_agent_experience',{p_slug:b.slug})});
   if(b.action==='session'){
    if(!HASH.test(String(b.tokenHash))||!HASH.test(String(b.fingerprintHash)))return json({ok:false,error:'BIA_INPUT_INVALID'},400);
@@ -186,8 +189,10 @@ export async function handleRequest(request:Request){
   }
   if(b.action!=='message'||b.source==='audio')return await delegateInfrastructure(request,bytes);
   const message=str(b.message);if(!message||message.length>800||!UUID.test(String(b.clientMessageId))||!HASH.test(String(b.tokenHash))||!HASH.test(String(b.fingerprintHash)))return json({ok:false,error:'BIA_INPUT_INVALID'},400);b.message=message;
+  if(b.fileIds!=null&&(!Array.isArray(b.fileIds)||b.fileIds.length>3||b.fileIds.some(id=>typeof id!=='string'||!UUID.test(id))||new Set(b.fileIds).size!==b.fileIds.length))return json({ok:false,error:'PUBLIC_AGENT_FILE_INVALID'},400);
+  if(Array.isArray(b.fileIds)&&!b.fileIds.length)delete b.fileIds;
   const deadline=Date.now()+TURN_BUDGET_MS;
-  const claim=await rpc(admin,'claim_public_agent_request_v4',{...sessionArgs(b),p_client_request_id:b.clientMessageId,p_request_kind:'message',p_payload:{message,source:'text'}});
+  const claim=await rpc(admin,'claim_public_agent_request_v4',{...sessionArgs(b),p_client_request_id:b.clientMessageId,p_request_kind:'message',p_payload:turnPayload(b)});
   if(!obj(claim))throw new GatewayError('BIA_CLAIM_INVALID');
   if(claim.state==='succeeded')return json({ok:true,data:claim.response});
   if(claim.state==='inProgress')return json({ok:true,data:{status:'processing',retryAfterMs:1500}},202);
@@ -200,6 +205,8 @@ export async function handleRequest(request:Request){
   const state=emptyState();state.selectedUnitCode=obj(context.profile)?unitCode(context.profile.selected_unit_code):null;
   const tools:any[]=[...TOOLS];if(runtime.vectorStoreId)tools.push({type:'file_search',vector_store_ids:[runtime.vectorStoreId],max_num_results:4});
   let input=buildInput(context,gateway,message),reply:string|null=null,requestId:string|null=null;
+  const fileParts=await loadCustomerFiles(admin,b);
+  if(fileParts.length) input[input.length-1]={role:'user',content:[{type:'input_text',text:message},...fileParts]};
   const cache=new Map<string,unknown>();
   try{
    for(let round=0;round<=3;round++){

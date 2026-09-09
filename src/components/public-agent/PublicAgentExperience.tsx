@@ -1,5 +1,11 @@
 "use client";
 import Link from "next/link";
+import BiaNotificationBell from "../bia/BiaNotificationBell";
+import { useBiaVoice } from "../bia/use-bia-voice";
+import { toolJson } from "../bia/customer-tools-client";
+import { VoiceToggle, VoiceBar, VoiceMessage } from "../arisa/VoiceControls";
+import type { Message as VoiceReadableMessage } from "../arisa/chat-client";
+import { BIA_FILE_ACCEPT, customerFileMetadata } from "../../../supabase/functions/_shared/bia-customer-files";
 
 import { AssistantHeader } from "../assistants/AssistantHeader";
 import { MessageText } from "../arisa/MessageText";
@@ -13,6 +19,7 @@ import { AudioMessageView, ChatVoicePlayer, ChatPrivacyNote } from "./ChatVoiceM
 import { KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import type {
+  BiaCustomerFile,
   PublicAgentConversation,
   PublicAgentResources,
   PublicAgentAttachment,
@@ -62,6 +69,7 @@ type MessageResponse = {
 };
 
 type UiMessage = {
+  customerFiles?: BiaCustomerFile[];
   id: string;
   direction: "user" | "assistant";
   content: string;
@@ -92,6 +100,7 @@ type AudioDraft = {
 type AudioPayload = Omit<AudioDraft, "url"> & { url: string };
 
 type SendMessageOptions = {
+  customerFiles?: BiaCustomerFile[];
   clientMessageId?: string;
   source?: "text" | "audio";
   existingUserMessageId?: string;
@@ -367,6 +376,11 @@ function AttachmentView({ attachment }: { attachment: PublicAgentAttachment }) {
   );
 }
 
+function voiceMessage(message: UiMessage): VoiceReadableMessage {
+  return { id: message.id, content: message.content, role: message.direction, status: "completed", parent_id: message.id.startsWith("assistant-") ? message.id.slice(10) : null,
+    file_ids: [], created_at: message.createdAt || "", lease_expires_at: null, metadata: {} };
+}
+
 export function PublicAgentExperience({ slug, experience }: Props) {
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [activePanel, setActivePanel] = useState<BiaPanel | null>(null);
@@ -374,6 +388,11 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   const [conversations, setConversations] = useState<PublicAgentConversation[]>([]);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [resources, setResources] = useState<PublicAgentResources[]>([]);
+  const [customerFiles, setCustomerFiles] = useState<BiaCustomerFile[]>([]);
+  const [draftFiles, setDraftFiles] = useState<BiaCustomerFile[]>([]);
+  const [uploadingFiles, setUploadingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileUploadRef = useRef(false);
   const [hasOlder, setHasOlder] = useState(false);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const navigationInFlightRef = useRef(false);
@@ -419,6 +438,53 @@ export function PublicAgentExperience({ slug, experience }: Props) {
     return [{ id: "welcome", direction: "assistant" as const, content: initialGreeting(experience) }];
   }, [messages, experience]);
 
+  const customerTool = useCallback(async (operation: string, args: Record<string, unknown> = {}, signal?: AbortSignal) => {
+    if (!conversationId) throw new Error("Aguarde o início do atendimento.");
+    return fetch("/api/public-agent/tools", { method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slug, conversationId, operation, args }), signal });
+  }, [slug, conversationId]);
+  const voiceMessages = useMemo(() => messages.map(voiceMessage), [messages]);
+  const voice = useBiaVoice(customerTool, voiceMessages);
+  useEffect(() => {
+    if (!conversationId) return;
+    let active = true;
+    void toolJson<BiaCustomerFile[]>(customerTool, "files_list").then(files => { if (active) setCustomerFiles(files); }).catch(() => { if (active) setPageError("Não foi possível carregar os arquivos enviados. Atualize a página para tentar novamente."); });
+    return () => { active = false; };
+  }, [customerTool, conversationId]);
+
+  async function openCustomerFile(file: BiaCustomerFile) {
+    const tab = window.open("about:blank", "_blank");
+    if (tab) tab.opener = null;
+    try {
+      const result = await toolJson<{ url: string }>(customerTool, "files_open", { fileId: file.id });
+      if (tab) tab.location.replace(result.url); else window.location.assign(result.url);
+    } catch (error) { tab?.close(); setPageError(error instanceof Error ? error.message : "Não foi possível abrir o arquivo."); }
+  }
+  async function attachFiles(selected: File[]) {
+    if (fileUploadRef.current || initializing || sending || audioBusy || isRecording || microphonePending || audioDraft) return;
+    if (selected.length + draftFiles.length > 3 || selected.reduce((sum,file)=>sum+file.size,0) + draftFiles.reduce((sum,file)=>sum+file.size,0) > 16 * 1024 * 1024) {
+      setPageError("Envie até 3 arquivos por mensagem, com no máximo 16 MB no total."); return;
+    }
+    fileUploadRef.current = true; setUploadingFiles(true); setPageError(null); voice.stop();
+    try {
+      for (const file of selected) {
+        const metadata = customerFileMetadata(file.name, file.size);
+        const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+        const sha256 = [...new Uint8Array(digest)].map(n => n.toString(16).padStart(2, "0")).join("");
+        const prepared = await toolJson<{file: BiaCustomerFile; uploadUrl?: string; ready?: boolean}>(customerTool, "files_prepare", { ...metadata, sha256, clientId: crypto.randomUUID() });
+        if (!prepared.ready) {
+          if (!prepared.uploadUrl) throw new Error("Não foi possível preparar o envio do arquivo.");
+          const upload = await fetch(prepared.uploadUrl, {method: "PUT", headers: {"Content-Type": metadata.mime, "x-upsert": "false"}, body: file});
+          if (!upload.ok) throw new Error("O arquivo não terminou de carregar. Selecione-o novamente para tentar de novo.");
+        }
+        const confirmed = await toolJson<{file: BiaCustomerFile}>(customerTool, "files_confirm", {fileId: prepared.file.id});
+        setDraftFiles(current => [...current, confirmed.file]);
+        setCustomerFiles(current => [...current, confirmed.file]);
+      }
+    } catch (error) { setPageError(error instanceof Error ? error.message : "Não foi possível anexar o arquivo."); }
+    finally { fileUploadRef.current = false; setUploadingFiles(false); }
+  }
+
   const activeAvatarSource = availableAvatarSources.find((source) => !failedAvatarSources.has(source));
 
   const applySession = useCallback((payload: SessionResponse) => {
@@ -435,6 +501,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         ? []
         : initialQuickRepliesRef.current,
     );
+    setCustomerFiles([]);
+    setDraftFiles([]);
     setConversationId(payload.sessionId || null);
     setConversations(payload.conversations || []);
     setResources(payload.resources || []);
@@ -442,7 +510,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   }, [experience]);
 
   async function navigateConversation(operation: "new" | "select" | "older", id?: string) {
-    if (navigationInFlightRef.current || sending || audioBusy || initializing || isRecording || microphonePending || audioDraft) return;
+    if (navigationInFlightRef.current || sending || audioBusy || initializing || isRecording || microphonePending || audioDraft || fileUploadRef.current || draftFiles.length) return;
+    voice.stop();
     navigationInFlightRef.current = true;
     const older = operation === "older";
     if (older) setLoadingOlder(true); else setInitializing(true);
@@ -586,10 +655,12 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   }, []);
 
   async function sendMessage(value: string, options: SendMessageOptions = {}) {
-    const message = value.trim();
+    const sendingFiles = options.customerFiles || draftFiles;
+    const message = value.trim() || (sendingFiles.length ? "Analise os arquivos que anexei e me ajude com esta solicitação." : "");
     if (
       !message
       || sending
+      || fileUploadRef.current
       || sendInFlightRef.current
       || recordingStartingRef.current
       || initializing
@@ -599,6 +670,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
     pinnedToBottomRef.current = true;
     const clientMessageId = options.clientMessageId || crypto.randomUUID();
     const userMessageId = options.existingUserMessageId || clientMessageId;
+    voice.prepare(); voice.arm(clientMessageId);
+    setDraftFiles([]);
     const createdAt = new Date().toISOString();
     setInput("");
     if (inputRef.current) inputRef.current.style.height = "47px";
@@ -621,6 +694,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
         ...current,
         {
           id: clientMessageId,
+          customerFiles: sendingFiles,
           direction: "user",
           content: message,
           createdAt,
@@ -658,6 +732,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
               message,
               conversationId,
               clientMessageId,
+              fileIds: sendingFiles.map(file => file.id),
               source: options.source || "text",
               transcriptionRequestId: options.transcriptionRequestId || null,
             }),
@@ -703,6 +778,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
           commercial: payload.commercial,
         },
       ]);
+      setCustomerFiles(current => current.map(file => sendingFiles.some(sent => sent.id === file.id) ? { ...file, messageId: userMessageId } : file));
       if (options.source === "audio") audioPayloadsRef.current.delete(userMessageId);
       setResources(current => [...current, { simulation: payload.simulation, attachments: payload.attachments }]);
       setConversations(current => current.map(item => item.id === conversationId ? { ...item, title: item.title === "Nova conversa" ? message.slice(0, 80) : item.title, updatedAt: new Date().toISOString() } : item));
@@ -731,6 +807,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
 
   function retryMessage(message: UiMessage) {
     void sendMessage(message.content, {
+      customerFiles: message.customerFiles,
       clientMessageId: message.id,
       existingUserMessageId: message.id,
       source: message.source || "text",
@@ -878,6 +955,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   }
 
   async function startRecording() {
+    if (draftFiles.length || fileUploadRef.current) return;
+    voice.stop();
     if (initializing || sending || audioBusy || audioDraft || isRecording || recordingStartingRef.current) return;
     if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
       setPageError("A gravação não está disponível neste navegador. Você pode escrever sua mensagem.");
@@ -997,7 +1076,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
   }
 
   const workspaceResources = collectBiaResources(resources);
-  const conversationBusy = initializing || sending || audioBusy || isRecording || microphonePending || Boolean(audioDraft) || loadingOlder;
+  const conversationBusy = initializing || sending || audioBusy || isRecording || microphonePending || Boolean(audioDraft) || loadingOlder || uploadingFiles || draftFiles.length > 0;
 
   const style = {
     "--pa-accent": theme.accent || "#2f6d4f",
@@ -1012,6 +1091,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
       <section className="public-agent-shell">
         <section className="public-agent-chat-card" aria-label={`Conversa com a ${agentName}`} aria-busy={initializing || sending || audioBusy} data-identified={converted}>
           <AssistantHeader name={agentName} subtitle={sending ? "digitando…" : audioBusy ? "Transcrevendo áudio…" : "Vendas e atendimento ao cliente"} organization={PUBLIC_AGENT_BRAND_LINE} avatar={activeAvatarSource} onAvatarError={() => activeAvatarSource && setFailedAvatarSources(current => new Set(current).add(activeAvatarSource))}>
+            <BiaNotificationBell tool={customerTool} enabled={Boolean(conversationId)} busy={conversationBusy} revision={messages.filter(message => message.direction === "assistant").length} onConversation={id => id === conversationId ? closeDetails() : void navigateConversation("select", id)} />
+            <VoiceToggle voice={voice} disabled={initializing || isRecording || microphonePending || audioBusy || uploadingFiles} />
             <button className="arisa-icon-button" onClick={() => setDetailsOpen(true)} aria-label="Abrir conversas e opções" aria-expanded={detailsOpen || Boolean(activePanel)}><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h14" /></svg></button>
           </AssistantHeader>
           {detailsOpen && !activePanel && <AssistantConversationMenu organization={PUBLIC_AGENT_BRAND_LINE} conversations={conversations} selectedId={conversationId} busy={conversationBusy} onClose={closeDetails} onNew={() => void navigateConversation("new")} onSelect={id => id === conversationId ? closeDetails() : void navigateConversation("select", id)}>
@@ -1022,8 +1103,9 @@ export function PublicAgentExperience({ slug, experience }: Props) {
             <Link href="/">Abrir plataforma</Link>
             <a href="/privacidade" target="_blank" rel="noopener noreferrer">Política de Privacidade</a>
           </AssistantConversationMenu>}
-          {activePanel && <BiaWorkspacePanel activePanel={activePanel} onClose={closeDetails} onBack={() => setActivePanel(null)} busy={conversationBusy} onRequestSimulation={() => { closeDetails(); setInput("Quero fazer uma simulação de pagamento."); window.requestAnimationFrame(() => inputRef.current?.focus()); }} profile={profile} protocol={protocol} simulations={workspaceResources.simulations} attachments={workspaceResources.attachments} messages={messages} />}
+          {activePanel && <BiaWorkspacePanel activePanel={activePanel} onClose={closeDetails} onBack={() => setActivePanel(null)} busy={conversationBusy} onRequestSimulation={() => { closeDetails(); setInput("Quero fazer uma simulação de pagamento."); window.requestAnimationFrame(() => inputRef.current?.focus()); }} profile={profile} protocol={protocol} simulations={workspaceResources.simulations} attachments={workspaceResources.attachments} customerFiles={customerFiles.filter(file => file.messageId)} onOpenFile={file => void openCustomerFile(file)} messages={messages} />}
 
+          <VoiceBar voice={voice} assistantName="Bia" />
           <div ref={messagesRef} onScroll={(event) => { const pane = event.currentTarget; pinnedToBottomRef.current = pane.scrollHeight - pane.scrollTop - pane.clientHeight < 100; }} className="public-agent-messages" role="log" aria-label="Histórico da conversa" aria-live="off">
             {hasOlder && <button className="arisa-load-older" disabled={conversationBusy} onClick={() => void navigateConversation("older")}>{loadingOlder ? "Carregando…" : "Carregar mensagens anteriores"}</button>}
             {visibleMessages.map((message) => (
@@ -1036,8 +1118,9 @@ export function PublicAgentExperience({ slug, experience }: Props) {
                       onRetry={(messageId) => void transcribeAndSend(messageId)}
                     />
                   ) : (
-                    <MessageText content={message.content} />
+                    message.direction === "assistant" && message.id !== "welcome" ? <VoiceMessage message={voiceMessage(message)} voice={voice} assistantName="Bia" disabled={initializing || isRecording || microphonePending || audioBusy || uploadingFiles} /> : <MessageText content={message.content} />
                   )}
+                  {(message.customerFiles || customerFiles.filter(file => file.messageId === message.id)).map(file => <button type="button" className="arisa-file" key={file.id} onClick={() => void openCustomerFile(file)}><span>{file.name}<small>{Math.max(1, Math.round(file.size / 1024))} KB · Arquivo enviado</small></span></button>)}
                   {message.simulation && <SimulationView simulation={message.simulation} />}
                   {message.commercial && !message.simulation && (
                     <CommercialUnitsView
@@ -1094,7 +1177,7 @@ export function PublicAgentExperience({ slug, experience }: Props) {
                   key={reply}
                   type="button"
                   onClick={() => void sendMessage(reply)}
-                  disabled={sending || audioBusy || isRecording || Boolean(audioDraft)}
+                  disabled={sending || audioBusy || isRecording || Boolean(audioDraft) || uploadingFiles || draftFiles.length > 0}
                 >
                   {reply}
                 </button>
@@ -1102,6 +1185,9 @@ export function PublicAgentExperience({ slug, experience }: Props) {
             </div>
           )}
 
+          <input ref={fileInputRef} type="file" hidden multiple accept={BIA_FILE_ACCEPT} onChange={event => { const files = Array.from(event.target.files || []); event.target.value = ""; if (files.length) void attachFiles(files); }} />
+          {uploadingFiles && <p className="bia-file-status" role="status">Carregando e verificando os arquivos…</p>}
+          {!!draftFiles.length && <div className="arisa-draft-files" aria-label="Arquivos para enviar">{draftFiles.map(file => <div key={file.id}><button type="button" className="arisa-file" onClick={() => void openCustomerFile(file)}><span>{file.name}<small>{Math.max(1, Math.round(file.size / 1024))} KB</small></span></button><button type="button" disabled={uploadingFiles || sending} aria-label={`Remover ${file.name} da mensagem`} onClick={() => setDraftFiles(current => current.filter(item => item.id !== file.id))}>×</button></div>)}</div>}
           {pageError && <div className="public-agent-alert" role="alert">{pageError}</div>}
 
           {isRecording ? (
@@ -1153,7 +1239,8 @@ export function PublicAgentExperience({ slug, experience }: Props) {
               </button>
             </div>
           ) : (
-            <div className="public-agent-composer">
+            <div className="public-agent-composer arisa-composer">
+              <button className="arisa-attach" type="button" disabled={initializing || sending || audioBusy || microphonePending || uploadingFiles || draftFiles.length >= 3} onClick={() => fileInputRef.current?.click()} aria-label="Anexar documento"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m8 12 7-7a4 4 0 0 1 6 6L10 22a6 6 0 0 1-8-8L13 3M6 16l9-9" /></svg></button>
               <textarea
                 ref={inputRef}
                 value={input}
@@ -1171,11 +1258,11 @@ export function PublicAgentExperience({ slug, experience }: Props) {
               />
               <button
                 type="button"
-                onClick={() => input.trim() ? void sendMessage(input) : void startRecording()}
-                disabled={initializing || sending || audioBusy || microphonePending}
-                aria-label={microphonePending ? "Aguardando permissão do microfone" : input.trim() ? "Enviar mensagem" : "Gravar mensagem de voz"}
+                onClick={() => input.trim() || draftFiles.length ? void sendMessage(input) : void startRecording()}
+                disabled={initializing || sending || audioBusy || microphonePending || uploadingFiles}
+                aria-label={microphonePending ? "Aguardando permissão do microfone" : (input.trim() || draftFiles.length) ? "Enviar mensagem" : "Gravar mensagem de voz"}
               >
-                <PublicAgentIcon name={input.trim() ? "send" : "mic"} />
+                <PublicAgentIcon name={input.trim() || draftFiles.length ? "send" : "mic"} />
               </button>
             </div>
           )}

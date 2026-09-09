@@ -54,6 +54,14 @@ test('late network results cannot restart stopped speech',async()=>{
  const audio=audioFake();let resolve;const q=new VoiceQueue(audio,()=>new Promise(r=>{resolve=r}),()=>{});
  await q.enable();const run=q.read('reply','Não repetir nenhuma ação.');q.stop(true);resolve(new ArrayBuffer(64));await run;assert.equal(audio.plays,0);assert.equal(q.state.enabled,false);
 });
+
+test('a delayed resume cannot overwrite stop or disable state',async()=>{
+ const audio=audioFake();let resumed;audio.resume=()=>new Promise(resolve=>{resumed=resolve});
+ const q=new VoiceQueue(audio,async()=>new ArrayBuffer(64),()=>{});await q.enable();
+ const reading=q.read('reply','Resposta de teste.');await tick();await q.pause();
+ const resuming=q.resume();q.stop(true);resumed();await resuming;await reading;
+ assert.equal(q.state.phase,'idle');assert.equal(q.state.enabled,false);assert.equal(q.state.messageId,null);
+});
 test('replay never invokes a business action and destroy closes audio',async()=>{
  const audio=audioFake(),calls=[];const q=new VoiceQueue(audio,async(id,index)=>{calls.push({id,index});return new ArrayBuffer(64)},()=>{});
  await q.enable();for(let i=0;i<2;i++){const run=q.read('same-reply','Reunião criada.');await tick();audio.finish();await run;}

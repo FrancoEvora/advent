@@ -38,8 +38,9 @@ export class VoiceQueue<Buffer> {
   }
   async resume() {
     if (!this.paused) return;
-    try { await this.audio.resume(); this.paused = false; this.update({ phase: this.beforePause }); this.waiting?.(); this.waiting = null; }
-    catch { this.update({ error: "O áudio está pausado pelo aparelho. Toque em continuar novamente." }); }
+    const revision = this.revision;
+    try { await this.audio.resume(); if (revision !== this.revision || !this.paused) return; this.paused = false; this.update({ phase: this.beforePause }); this.waiting?.(); this.waiting = null; }
+    catch { if (revision === this.revision) this.update({ error: "O áudio está pausado pelo aparelho. Toque em continuar novamente." }); }
   }
   private async ready(revision: number) {
     if (this.paused && revision === this.revision) await new Promise<void>(resolve => { this.waiting = resolve; });

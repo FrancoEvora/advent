@@ -150,6 +150,7 @@ export async function POST(request: NextRequest) {
       || typeof body.message !== "string"
       || typeof body.clientMessageId !== "string"
       || !CLIENT_MESSAGE_ID.test(body.clientMessageId)
+      || body.fileIds != null && (!Array.isArray(body.fileIds) || body.fileIds.length>3 || body.fileIds.some(id=>typeof id!=="string" || !CLIENT_MESSAGE_ID.test(id)) || new Set(body.fileIds).size!==body.fileIds.length)
       || body.conversationId != null && (typeof body.conversationId !== "string" || !CLIENT_MESSAGE_ID.test(body.conversationId))
       || (
         body.source === "audio"
@@ -172,6 +173,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = normalizePresentation(await respondPublicAgentMessage({
+      fileIds: Array.isArray(body.fileIds) ? body.fileIds as string[] : undefined,
       conversationId: typeof body.conversationId === "string" ? body.conversationId : undefined,
       slug: body.slug,
       token,

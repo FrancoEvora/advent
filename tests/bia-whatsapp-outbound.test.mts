@@ -51,6 +51,15 @@ test('authentication and current organization membership precede Meta access', a
     assert.equal(s.calls.some(c => c.action === 'start'), false);
   }
 });
+test('static approved footer and quick replies participate in preview and hash; URL buttons remain blocked', async () => {
+  const components = [...approved.components, { type: 'FOOTER', text: 'Para não receber mensagens, toque em Cancelar mensagens.' },
+    { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Cancelar mensagens' }] }];
+  const template = await biaApprovedOpening(credentials, (async () => Response.json({ data: [{ ...approved, components }] })) as typeof fetch);
+  assert.deepEqual(template.buttons, ['Cancelar mensagens']); assert.match(template.plainText, /Opções: Cancelar mensagens/);
+  assert.notEqual(template.hash, (await biaApprovedOpening(credentials, scenario().http)).hash);
+  components[2] = { type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Link' }] };
+  await assert.rejects(biaApprovedOpening(credentials, (async () => Response.json({ data: [{ ...approved, components }] })) as typeof fetch));
+});
 test('requires consent and matching preview; never dispatches a changed template', async () => {
   for (const extra of [{ consent: false }, { hash: 'wrong' }, { phone: 'bad' }]) {
     const s = scenario(); assert.equal((await request(s, extra)).status, 400); assert.equal(s.posts.length, 0);

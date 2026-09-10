@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { client } from '../arisa/chat-client';
 import { biaDeliveryLabel, biaOutboundError } from './outbound-display';
 
-type Template = { body: string; hash: string; name: string; language: string };
+type Template = { body: string; footer?: string; buttons?: string[]; hash: string; name: string; language: string };
 type Result = { id: string; status: string; phone?: string; threadId?: string; errorCode?: string };
 export function BiaStartConversation({ organizationId, userId, initialPhone = '', onClose }: {
   organizationId: string; userId: string; initialPhone?: string; onClose: (threadId?: string) => void;
@@ -81,7 +81,7 @@ export function BiaStartConversation({ organizationId, userId, initialPhone = ''
     <div className="bia-inbox-toolbar"><h2 id="bia-start-title">Iniciar conversa pelo WhatsApp</h2><button type="button" disabled={busy} onClick={close}>Voltar aos atendimentos</button></div>
     <form onSubmit={send}>
       <label>WhatsApp do destinatário, com DDD<input type="tel" name="recipient" autoComplete="tel" placeholder="(34) 99999-9999" required maxLength={30} value={phone} disabled={busy || Boolean(sent)} onChange={e => setPhone(e.target.value)} /></label>
-      <div className="bia-opening-preview"><strong>Mensagem de boas-vindas aprovada</strong>{template ? <p>{template.body}</p> : <p>Consultando a mensagem aprovada na Meta…</p>}</div>
+      <div className="bia-opening-preview"><strong>Mensagem de boas-vindas aprovada</strong>{template ? <><p>{template.body}</p>{template.footer&&<p className="bia-opening-footer">{template.footer}</p>}{Boolean(template.buttons?.length)&&<div className="bia-opening-options" aria-label="Opções da mensagem">{template.buttons?.map(label=><span key={label}>{label}</span>)}</div>}</> : <p>Consultando a mensagem aprovada na Meta…</p>}</div>
       {!sent && <><label className="bia-outbound-consent"><input type="checkbox" checked={consent} required disabled={busy} onChange={e => setConsent(e.target.checked)} /><span>Confirmo que este contato autorizou receber mensagens da Bia pelo WhatsApp.</span></label>
         <div className="bia-opening-actions"><button type="submit" disabled={busy || !template || !consent || !phone}>{busy ? 'Aguarde…' : 'Enviar mensagem de boas-vindas'}</button><button type="button" disabled={busy} onClick={() => void loadTemplate()}>Atualizar mensagem</button></div></>}
       {result && <div className="bia-opening-status" role="status"><strong>{biaDeliveryLabel[result.status] || result.status}</strong>{result.phone && <span>Destinatário: +{result.phone}</span>}

@@ -369,9 +369,9 @@ function AttachmentView({ attachment }: { attachment: PublicAgentAttachment }) {
   if (!attachment.url) return null;
   return (
     <a className="public-agent-document-card" href={attachment.url} rel="noreferrer" target="_blank">
-      <span>Documento</span>
+      <span>{attachment.type === "link" ? "Atendimento" : "Documento"}</span>
       <strong>{attachment.title}</strong>
-      <small>{attachment.badge || attachment.description || "Abrir arquivo"}</small>
+      <small>{attachment.badge || attachment.description || (attachment.type === "link" ? "Abrir atendimento" : "Abrir arquivo")}</small>
     </a>
   );
 }

@@ -1,0 +1,8 @@
+.grid{display:grid;grid-template-columns:minmax(190px,1fr) minmax(0,2fr);gap:20px;align-items:start}
+.contacts,.history{min-width:0}
+.contacts{max-height:65dvh;overflow:auto;overscroll-behavior:contain}
+.contacts .contact{display:grid;gap:7px;width:100%;text-align:left;margin:0 0 10px;padding:14px;min-height:80px}
+.contact[aria-current]{background:#e8f3da;box-shadow:inset 4px 0 #79b82b}
+.contact span{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;font-weight:400;line-height:1.45;overflow-wrap:anywhere}
+.contact strong{overflow-wrap:anywhere}
+@media(max-width:650px){.grid{grid-template-columns:minmax(0,1fr)}.contacts{max-height:240px;border-bottom:1px solid #dce5d4;padding-bottom:10px}.history{padding-bottom:20px}}

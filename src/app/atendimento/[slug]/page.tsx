@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 
 import { PublicAgentExperience } from "@/components/public-agent/PublicAgentExperience";
@@ -34,6 +34,7 @@ export const viewport: Viewport = {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
+  if (slug === "solaris") return { title: "Bia — Gestora comercial da Évora", robots: { index: false, follow: false } };
   const experience = await experienceOrNull(slug);
   if (!experience) {
     return {
@@ -70,6 +71,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function PublicAgentPage({ params }: PageProps) {
   const { slug } = await params;
+  if (slug === "solaris") redirect("/bia");
   const experience = await experienceOrNull(slug);
   if (!experience) notFound();
   return <PublicAgentExperience slug={experience.slug} experience={experience} />;

@@ -5,6 +5,7 @@ import { mailService, sendArisaMail } from "../_shared/arisa-mail-runtime.ts";
 import { runCalendarTool } from "../_shared/arisa-calendar-runtime.ts";
 import { CALENDAR_ERRORS } from "../_shared/arisa-calendar.ts";
 import { runWhatsAppTool } from "../_shared/arisa-whatsapp-runtime.ts";
+import { runBiaManagerWhatsApp } from "../_shared/bia-manager-whatsapp.ts";
 import { WHATSAPP_ERRORS } from "../_shared/arisa-whatsapp.ts";
 
 const HEADERS = { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization, apikey, content-type, x-client-info", "access-control-allow-methods": "POST, OPTIONS", "cache-control": "no-store", "content-type": "application/json; charset=utf-8", "x-content-type-options": "nosniff" };
@@ -146,6 +147,9 @@ export async function handleRequest(request: Request): Promise<Response> {
     if (typeof body.messageId !== "string" || !UUID.test(body.messageId)) throw new ManagerError("INVALID_REQUEST", 400);
     const visible = await caller.from("arisa_chat_messages").select("id,thread_id").eq("id", body.messageId).eq("organization_id", org).eq("owner_user_id", userId).eq("role", "user").maybeSingle();
     if (visible.error || !visible.data) throw new ManagerError("NOT_FOUND", 404);
+    const thread = await caller.from("arisa_chat_threads").select("assistant").eq("id", visible.data.thread_id).eq("organization_id", org).eq("owner_user_id", userId).maybeSingle();
+    if (thread.error || !thread.data || !["arisa", "bia"].includes(thread.data.assistant)) throw new ManagerError("NOT_FOUND", 404);
+    const assistant = thread.data.assistant;
     const claimed = await rpc(admin, "arisa_chat_claim", { p_message_id: body.messageId, p_actor_user_id: userId });
     if (!isObject(claimed) || !isObject(claimed.message)) throw new ManagerError("SERVICE_UNAVAILABLE");
     const message = claimed.message;
@@ -172,12 +176,26 @@ export async function handleRequest(request: Request): Promise<Response> {
       if (attached.input) input.push(...attached.input);
     }
     const messageId = body.messageId;
+    const commercialRecords = new Map<string, Obj>();
+    let whatsappReply: string | null = null;
     const execute = async (name: string, args: Obj): Promise<ToolResult> => {
       if (Date.now() >= deadline) throw new ManagerError("ARISA_TIMEOUT");
       if (name === "notifications") return { data: await rpc(caller, "arisa_my_notifications", { p_organization_id: org, p_limit: args.limit ?? 20, p_offset: args.offset ?? 0, p_unread_only: args.unread_only === true }) };
       if (name === "catalog") return { data: await rpc(caller, "arisa_admin_catalog", { p_organization_id: org, p_entity: args.entity ?? null }) };
       if (name === "operations") return { data: await rpc(caller, "arisa_admin_operations", { p_organization_id: org }) };
-      if (name === "query") return { data: await rpc(caller, "arisa_admin_query", { p_organization_id: org, p_entity: args.entity, p_filters: args.filters ?? [], p_search: args.search ?? null, p_limit: args.limit ?? 50, p_offset: args.offset ?? 0, p_sum_column: args.sum_column ?? null, p_group_column: args.group_column ?? null }) };
+      if (name === "query") {
+        const data = await rpc(caller, "arisa_admin_query", { p_organization_id: org, p_entity: args.entity, p_filters: args.filters ?? [], p_search: args.search ?? null, p_limit: args.limit ?? 50, p_offset: args.offset ?? 0, p_sum_column: args.sum_column ?? null, p_group_column: args.group_column ?? null });
+        if (args.entity === "crm_records" && isObject(data) && Array.isArray(data.rows)) for (const row of data.rows.filter(isObject)) if (typeof row.id === "string") commercialRecords.set(row.id,row);
+        return {data};
+      }
+      if (name === "commercial" && assistant === "bia") {
+        if (args.action === "simulate") return {data:await rpc(caller,"bia_manager_simulate",{p_organization_id:org,p_unit_code:args.unit_code,p_project_id:args.project_id??null,p_requested_down_payment_pct:args.requested_down_payment_pct??null,p_requested_months:args.requested_months??null,p_down_payment_installments:args.down_payment_installments??1,p_balloon_count:args.balloon_count??0,p_balloon_amount:args.balloon_amount??0})};
+        const filters:Obj[] = [{column:"active",operator:"eq",value:true}];
+        if (args.project_id) filters.push({column:"project_id",operator:"eq",value:args.project_id});
+        if (args.action === "inventory" && args.unit_code) filters.push({column:"unit_code",operator:"eq",value:args.unit_code});
+        if (!["inventory","policy"].includes(String(args.action))) throw new Error("Ação comercial inválida.");
+        return {data:await rpc(caller,"arisa_admin_query",{p_organization_id:org,p_entity:args.action === "inventory" ? "crm_inventory_units" : "crm_negotiation_parameters",p_filters:filters,p_limit:50})};
+      }
       if (name === "execute") {
         const identity = { action: args.action, entity: args.entity, record_id: args.record_id ?? null, values: args.values };
         return { data: await rpc(caller, "arisa_admin_execute", { p_organization_id: org, p_message_id: messageId, p_operation_key: await operationKey(name, identity), p_action: args.action, p_entity: args.entity, p_record_id: args.record_id ?? null, p_values: args.values, p_revision: args.revision ?? null, p_summary: args.summary, p_lease: activeLease }) };
@@ -215,6 +233,11 @@ export async function handleRequest(request: Request): Promise<Response> {
       if (name === "email_status") return {data:await mailService(admin,"status",org,userId)};
       if (name === "send_email") return {data:await sendArisaMail(caller,admin,org,userId,args,{requestId:messageId,messageId,lease:activeLease})};
       if (name === "calendar") return {data:await runCalendarTool(admin,org,userId,String(args.action||""),args,{requestId:messageId,messageId,lease:activeLease})};
+      if (name === "whatsapp" && assistant === "bia") {
+        const result = await runBiaManagerWhatsApp(args,{organizationId:org,actor:userId,threadId,messageId,message:String(message.content),records:[...commercialRecords.values()],callerRpc:(name,args)=>rpc(caller,name,args),adminRpc:async(name,args)=>{try{return await rpc(admin,name,args);}catch(error){throw new Error(error instanceof Error ? error.message.match(/BIA_[A-Z_]+/)?.[0] || "BIA_OUTBOUND_UNAVAILABLE" : "BIA_OUTBOUND_UNAVAILABLE");}}});
+        if (typeof result.reply === "string") whatsappReply = result.reply;
+        return {data:result};
+      }
       if (name === "whatsapp") {
         try { return {data:await runWhatsAppTool(admin,org,userId,String(args.action||""),args,{requestId:messageId,messageId,lease:activeLease,inputCountry:"BR"})}; }
         catch (error) {
@@ -250,9 +273,9 @@ export async function handleRequest(request: Request): Promise<Response> {
       }
       throw new Error("Ferramenta não disponível.");
     };
-    const generated = await runManager({ apiKey: config.api_key, model: config.agent_model, reasoning: typeof config.agent_reasoning === "string" ? config.agent_reasoning : undefined, context: { organization_id: org, administrator_id: userId, now: new Date().toISOString(), timezone: "America/Sao_Paulo", catalog }, input, execute, deadline,
+    const generated = await runManager({ apiKey: config.api_key, model: config.agent_model, reasoning: typeof config.agent_reasoning === "string" ? config.agent_reasoning : undefined, context: { assistant, organization_id: org, administrator_id: userId, now: new Date().toISOString(), timezone: "America/Sao_Paulo", catalog }, input, execute, deadline,
       record:async event=>{await rpc(admin,"arisa_trace",{p_message_id:messageId,p_lease:activeLease,p_event:event});} });
-    const saved = await rpc(admin, "arisa_chat_finish", { p_message_id: messageId, p_lease: claim.lease, p_content: generated.text, p_metadata: { model: generated.model, usage: generated.usage, tool_count: generated.tool_count, support_reference: reference, estimated_cost: null, cost_status: "provider_pricing_not_configured" } });
+    const saved = await rpc(admin, "arisa_chat_finish", { p_message_id: messageId, p_lease: claim.lease, p_content: whatsappReply || generated.text, p_metadata: { assistant, model: generated.model, usage: generated.usage, tool_count: generated.tool_count, support_reference: reference, estimated_cost: null, cost_status: "provider_pricing_not_configured" } });
     claim = null;
     return json({ ok: true, message: saved });
   } catch (error) {

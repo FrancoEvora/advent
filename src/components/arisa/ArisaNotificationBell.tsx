@@ -6,7 +6,7 @@ import { client } from "./chat-client";
 import styles from "./notifications.module.css";
 
 type Notice = { id: string; title: string; message: string; read_at: string | null; created_at: string };
-export default function ArisaNotificationBell({ organizationId }: { organizationId: string }) {
+export default function ArisaNotificationBell({ organizationId, assistantName = "Arisa" }: { organizationId: string; assistantName?: string }) {
   const [items, setItems] = useState<Notice[]>([]);
   const [unread, setUnread] = useState(0);
   const [open, setOpen] = useState(false);
@@ -44,11 +44,11 @@ export default function ArisaNotificationBell({ organizationId }: { organization
     if (mounted.current) { if (result.error) setError("Não foi possível marcar o aviso como lido."); else await refresh(); setBusy(false); }
   }
   return <div ref={root} className={styles.root}>
-    <button ref={trigger} type="button" className="arisa-icon-button" aria-label={`Avisos da Arisa${unread ? `, ${unread} não lidos` : ""}`} aria-expanded={open} aria-controls="arisa-notifications" onClick={() => { setOpen(value => !value); void refresh(); }}>
+    <button ref={trigger} type="button" className="arisa-icon-button" aria-label={`Avisos da ${assistantName}${unread ? `, ${unread} não lidos` : ""}`} aria-expanded={open} aria-controls="arisa-notifications" onClick={() => { setOpen(value => !value); void refresh(); }}>
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4" /></svg>
       {unread > 0 && <span className={styles.badge} aria-hidden="true">{unread > 99 ? "99+" : unread}</span>}
     </button>
-    {open && <section id="arisa-notifications" className={styles.panel} aria-label="Avisos da Arisa">
+    {open && <section id="arisa-notifications" className={styles.panel} aria-label={`Avisos da ${assistantName}`}>
       <div className={styles.heading}><strong>Novidades para você</strong><button type="button" onClick={() => setOpen(false)} aria-label="Fechar avisos">×</button></div>
       <p>Pedidos de reunião, recados e assuntos que aguardam sua atenção.</p>
       {error && <p role="alert">{error} <button type="button" onClick={() => void refresh()}>Atualizar</button></p>}
@@ -62,7 +62,7 @@ export default function ArisaNotificationBell({ organizationId }: { organization
         {!items.length && !error && <p>Nenhum aviso registrado para você.</p>}
       </div>
       <Link href="/agenda">Ver todas as notificações na plataforma</Link>
-      <small>Você também pode perguntar à Arisa: “Tem alguma novidade para mim?”</small>
+      <small>Você também pode perguntar à {assistantName}: “Tem alguma novidade para mim?”</small>
     </section>}
   </div>;
 }

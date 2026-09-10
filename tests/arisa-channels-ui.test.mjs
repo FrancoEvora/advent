@@ -59,7 +59,8 @@ test("workspace mounts dedicated channels and WhatsApp never changes the shared 
   assert.match(source, /webhook_confirmed:/);
   assert.match(source, /A conferência não reenvia a mensagem/);
   const workspace = readFileSync("src/components/arisa/ArisaWorkspace.tsx", "utf8");
-  assert.match(workspace, /tab === "whatsapp" \? <ArisaWhatsAppPanel/);
+  assert.match(workspace, /assistant === "bia" \? <BiaWhatsAppPanel/);
+  assert.match(workspace, /: <ArisaWhatsAppPanel/);
   assert.match(workspace, /tab === "email" \|\| tab === "agenda"/);
   assert.match(workspace, /if \(tab !== "archive" && tab !== "memory"\) return/);
 });

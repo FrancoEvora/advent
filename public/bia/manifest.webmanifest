@@ -1,0 +1,23 @@
+{
+  "name": "Bia — Gestora comercial da Évora",
+  "short_name": "Bia",
+  "description": "Gestão comercial privada da Évora: leads, CRM, vendas e atendimento.",
+  "start_url": "/bia",
+  "scope": "/bia",
+  "display": "standalone",
+  "background_color": "#efeae2",
+  "theme_color": "#79B82B",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "/bia/icon-192-v1.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/bia/icon-512-v1.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

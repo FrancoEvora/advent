@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { conversationSearch, mergeMonitorMessages, monitorMessageText, recoverMonitorGap, type MonitorMessage } from "../src/components/arisa/whatsapp-monitor.ts";
-import { assistantWorkspacePanels, workspaceUrl } from "../src/components/arisa/workspace-navigation.ts";
+import { assistantWorkspacePanels, workspaceLabel, workspaceUrl } from "../src/components/arisa/workspace-navigation.ts";
 
 const message = (id: number, status = "sent"): MonitorMessage => ({ id: String(id).padStart(4, "0"), direction: "outbound", content: `Mensagem ${id}`, occurred_at: "2026-09-10T10:00:00.000Z", delivery_status: status });
 
@@ -36,6 +36,7 @@ test("phone search accepts formatted numbers and names treat wildcard characters
 test("monitor is an Arisa menu option and never opens the Arisa channel from Bia", () => {
   assert.ok(assistantWorkspacePanels("arisa").includes("whatsapp-conversations"));
   assert.ok(!assistantWorkspacePanels("bia").includes("whatsapp-conversations"));
+  assert.equal(workspaceLabel("whatsapp", "bia", true), "Conversas da Bia");
   assert.equal(workspaceUrl("whatsapp-conversations"), "/arisa?painel=whatsapp-conversations");
 });
 

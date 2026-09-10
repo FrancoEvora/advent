@@ -1,4 +1,11 @@
 /* Shared Arisa conversation layout; Bia has a commercial identity and isolated customer data. */
+.nav-group .bia-monitor-nav{display:flex;align-items:center;gap:13px;min-height:44px;padding:11px 13px;border-radius:11px;color:var(--green-900);font-size:14px;font-weight:680;text-decoration:none}
+.bia-monitor-nav b{width:23px;text-align:center;font-size:17px}.bia-monitor-nav:hover{background:var(--green-100)}
+.erp-header .bia-monitor-header{display:flex;align-items:center;min-height:44px;max-width:145px;padding:10px 12px;border-radius:10px;background:#e3f3e8;color:#195c46;font-size:13px;font-weight:700;text-decoration:none}
+.erp-header .header-actions:has(.bia-monitor-header){flex-wrap:wrap;justify-content:flex-end}
+.bia-monitor-nav:focus-visible,.bia-monitor-header:focus-visible{outline:3px solid #79b82b;outline-offset:2px}
+.global-module-nav{max-width:calc(100vw - 24px);overflow-x:auto}.global-module-nav a{white-space:nowrap;flex-shrink:0}
+@media(max-width:900px){.global-module-nav{justify-content:flex-start}}
 .public-agent-page.bia-whatsapp.arisa-chat.bia-commercial{--arisa-green:#d3e9de;--arisa-ink:#173f33;--arisa-link:#195c46;--arisa-soft:#e3f3e8;--arisa-surface:#f5f8f5;top:var(--public-agent-viewport-top,0px);height:var(--public-agent-viewport-height,100dvh);width:var(--public-agent-viewport-width,100%);left:var(--public-agent-viewport-left,0px)}
 .bia-commercial .arisa-avatar img{transform:none;object-position:center 25%}
 .bia-commercial .public-agent-chat-head>div:nth-child(2){flex:1;min-width:0}

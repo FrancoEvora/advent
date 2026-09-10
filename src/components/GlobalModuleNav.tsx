@@ -8,5 +8,5 @@ export function GlobalModuleNav(){
  const erpActive=path==="/"||path.startsWith("/crm")||path.startsWith("/pos-venda");
  const marketingActive=path==="/marketing"||path.startsWith("/marketing/");
  const agendaActive=path.startsWith("/agenda");
- return <nav className="global-module-nav" aria-label="Módulos da plataforma"><Link className={erpActive?"active":""} aria-current={erpActive?"page":undefined} href="/">ERP</Link><Link className={marketingActive?"active":""} aria-current={marketingActive?"page":undefined} href="/marketing">Marketing</Link><Link className={agendaActive?"active":""} aria-current={agendaActive?"page":undefined} href="/agenda">Agenda</Link><Link href="/arisa">Arisa</Link><Link href="/bia/gestao">Bia</Link></nav>;
+ return <nav className="global-module-nav" aria-label="Módulos da plataforma"><Link className={erpActive?"active":""} aria-current={erpActive?"page":undefined} href="/">ERP</Link><Link className={marketingActive?"active":""} aria-current={marketingActive?"page":undefined} href="/marketing">Marketing</Link><Link className={agendaActive?"active":""} aria-current={agendaActive?"page":undefined} href="/agenda">Agenda</Link><Link href="/arisa">Arisa</Link><Link href="/bia?painel=whatsapp">Conversas da Bia</Link></nav>;
 }

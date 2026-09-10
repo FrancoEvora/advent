@@ -106,7 +106,7 @@ export type PublicAgentContextPayload = {
 };
 
 export type PublicAgentAttachment = {
-  type: "document" | "image" | "project";
+  type: "document" | "image" | "project" | "link";
   id?: string;
   title: string;
   description?: string | null;

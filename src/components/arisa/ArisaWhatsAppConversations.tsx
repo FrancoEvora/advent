@@ -154,6 +154,6 @@ function ConversationHistory({ organizationId, conversation, onBack }: { organiz
       {messages.map(message => <article key={message.id} className={`${styles.message} ${message.direction === "outbound" ? styles.outbound : styles.inbound}`}><strong>{message.direction === "outbound" ? "Arisa" : conversation.contact_name || "Contato"}</strong><p>{monitorMessageText(message)}</p><div className={styles.messageMeta}><time dateTime={message.occurred_at}>{displayDate(message.occurred_at)}</time><span>{whatsappDeliveryLabel(message)}</span></div>{message.template_name && <small>Modelo: {message.template_name}</small>}</article>)}
     </div>
     {newMessages > 0 && <button className={styles.newMessages} onClick={latest} aria-live="polite">{newMessages} nova(s) mensagem(ns) · Ir para o fim ↓</button>}
-    <footer className={styles.footer}>Acompanhamento das mensagens registradas no canal. A Arisa continua atendendo normalmente.</footer>
+    <footer className={styles.footer}>Histórico do canal da Arisa · Acesso administrativo.</footer>
   </section>;
 }

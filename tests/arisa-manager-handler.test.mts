@@ -25,7 +25,7 @@ function createClient(_url: string, key: string) {
     from: (name: string) => {
       assert.equal(key, "public-test");
       const query = { select: () => query, eq: () => query, lte: () => query, order: () => query, limit: () => query,
-        maybeSingle: async () => ({ error: null, data: visible ? { id: messageId, thread_id: threadId, content: "Resposta anterior" } : null }),
+        maybeSingle: async () => ({ error: null, data: visible ? { assistant: "arisa", id: messageId, thread_id: threadId, content: "Resposta anterior" } : null }),
         then: (resolve: (result: unknown) => unknown) => Promise.resolve({ error: null, data: name === "arisa_chat_actions" ? [] : [{ id: messageId, role: "user", content: "Teste", file_ids: [], created_at: "2026-09-05T12:00:00Z" }] }).then(resolve),
       }; return query;
     },
@@ -43,6 +43,7 @@ const source = readFileSync(new URL("supabase/functions/arisa-manager/index.ts",
   .replaceAll('"../_shared/arisa-calendar-runtime.ts"', JSON.stringify(new URL("supabase/functions/_shared/arisa-calendar-runtime.ts", root).href))
   .replaceAll('"../_shared/arisa-whatsapp.ts"', JSON.stringify(new URL("supabase/functions/_shared/arisa-whatsapp.ts", root).href))
   .replaceAll('"../_shared/arisa-whatsapp-runtime.ts"', JSON.stringify(new URL("supabase/functions/_shared/arisa-whatsapp-runtime.ts", root).href))
+  .replaceAll("\"../_shared/bia-manager-whatsapp.ts\"", JSON.stringify(new URL("supabase/functions/_shared/bia-manager-whatsapp.ts", root).href))
   .replace("Deno.serve(handleRequest);", "");
 const { handleRequest } = await import(`data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(source, { mode: "strip" })).toString("base64")}`);
 const originalFetch = globalThis.fetch;

@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { getSupabase } from "@/lib/supabase";
 import BiaNotificationBell from "../bia/BiaNotificationBell";
 import { useBiaVoice } from "../bia/use-bia-voice";
 import { toolJson } from "../bia/customer-tools-client";
@@ -724,9 +725,11 @@ export function PublicAgentExperience({ slug, experience }: Props) {
           Math.min(CHAT_FETCH_TIMEOUT_MS, remaining),
         );
         try {
+          const operatorSession = await getSupabase()?.auth.getSession();
+          const operatorToken = operatorSession?.data.session?.access_token;
           response = await fetch("/api/public-agent/message", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", ...(operatorToken ? { Authorization: `Bearer ${operatorToken}` } : {}) },
             body: JSON.stringify({
               slug,
               message,

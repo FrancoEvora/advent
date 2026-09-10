@@ -64,25 +64,35 @@ export async function handleBiaOutbound(request: Request, runtime: Runtime): Pro
     if (raw.length > 8192) return json({ ok: false, error: 'BIA_REQUEST_INVALID' }, 400);
     const args: unknown = JSON.parse(raw);
     if (!object(args) || !uuid.test(str(args.organizationId)) || !['preview', 'send', 'status'].includes(str(args.action))) throw new Error('BIA_REQUEST_INVALID');
+    return json({ ok: true, data: await executeBiaOutbound(args, actor, runtime) });
+  } catch (error) {
+    const code = error instanceof Error && /^BIA_[A-Z_]+$/.test(error.message) ? error.message : 'BIA_OUTBOUND_UNAVAILABLE';
+    return json({ ok: false, error: code }, code.includes('FORBIDDEN') ? 403 : 400);
+  }
+}
+
+// Internal service entry point. Callers must verify the actor with Auth; the RPC rechecks organization membership.
+export async function executeBiaOutbound(args: Obj, actor: string, runtime: Pick<Runtime, 'rpc' | 'http'>, fromChat = false): Promise<unknown> {
+  if (!uuid.test(actor) || !uuid.test(str(args.organizationId))) throw new Error('BIA_OUTBOUND_FORBIDDEN');
     const admin = (action: string, data: Obj = {}) => runtime.rpc('bia_whatsapp_outbound_admin', {
       p_organization_id: args.organizationId, p_actor: actor, p_action: action, p_args: data,
     });
     const access = await admin('access');
     if (args.action === 'status') {
       if (!uuid.test(str(args.id))) throw new Error('BIA_REQUEST_INVALID');
-      return json({ ok: true, data: await admin('status', { id: args.id }) });
+      return await admin('status', { id: args.id });
     }
     if (!object(access) || access.enabled !== true) throw new Error('BIA_CHANNEL_DISABLED');
     const credentials = await runtime.rpc('bia_whatsapp_credentials', { p_organization_id: args.organizationId });
     if (!object(credentials)) throw new Error('BIA_CHANNEL_DISABLED');
     const http = runtime.http || fetch;
     const template = await biaApprovedOpening(credentials, http);
-    if (args.action === 'preview') return json({ ok: true, data: template });
+    if (args.action === 'preview') return template;
     const phone = biaInitialPhone(args.phone);
     if (!uuid.test(str(args.id)) || args.consent !== true) throw new Error('BIA_REQUEST_INVALID');
-    if (args.hash !== template.hash) throw new Error('BIA_TEMPLATE_CHANGED');
+    if (!fromChat && args.hash !== template.hash) throw new Error('BIA_TEMPLATE_CHANGED');
     const started = await admin('start', { id: args.id, phone, consent: true, template: TEMPLATE, hash: template.hash, body: template.plainText });
-    if (!object(started) || started.proceed !== true) return json({ ok: true, data: started });
+    if (!object(started) || started.proceed !== true) return started;
     let outcome: Obj = { status: 'unknown', errorCode: 'SEND_UNCONFIRMED' };
     try {
       const response = await http(`https://graph.facebook.com/${credentials.graph_api_version}/${credentials.phone_number_id}/messages`, {
@@ -100,10 +110,6 @@ export async function handleBiaOutbound(request: Request, runtime: Runtime): Pro
         outcome = { status: 'failed', errorCode: 'META_' + String(payload.error.code || response.status).replace(/[^0-9]/g, '').slice(0, 12) };
       }
     } catch { /* A timeout or malformed success is uncertain, never an automatic retry. */ }
-    try { return json({ ok: true, data: await admin('finish', { id: args.id, ...outcome }) }); }
-    catch { return json({ ok: true, data: { ...started, status: 'unknown', errorCode: 'SEND_UNCONFIRMED' } }); }
-  } catch (error) {
-    const code = error instanceof Error && /^BIA_[A-Z_]+$/.test(error.message) ? error.message : 'BIA_OUTBOUND_UNAVAILABLE';
-    return json({ ok: false, error: code }, code.includes('FORBIDDEN') ? 403 : 400);
-  }
+    try { return await admin('finish', { id: args.id, ...outcome }); }
+    catch { return { ...started, status: 'unknown', errorCode: 'SEND_UNCONFIRMED' }; }
 }

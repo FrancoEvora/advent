@@ -94,7 +94,7 @@ function edgeError(code: string, status: number): PublicAgentServerError {
   return new PublicAgentServerError(code || "PUBLIC_AGENT_EDGE_UNAVAILABLE", 503);
 }
 
-async function edgeRequest<T>(action: PublicAgentAction, payload: JsonObject, timeoutMs = 30_000): Promise<T> {
+async function edgeRequest<T>(action: PublicAgentAction, payload: JsonObject, timeoutMs = 30_000, operatorAuthorization?: string): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -102,6 +102,7 @@ async function edgeRequest<T>(action: PublicAgentAction, payload: JsonObject, ti
       method: "POST",
       headers: {
         apikey: publishableKey(),
+        ...(operatorAuthorization?.startsWith("Bearer ") && operatorAuthorization.length < 16000 ? { Authorization: operatorAuthorization } : {}),
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ action, ...payload }),
@@ -223,6 +224,7 @@ export async function openPublicAgentSession(input: {
 }
 
 export async function respondPublicAgentMessage(input: {
+  operatorAuthorization?: string;
   fileIds?: string[];
   conversationId?: string;
   slug: string;
@@ -243,7 +245,7 @@ export async function respondPublicAgentMessage(input: {
     clientMessageId: input.clientMessageId,
     source: input.source,
     transcriptionRequestId: input.transcriptionRequestId || null,
-  }, 90_000);
+  }, 90_000, input.operatorAuthorization);
 }
 
 export async function transcribePublicAgentAudio(input: {

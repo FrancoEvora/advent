@@ -176,6 +176,7 @@ export async function POST(request: NextRequest) {
       fileIds: Array.isArray(body.fileIds) ? body.fileIds as string[] : undefined,
       conversationId: typeof body.conversationId === "string" ? body.conversationId : undefined,
       slug: body.slug,
+      operatorAuthorization: request.headers.get("authorization") || undefined,
       token,
       fingerprint: publicAgentFingerprint(request),
       message,

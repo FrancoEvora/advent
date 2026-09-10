@@ -45,4 +45,4 @@ jobs:
           supabase/functions/enterprise-bia-agent-gateway/index.ts
           supabase/functions/bia-whatsapp-outbound/index.ts
       - name: Validate Bia WhatsApp initiation
-        run: node --test tests/bia-whatsapp-channel.test.mts tests/bia-whatsapp-outbound.test.mts
+        run: node --test tests/bia-whatsapp-channel.test.mts tests/bia-whatsapp-outbound.test.mts tests/bia-runtime-execution.test.mjs

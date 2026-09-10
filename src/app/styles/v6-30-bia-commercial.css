@@ -32,4 +32,20 @@
 .bia-inbox-thread{display:flex;flex-direction:column;min-height:0;min-width:0}
 .bia-inbox-thread .public-agent-messages{flex:1}
 .bia-inbox-toolbar button{border:1px solid #cbdcd2;border-radius:8px;background:#eff6f0;color:#195c46;padding:10px}
+.bia-start-conversation{flex:1;min-height:0;overflow:auto;background:#f6f8f5}
+.bia-start-conversation h2{flex:1;margin:0;font-size:18px;color:#195c46}
+.bia-start-conversation form{display:grid;gap:18px;max-width:650px;margin:auto;padding:20px}
+.bia-start-conversation label{display:grid;gap:7px;color:#254b3d;font-size:14px}
+.bia-start-conversation input[type=tel]{width:100%;padding:12px;border:1px solid #b9cec3;border-radius:8px;background:#fff;font-size:16px;color:#142e24}
+.bia-opening-preview{padding:18px;border:1px solid #d9e7de;border-radius:10px;background:#fff}
+.bia-opening-preview strong{font-size:13px;color:#43765f}
+.bia-opening-preview p{white-space:pre-wrap;line-height:1.6;margin:12px 0 0;color:#142e24}
+.bia-start-conversation .bia-outbound-consent{display:flex;align-items:flex-start;gap:10px;line-height:1.5}
+.bia-outbound-consent input{width:20px;height:20px;margin:0;flex-shrink:0;accent-color:#087e62}
+.bia-opening-actions{display:flex;flex-wrap:wrap;gap:10px}
+.bia-opening-actions button,.bia-opening-status button{padding:12px 15px;border-radius:8px;border:1px solid #bed3c7;background:#fff;color:#195c46;font-size:14px}
+.bia-opening-actions button[type=submit]{background:#087e62;color:#fff;border-color:#087e62}
+.bia-opening-status{display:grid;gap:9px;padding:16px;border:1px solid #c7dfd0;border-radius:8px;background:#eaf6ee;color:#195c46}
+.bia-opening-status p{margin:0;font-size:14px}
+.bia-start-conversation [role=alert]{margin:0;color:#983c2b;font-size:14px}
 @media(max-width:650px){.bia-inbox-grid{grid-template-columns:1fr;grid-template-rows:130px minmax(0,1fr)}.bia-inbox-list{display:flex;gap:8px;border-right:0;border-bottom:1px solid #dce6df}.bia-inbox-list button{min-width:210px}.bia-commercial .public-agent-chat-head small{font-size:10px}}

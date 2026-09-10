@@ -1,8 +1,12 @@
-export const workspacePanels = ["leads", "simulations", "email", "agenda", "whatsapp", "archive", "memory"] as const;
+export const workspacePanels = ["whatsapp-conversations", "leads", "simulations", "email", "agenda", "whatsapp", "archive", "memory"] as const;
 export type WorkspacePanel = typeof workspacePanels[number];
 export const workspaceLabels: Record<WorkspacePanel, string> = {
-  leads: "Leads e funil", simulations: "Simulações", email: "E-mail", agenda: "Agenda e Meet", whatsapp: "WhatsApp", archive: "Arquivo", memory: "Memória",
+  "whatsapp-conversations": "Conversas do WhatsApp", leads: "Leads e funil", simulations: "Simulações", email: "E-mail", agenda: "Agenda e Meet", whatsapp: "WhatsApp", archive: "Arquivo", memory: "Memória",
 };
+
+export function assistantWorkspacePanels(assistant: "arisa" | "bia") {
+  return workspacePanels.filter(key => assistant === "bia" ? key !== "whatsapp-conversations" : !["leads", "simulations"].includes(key));
+}
 
 export function workspaceLabel(panel: WorkspacePanel, assistant: "arisa" | "bia" = "arisa", includeAssistant = false) {
   if (panel === "whatsapp" && assistant === "bia") return "Conversas da Bia";

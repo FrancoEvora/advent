@@ -28,13 +28,21 @@ export async function biaApprovedOpening(credentials: Obj, http: typeof fetch = 
   const template = payload.data.find((t: unknown) => object(t) && t.name === TEMPLATE && t.language === 'pt_BR');
   if (!object(template) || template.status !== 'APPROVED') throw new Error('BIA_TEMPLATE_NOT_APPROVED');
   const components = Array.isArray(template.components) ? template.components : [];
-  // This opening is parameterless. Reject changed media, buttons or parameters before sending.
-  if (components.length !== 1 || !object(components[0]) || components[0].type !== 'BODY') throw new Error('BIA_TEMPLATE_CHANGED');
-  const body = str(components[0].text);
-  if (!body.trim() || body.length > 4000 || body.includes('{{')) throw new Error('BIA_TEMPLATE_CHANGED');
-  const canonical = { name: TEMPLATE, language: 'pt_BR', body, category: str(template.category) };
+  // Parameterless text, footer and static quick replies need no dynamic send components.
+  if (components.some(c => !object(c) || !['BODY', 'FOOTER', 'BUTTONS'].includes(str(c.type)))) throw new Error('BIA_TEMPLATE_CHANGED');
+  const bodies = components.filter(c => object(c) && c.type === 'BODY');
+  const footers = components.filter(c => object(c) && c.type === 'FOOTER');
+  const groups = components.filter(c => object(c) && c.type === 'BUTTONS');
+  if (bodies.length !== 1 || footers.length > 1 || groups.length > 1) throw new Error('BIA_TEMPLATE_CHANGED');
+  const body = str(bodies[0].text), footer = str(footers[0]?.text);
+  const rawButtons = groups.length ? groups[0].buttons : [];
+  if (!Array.isArray(rawButtons) || rawButtons.length > 10 || rawButtons.some(b => !object(b) || b.type !== 'QUICK_REPLY' || !str(b.text).trim())) throw new Error('BIA_TEMPLATE_CHANGED');
+  const buttons = rawButtons.map(b => str(b.text));
+  const plainText = [body, footer, buttons.length ? 'Opções: ' + buttons.join(' · ') : ''].filter(Boolean).join('\n\n');
+  if (!body.trim() || plainText.length > 4000 || plainText.includes('{{')) throw new Error('BIA_TEMPLATE_CHANGED');
+  const canonical = { name: TEMPLATE, language: 'pt_BR', body, footer, buttons, category: str(template.category) };
   const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(canonical))));
-  return { ...canonical, status: 'APPROVED', hash: Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('') };
+  return { ...canonical, plainText, status: 'APPROVED', hash: Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('') };
 }
 
 export async function handleBiaOutbound(request: Request, runtime: Runtime): Promise<Response> {
@@ -73,7 +81,7 @@ export async function handleBiaOutbound(request: Request, runtime: Runtime): Pro
     const phone = biaInitialPhone(args.phone);
     if (!uuid.test(str(args.id)) || args.consent !== true) throw new Error('BIA_REQUEST_INVALID');
     if (args.hash !== template.hash) throw new Error('BIA_TEMPLATE_CHANGED');
-    const started = await admin('start', { id: args.id, phone, consent: true, template: TEMPLATE, hash: template.hash, body: template.body });
+    const started = await admin('start', { id: args.id, phone, consent: true, template: TEMPLATE, hash: template.hash, body: template.plainText });
     if (!object(started) || started.proceed !== true) return json({ ok: true, data: started });
     let outcome: Obj = { status: 'unknown', errorCode: 'SEND_UNCONFIRMED' };
     try {

@@ -40,6 +40,9 @@
 .bia-opening-preview{padding:18px;border:1px solid #d9e7de;border-radius:10px;background:#fff}
 .bia-opening-preview strong{font-size:13px;color:#43765f}
 .bia-opening-preview p{white-space:pre-wrap;line-height:1.6;margin:12px 0 0;color:#142e24}
+.bia-opening-preview .bia-opening-footer{font-size:12px;color:#5e7269}
+.bia-opening-options{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
+.bia-opening-options span{padding:6px 10px;border:1px solid #d0e2d6;border-radius:6px;color:#087e62;font-size:13px}
 .bia-start-conversation .bia-outbound-consent{display:flex;align-items:flex-start;gap:10px;line-height:1.5}
 .bia-outbound-consent input{width:20px;height:20px;margin:0;flex-shrink:0;accent-color:#087e62}
 .bia-opening-actions{display:flex;flex-wrap:wrap;gap:10px}

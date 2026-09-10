@@ -4,6 +4,11 @@ export const workspaceLabels: Record<WorkspacePanel, string> = {
   leads: "Leads e funil", simulations: "Simulações", email: "E-mail", agenda: "Agenda e Meet", whatsapp: "WhatsApp", archive: "Arquivo", memory: "Memória",
 };
 
+export function workspaceLabel(panel: WorkspacePanel, assistant: "arisa" | "bia" = "arisa", includeAssistant = false) {
+  if (panel === "whatsapp" && assistant === "bia") return "Conversas da Bia";
+  return workspaceLabels[panel] + (includeAssistant ? ` da ${assistant === "bia" ? "Bia" : "Arisa"}` : "");
+}
+
 export function workspacePanel(value: unknown): WorkspacePanel | null {
   return typeof value === "string" && workspacePanels.some(panel => panel === value) ? value as WorkspacePanel : null;
 }

@@ -1,9 +1,9 @@
 "use client";
 import { useEffect, useRef, type ReactNode } from "react";
 
-export function AssistantConversationMenu({ organization, conversations, selectedId, busy, onClose, onNew, onSelect, children }: {
+export function AssistantConversationMenu({ organization, conversations, selectedId, busy, onClose, onNew, onSelect, shortcuts, children }: {
   organization: string; conversations: { id: string; title: string }[]; selectedId: string | null;
-  busy: boolean; onClose: () => void; onNew: () => void; onSelect: (id: string) => void; children: ReactNode;
+  busy: boolean; onClose: () => void; onNew: () => void; onSelect: (id: string) => void; shortcuts?: ReactNode; children: ReactNode;
 }) {
   const panel = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -25,6 +25,7 @@ export function AssistantConversationMenu({ organization, conversations, selecte
     <div className="arisa-menu-head"><strong>Suas conversas</strong><button onClick={onClose} aria-label="Fechar menu"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18" /></svg></button></div>
     <small>{organization}</small>
     <button onClick={onNew} disabled={busy}>+ Nova conversa</button>
+    {shortcuts && <div className="arisa-menu-links">{shortcuts}</div>}
     <nav aria-label="Conversas anteriores">{conversations.map(conversation => <button key={conversation.id} aria-current={selectedId === conversation.id ? "page" : undefined} onClick={() => onSelect(conversation.id)} disabled={busy}>{conversation.title}</button>)}</nav>
     <div className="arisa-menu-links">{children}</div>
   </aside>;

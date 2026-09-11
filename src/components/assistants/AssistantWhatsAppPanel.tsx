@@ -83,7 +83,7 @@ export default function AssistantWhatsAppPanel({ organizationId, userId, assista
   }
   if (opening) return <div className={monitor.start}><AssistantStartConversation assistant={assistant} organizationId={organizationId} userId={userId} initialPhone="" onClose={id => { setOpening(false); if (id) selectThread(id); refresh(); }} /></div>;
 
-  return <section className={monitor.panel} aria-label={`Conversas da ${channel.name}`}>
+  return <section className={monitor.panel} aria-label={assistant === "arisa" ? "Conversas da Arisa via WhatsApp" : `Conversas da ${channel.name}`}>
     <div className={monitor.toolbar}><div><strong>{data ? data.enabled && data.verified ? `WhatsApp da ${channel.name} ativo` : `WhatsApp da ${channel.name} em preparação` : 'Carregando atendimentos…'}</strong><small>{data?.phone}</small></div><button onClick={() => setOpening(true)} disabled={!data?.enabled || !data.verified}>Iniciar conversa</button><button onClick={refresh} aria-label="Atualizar atendimentos">↻</button></div>
     {error && <p role="alert" className={styles.error}>{error}</p>}
     <div className={`${monitor.grid} ${thread ? monitor.hasThread : ''}`}><aside className={monitor.sidebar}>

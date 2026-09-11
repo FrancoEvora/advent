@@ -37,7 +37,7 @@ test("monitor is an Arisa menu option and never opens the Arisa channel from Bia
   assert.ok(assistantWorkspacePanels("arisa").includes("whatsapp-conversations"));
   assert.ok(!assistantWorkspacePanels("bia").includes("whatsapp-conversations"));
   assert.equal(workspaceLabel("whatsapp", "bia", true), "Conversas da Bia");
-  assert.equal(workspaceLabel("whatsapp-conversations", "arisa", true), "Conversas da Arisa");
+  assert.equal(workspaceLabel("whatsapp-conversations", "arisa", true), "Conversas da Arisa via WhatsApp");
   assert.equal(workspaceUrl("whatsapp-conversations"), "/arisa?painel=whatsapp-conversations");
 });
 

@@ -90,8 +90,8 @@ test('clarified Bia outreach rechecks the live CRM and sends template 1 once acr
   const context={organizationId:org,actor,threadId,messageId:clarificationId,message:'Final 1159',records:jaquelines,history:orderHistory,
     callerRpc:async(name:string,args:Record<string,unknown>)=>{
       assert.equal(name,'arisa_admin_query');assert.equal(args.p_organization_id,org);
-      assert.deepEqual(args.p_filters,[{column:'id',operator:'eq',value:'jaq1'}]);lookups++;
-      return {total:1,rows:[jaquelines[0]]};
+      assert.deepEqual(args.p_filters,[{column:'person_name',operator:'contains',value:'Jaqueline'}]);lookups++;
+      return {total:2,rows:jaquelines};
     },
     adminRpc:async(name:string,args:Record<string,unknown>)=>{
       if(name==='bia_whatsapp_credentials')return {enabled:true,waba_id:'123',phone_number_id:'456',graph_api_version:'v23.0',access_token:'mock-only'};
@@ -120,6 +120,9 @@ test('clarified Bia outreach rechecks the live CRM and sends template 1 once acr
   assert.equal(retry.status,'accepted');assert.equal(graphPosts,1);assert.equal(lookups,2);
   const expected=await biaChatOperationId(threadId,messageId);assert.deepEqual(ids,[expected,expected]);
   await assert.rejects(()=>runBiaManagerWhatsApp(args,{...context,callerRpc:async()=>({total:1,rows:[{...jaquelines[0],phone:'34999991160'}]})}),/AMBIGUOUS/);
+  // Even if a model returned only one match, the server detects a second live homonym.
+  await assert.rejects(()=>runBiaManagerWhatsApp({action:'send'}, {...context,messageId,message:originalOrder,records:[jaquelines[0]],history:[]}),/AMBIGUOUS/);
+  await assert.rejects(()=>runBiaManagerWhatsApp(args,{...context,callerRpc:async()=>({total:201,rows:jaquelines})}),/AMBIGUOUS/);
   assert.equal(graphPosts,1);
 });
 

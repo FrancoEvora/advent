@@ -18,7 +18,7 @@ function createClient(_url: string, key: string) {
       if (name === "arisa_admin_catalog") return { error: adminAccess ? null : { code: "42501", message: "ADMIN_REQUIRED" }, data: { entities: [] } };
       if (name === "get_crm_ai_runtime_credentials") return { error: null, data: { enabled: true, api_key: "private-test-key-".repeat(4), agent_model: "test-model" } };
       if (name === "arisa_chat_claim") return { error: null, data: { lease: terminal ? null : lease, message: { id: messageId, content: bia ? 'Final 1159' : "Cadastre o fornecedor Teste", created_at: "2026-09-05T12:00:00Z", file_ids: [] } } };
-      if (name === 'arisa_admin_query') return {error:null,data: {total:args.p_search ? 2 : 1,rows:args.p_search ? crmRows : [crmRows[0]]}};
+      if (name === 'arisa_admin_query') return {error:null,data: {total:2,rows:crmRows}};
       if (name === 'bia_whatsapp_credentials') return {error:null,data:{enabled:true,waba_id:'123',phone_number_id:'456',graph_api_version:'v23.0',access_token:'mock-only'}};
       if (name === 'bia_whatsapp_outbound_admin') {
         const data = args.p_args as Obj;

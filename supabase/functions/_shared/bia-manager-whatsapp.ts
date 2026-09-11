@@ -106,11 +106,12 @@ export async function runBiaManagerWhatsApp(args: Obj, context: {
   const order = biaManagerOutreach(context.messageId,context.message,records,context.history);
   const phone = biaManagerRecipient(order.message,args,records,order.clarifications);
   const selected = records.filter(row => { try { return biaInitialPhone(row.phone) === phone; } catch { return false; } });
-  if (selected.length === 1 && typeof selected[0].id === 'string') {
-    const lookup = await callerRpc('arisa_admin_query',{p_organization_id:organizationId,p_entity:'crm_records',p_filters:[{column:'id',operator:'eq',value:selected[0].id}],p_limit:2});
-    if (!object(lookup) || lookup.total !== 1 || !Array.isArray(lookup.rows)) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
+  if (selected.length === 1 && typeof selected[0].id === 'string' && typeof selected[0].person_name === 'string') {
+    // Recheck all homonyms too: a model-selected subset cannot establish uniqueness.
+    const lookup = await callerRpc('arisa_admin_query',{p_organization_id:organizationId,p_entity:'crm_records',p_filters:[{column:'person_name',operator:'contains',value:selected[0].person_name.trim().split(/\s+/)[0]}],p_limit:200});
+    if (!object(lookup) || !Array.isArray(lookup.rows) || lookup.total !== lookup.rows.length || !lookup.rows.length) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
     records = lookup.rows.filter(object);
-    const refreshed = biaManagerRecipient(order.message,args,records,order.clarifications);
+    const refreshed = biaManagerRecipient(order.message,{...args,contact_id:selected[0].id},records,order.clarifications);
     if (refreshed !== phone) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
   }
   const id = await biaChatOperationId(context.threadId,order.messageId);

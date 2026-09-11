@@ -85,6 +85,30 @@ test('a clarification cannot change the authorized recipient, bypass ambiguity, 
   assert.throws(()=>biaManagerOutreach(clarificationId,'Final 1159',jaquelines,[{id:'assistant',role:'assistant',content:originalOrder}]),/EXPLICIT/);
 });
 
+test('actual sales wording, phone suffix variants and retry sequence preserve authorization',()=>{
+  const sales='Venda um lote para a Jaqueline. Via WhatsApp. O final do telefone é o 1159.';
+  const direct=biaManagerOutreach(messageId,sales,jaquelines);
+  assert.equal(biaManagerRecipient(direct.message,{},jaquelines),'5534999991159');
+  for(const suffix of ['O final do telefone é o 1159','Telefone final 1159','Final do número 1159','Termina em 1159']) {
+    const order=biaManagerOutreach(clarificationId,suffix,jaquelines,orderHistory);
+    assert.equal(biaManagerRecipient(order.message,{},jaquelines,order.clarifications),'5534999991159');
+  }
+  const history=[...orderHistory];
+  const turns=['Final 1159','Você tem a autorização','Tente novamente','+55 34 99999-1159 Tente este número','Tente novamente','Tente agora',
+    'Bia, tente de novo, por favor','Continue o envio','Repita agora','Tente novamente'];
+  for(const [index,content] of turns.entries()) {
+    const order=biaManagerOutreach('retry-'+index,content,jaquelines,history);
+    assert.equal(order.messageId,messageId);assert.equal(biaManagerRecipient(order.message,{},jaquelines,order.clarifications),'5534999991159');
+    history.push({id:'retry-'+index,role:'user',content});
+  }
+  for(const message of ['Não venda para Jaqueline via WhatsApp','Como vender para Jaqueline via WhatsApp?','Simule uma venda para Jaqueline pelo WhatsApp',
+    'Venda um lote para Jaqueline','Tente novamente','Tente agora','+55 34 99999-1159 Tente este número']) {
+    assert.throws(()=>biaManagerOutreach(messageId,message,jaquelines),/EXPLICIT/);
+  }
+  assert.throws(()=>biaManagerRecipient('Venda para Jaqueline via WhatsApp, final 1159 ou final 0685',{},jaquelines),/AMBIGUOUS/);
+  assert.throws(()=>biaManagerOutreach(messageId,'Tente novamente',jaquelines,[...orderHistory,{id:'stop',role:'user',content:'Cancele o envio'}]),/EXPLICIT/);
+});
+
 test('clarified Bia outreach rechecks the live CRM and sends template 1 once across subsequent authorizations',async()=>{
   let graphPosts=0,lookups=0;const reserved=new Set<string>();const ids:string[]=[];
   const context={organizationId:org,actor,threadId,messageId:clarificationId,message:'Final 1159',records:jaquelines,history:orderHistory,

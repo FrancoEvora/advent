@@ -46,7 +46,7 @@ export async function biaSendFromChat(input: { actor: string | null; organizatio
     const id = await biaChatOperationId(input.sessionId,input.clientMessageId);
     const result = await executeBiaOutbound({organizationId:input.organizationId,action:'send',id,phone,consent:true},input.actor,runtime,true);
     if (!object(result)) throw new Error('BIA_OUTBOUND_UNAVAILABLE');
-    return {...result,ok:true,phone,template:'bia_boas_vindas',actionExecuted:['accepted','sent','delivered','read'].includes(String(result.status))};
+    return {...result,ok:true,phone,template:'bia_indicacao_investimento',actionExecuted:['accepted','sent','delivered','read'].includes(String(result.status))};
   } catch (error) {
     return {ok:false,actionExecuted:false,phone,error:error instanceof Error && /^BIA_[A-Z_]+$/.test(error.message) ? error.message : 'BIA_OUTBOUND_UNAVAILABLE'};
   }
@@ -55,11 +55,11 @@ export async function biaSendFromChat(input: { actor: string | null; organizatio
 export function biaChatOpeningReply(result: Obj): string {
   const phone = String(result.phone||'');
   const target = /^55\d{10,11}$/.test(phone) ? `+${phone}` : 'o contato';
-  if (result.status==='delivered'||result.status==='read') return `A mensagem de boas-vindas da Bia foi entregue para ${target}. Quando a pessoa responder, continuarei o atendimento por lá.`;
-  if (result.status==='accepted'||result.status==='sent') return `Enviei a mensagem de boas-vindas aprovada para ${target}. A Meta aceitou o envio; a confirmação de entrega ainda está pendente. Quando a pessoa responder, continuarei o atendimento por lá.`;
+  if (result.status==='delivered'||result.status==='read') return `A mensagem de indicação de investimento da Bia foi entregue para ${target}. Quando a pessoa responder, continuarei o atendimento por lá.`;
+  if (result.status==='accepted'||result.status==='sent') return `Enviei a mensagem de indicação de investimento aprovada para ${target}. A Meta aceitou o envio; a confirmação de entrega ainda está pendente. Quando a pessoa responder, continuarei o atendimento por lá.`;
   if (result.error==='BIA_CONTACT_RECENTLY_SENT') return `Já existe um envio recente para ${target}. Não repeti a mensagem.`;
   if (result.error==='BIA_CONTACT_PAUSED') return `Não enviei para ${target}: esse atendimento está pausado ou o contato pediu para não receber mensagens.`;
-  if (result.needs) return 'Informe um único número com DDD no pedido, por exemplo: “Bia, envie a mensagem de boas-vindas para (34) …”.';
+  if (result.needs) return 'Informe um único número com DDD no pedido, por exemplo: “Bia, envie a mensagem de indicação de investimento para (34) …”.';
   if (result.status==='unknown'||result.status==='sending') return `O envio para ${target} ainda não foi confirmado. Não repeti a tentativa para evitar mensagens duplicadas.`;
   if (result.status==='failed') return `A Meta não concluiu o envio para ${target}. A falha ficou registrada na central de atendimentos.`;
   return `Não consegui concluir o envio para ${target}. Nenhuma mensagem foi confirmada; verifique a conexão e o acesso à conta da Bia.`;

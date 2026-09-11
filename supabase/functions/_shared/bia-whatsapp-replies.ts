@@ -1,4 +1,5 @@
 import { transcribeBiaAudio } from './bia-audio-transcription.ts';
+import { biaApprovedTemplate, BIA_INBOUND_TEMPLATE } from './bia-whatsapp-outbound.ts';
 
 type Obj = Record<string, unknown>;
 export type BiaRpc = (name: string, args: Obj) => Promise<unknown>;
@@ -74,6 +75,10 @@ export async function processBiaWhatsApp(input: { rpc: BiaRpc; gatewayUrl: strin
       const credentials = await rpc('bia_whatsapp_credentials', { p_organization_id: job.organizationId });
       if (!obj(credentials) || credentials.enabled !== true || !str(credentials.access_token) || !/^v\d+\.\d+$/.test(str(credentials.graph_api_version)) || !/^\d+$/.test(str(credentials.phone_number_id))) throw new Error('BIA_CHANNEL_DISABLED');
       let content = str(job.generatedContent), handoff = job.humanRequested === true;
+      if (!content && job.openingTemplate === BIA_INBOUND_TEMPLATE) {
+        const welcome = await biaApprovedTemplate(credentials, BIA_INBOUND_TEMPLATE, http);
+        content = welcome.plainText;
+      }
       if (!content) {
         let message = str(job.message);
         if (job.messageType === 'audio') {

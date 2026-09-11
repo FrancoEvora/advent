@@ -36,12 +36,12 @@ test('recipient must come from current explicit order; names must be unique and 
 });
 test('Bia WhatsApp reads its own inbox; duplicate initiation never reaches Graph and returns a truthful result',async()=>{
   const calls:string[]=[];let graphPosts=0;
-  const context={organizationId:org,actor,threadId,messageId,message:'Envie a mensagem de boas-vindas para (34) 99999-0001',records:[],callerRpc:async(name:string)=>{calls.push(name);return {enabled:true,verified:true,phone:'canal-bia',threads:[]};},adminRpc:async(name:string,args:Record<string,unknown>)=>{
+  const context={organizationId:org,actor,threadId,messageId,message:'Envie a mensagem de indicação de investimento para (34) 99999-0001',records:[],callerRpc:async(name:string)=>{calls.push(name);return {enabled:true,verified:true,phone:'canal-bia',threads:[]};},adminRpc:async(name:string,args:Record<string,unknown>)=>{
     calls.push(name);if(name==='bia_whatsapp_credentials')return {enabled:true,waba_id:'123',phone_number_id:'456',graph_api_version:'v23.0',access_token:'mock-only'};
-    if(args.p_action==='access')return {enabled:true};if(args.p_action==='start')throw new Error('BIA_CONTACT_RECENTLY_SENT');throw new Error('Unexpected call');
-  },http:async(_url:unknown,init?:RequestInit)=>{if(init?.method==='POST')graphPosts++;return Response.json({data:[{name:'bia_boas_vindas',language:'pt_BR',status:'APPROVED',category:'MARKETING',components:[{type:'BODY',text:'Olá, sou a Bia.'}]}]});}};
+    if(args.p_action==='access')return {enabled:true};if(args.p_action==='recipient')return {name:null};if(args.p_action==='start')throw new Error('BIA_CONTACT_RECENTLY_SENT');throw new Error('Unexpected call');
+  },http:async(_url:unknown,init?:RequestInit)=>{if(init?.method==='POST')graphPosts++;return Response.json({data:[{name:'bia_indicacao_investimento',language:'pt_BR',status:'APPROVED',category:'MARKETING',components:[{type:'BODY',text:'Olá, {{1}}! Sou a Bia.'}]}]});}};
   const status=await runBiaManagerWhatsApp({action:'status'},context);assert.equal(status.phone,'canal-bia');
-  const result=await runBiaManagerWhatsApp({action:'send',phone:'34999990001',template_name:'bia_boas_vindas'},context);assert.match(String(result.reply),/Não repeti/);assert.equal(graphPosts,0);assert.ok(calls.every(name=>name.startsWith('bia_')));
+  const result=await runBiaManagerWhatsApp({action:'send',phone:'34999990001',template_name:'bia_indicacao_investimento'},context);assert.match(String(result.reply),/Não repeti/);assert.equal(graphPosts,0);assert.ok(calls.every(name=>name.startsWith('bia_')));
 });
 test('admin simulations retain canonical WhatsApp PRICE kernel and cannot create customer sessions',()=>{
   const migration=read('supabase/migrations/20260910021452_bia_manager_twin.sql');

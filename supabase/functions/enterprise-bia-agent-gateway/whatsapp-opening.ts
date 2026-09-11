@@ -14,5 +14,5 @@ export function biaWhatsAppOpeningLink(candidate: unknown, userMessages: string[
   const url = new URL('https://advent-tau.vercel.app/bia/gestao');
   url.searchParams.set('iniciar', '1');
   if (phone) url.searchParams.set('telefone', phone);
-  return { ok: true, actionExecuted: false, requiresAdmin: true, requiresReview: true, template: 'bia_boas_vindas', url: url.href };
+  return { ok: true, actionExecuted: false, requiresAdmin: true, requiresReview: true, template: 'bia_indicacao_investimento', url: url.href };
 }

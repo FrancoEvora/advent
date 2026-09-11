@@ -43,7 +43,7 @@ function harness({responses=[],claim=null,overrides={},fileParts=[],operator=fal
  const fakeFetch=async(url,opts)=>{
   if(String(url).startsWith('https://graph.facebook.com/')){
    if(opts.body){metaPosts.push(JSON.parse(opts.body));return Response.json({messages:[{id:'wamid.test'}]});}
-   return Response.json({data:[{name:'bia_boas_vindas',language:'pt_BR',status:'APPROVED',category:'MARKETING',components:[{type:'BODY',text:'Olá! Sou a Bia.'}]}]});
+   return Response.json({data:[{name:'bia_indicacao_investimento',language:'pt_BR',status:'APPROVED',category:'MARKETING',components:[{type:'BODY',text:'Olá, {{1}}! Sou a Bia.'}]}]});
   }
   assert.equal(url,'https://api.openai.com/v1/responses');modelRequests.push(JSON.parse(opts.body));const next=responses.shift();if(next instanceof Error)throw next;if(!next)throw Error('Unexpected model call');return new Response(JSON.stringify(next.payload||next),{status:next.statusCode||200,headers:{'content-type':'application/json','x-request-id':'req_test'}});
  };
@@ -54,7 +54,7 @@ function harness({responses=[],claim=null,overrides={},fileParts=[],operator=fal
 
 test('authenticated chat sends directly and replaces a mistaken model request for second confirmation with the real result',async()=>{
  const h=harness({operator:true,responses:[{status:'completed',output:[call('wa','preparar_abertura_whatsapp',{recipient_phone:'34993401159'})]},output('Clique para confirmar o envio na plataforma.')]});
- const r=await h.run({message:'Bia, envie a mensagem de boas-vindas para 34993401159.'},'Bearer verified-user');
+ const r=await h.run({message:'Bia, envie a mensagem de indicação de investimento para 34993401159.'},'Bearer verified-user');
  assert.equal(r.status,200);assert.equal(h.metaPosts.length,1);assert.equal(h.metaPosts[0].to,'5534993401159');
  assert.match(r.data.reply,/Meta aceitou/);assert.doesNotMatch(r.data.reply,/Clique|confirmar o envio/);assert.equal(r.data.attachments.length,0);
  assert.equal(JSON.stringify(h.modelRequests).includes('verified-user'),false);

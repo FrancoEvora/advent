@@ -5,7 +5,7 @@ import { biaWhatsAppOpeningLink } from '../supabase/functions/enterprise-bia-age
 import { biaAuthenticatedOperator, biaSendFromChat, biaChatOperationId, biaChatOpeningReply, biaExplicitOutreach } from '../supabase/functions/enterprise-bia-agent-gateway/whatsapp-operator.ts';
 const org = '11111111-1111-4111-8111-111111111111', actor = '22222222-2222-4222-8222-222222222222', id = '33333333-3333-4333-8333-333333333333';
 const credentials = { enabled: true, waba_id: '200', phone_number_id: '300', graph_api_version: 'v25.0', access_token: 'server-secret' };
-const approved = { name: 'bia_boas_vindas', language: 'pt_BR', status: 'APPROVED', category: 'MARKETING', components: [{ type: 'BODY', text: 'Olá! Sou a Bia.\n\nComo posso ajudar?' }] };
+const approved = { name: 'bia_indicacao_investimento', language: 'pt_BR', status: 'APPROVED', category: 'MARKETING', components: [{ type: 'BODY', text: 'Olá, {{1}}! Sou a Bia.\n\nTem alguns minutos para conversar?' }] };
 type Obj = Record<string, unknown>;
 function scenario({ authorized = true, member = true, duplicate = false, sendMode = 'success', changed = false } = {}) {
   const calls: { action: string; args: Obj }[] = [], posts: Obj[] = [];
@@ -23,6 +23,7 @@ function scenario({ authorized = true, member = true, duplicate = false, sendMod
     calls.push({ action: String(args.p_action), args: args.p_args as Obj });
     if (!member) throw new Error('BIA_OUTBOUND_FORBIDDEN');
     if (args.p_action === 'access') return { enabled: true };
+    if (args.p_action === 'recipient') return { name: 'Maria' };
     if (args.p_action === 'start') return { id, threadId: 'thread', proceed: !duplicate, status: duplicate ? 'accepted' : 'sending' };
     if (args.p_action === 'finish') return { id, ...(args.p_args as Obj) };
     return { id, status: 'accepted' };
@@ -40,8 +41,8 @@ test('Brazil phone normalization preserves the supplied ninth digit and rejects 
   assert.equal(biaInitialPhone('+55 34 9919-1975'), '553499191975');
   for (const bad of ['3499340115x', '00000000000', '123', '555349993401159', '34\nfoo']) assert.throws(() => biaInitialPhone(bad));
 });
-test('only current approved parameterless pt_BR opening can be previewed', async () => {
-  for (const data of [{ ...approved, status: 'PENDING' }, { ...approved, name: 'bia_indicacao_investimento' }, { ...approved, components: [{ type: 'BODY', text: 'Olá {{1}}' }] },
+test('only current approved referral with exactly one name parameter can be previewed', async () => {
+  for (const data of [{ ...approved, status: 'PENDING' }, { ...approved, name: 'bia_boas_vindas' }, { ...approved, components: [{ type: 'BODY', text: 'Olá {{2}}' }] },
     { ...approved, components: [...approved.components, { type: 'HEADER', text: 'New content' }] }]) {
     await assert.rejects(biaApprovedOpening(credentials, (async () => Response.json({ data: [data] })) as typeof fetch));
   }
@@ -74,8 +75,8 @@ test('sends exact approved template with operation callback and records Meta can
   const s = scenario(); const result = await (await request(s, { actor: 'forged', template: 'unapproved', body: 'injected' })).json();
   assert.equal(result.data.status, 'accepted'); assert.equal(result.data.recipientPhone, '553498765432');
   assert.deepEqual(s.posts, [{ messaging_product: 'whatsapp', recipient_type: 'individual', to: '5534998765432', type: 'template',
-    template: { name: 'bia_boas_vindas', language: { code: 'pt_BR' } }, biz_opaque_callback_data: id }]);
-  assert.deepEqual(s.calls.map(c => c.action), ['access', 'start', 'finish']);
+    template: { name: 'bia_indicacao_investimento', language: { code: 'pt_BR' }, components: [{ type: 'body', parameters: [{ type: 'text', text: 'Maria' }] }] }, biz_opaque_callback_data: id }]);
+  assert.deepEqual(s.calls.map(c => c.action), ['access', 'recipient', 'start', 'finish']);
 });
 test('timeouts and server failures are unknown; explicit payment rejection is actionable without raw secrets', async () => {
   for (const sendMode of ['timeout', 'server', 'payment']) {
@@ -96,7 +97,7 @@ test('public chat prepares only an admin review link, and requires evidence for 
   assert.equal(biaWhatsAppOpeningLink(null, []).url, 'https://advent-tau.vercel.app/bia/gestao?iniciar=1');
 });
 
-const chatInput = {actor,organizationId:org,sessionId:org,clientMessageId:id,message:'Bia, envie a mensagem de boas-vindas para (34) 99340-1159.',candidate:'34993401159'};
+const chatInput = {actor,organizationId:org,sessionId:org,clientMessageId:id,message:'Bia, envie a mensagem de indicação de investimento para (34) 99340-1159.',candidate:'34993401159'};
 test('chat authenticates an actual user and active admin membership; text claims cannot grant access', async()=>{
   for(const options of [{authorized:false},{member:false}]) {
     const s=scenario(options); assert.equal(await biaAuthenticatedOperator('Bearer token',org,s),null);assert.equal(s.posts.length,0);
@@ -107,7 +108,7 @@ test('chat authenticates an actual user and active admin membership; text claims
 test('authenticated explicit chat instruction dispatches approved template without a review hash or second confirmation',async()=>{
   const s=scenario();const result=await biaSendFromChat(chatInput,s);
   assert.equal(result.status,'accepted');assert.equal(result.actionExecuted,true);assert.equal(s.posts.length,1);
-  assert.equal(s.posts[0].to,'5534993401159');assert.deepEqual(s.posts[0].template,{name:'bia_boas_vindas',language:{code:'pt_BR'}});
+  assert.equal(s.posts[0].to,'5534993401159');assert.deepEqual(s.posts[0].template,{name:'bia_indicacao_investimento',language:{code:'pt_BR'},components:[{type:'body',parameters:[{type:'text',text:'Maria'}]}]});
   assert.match(biaChatOpeningReply(result),/Meta aceitou/);assert.doesNotMatch(biaChatOpeningReply(result),/confirmar.*envio|entregue/);
 });
 test('chat rejects missing operator, fabricated recipient, multiple recipients and negated or hypothetical requests',async()=>{

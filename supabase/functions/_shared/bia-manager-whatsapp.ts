@@ -33,7 +33,7 @@ export async function runBiaManagerWhatsApp(args: Obj, context: {
   if (action === 'status' || action === 'list') {
     const inbox = await callerRpc('bia_whatsapp_inbox', {p_organization_id:organizationId,p_thread_id:null,p_action:'read'});
     if (!object(inbox)) throw new Error('BIA_INBOX_UNAVAILABLE');
-    if (action === 'status') return {enabled:inbox.enabled,verified:inbox.verified,phone:inbox.phone,channel:'Bia',initial_template:'bia_boas_vindas'};
+    if (action === 'status') return {enabled:inbox.enabled,verified:inbox.verified,phone:inbox.phone,channel:'Bia',initial_template:'bia_indicacao_investimento',inbound_template:'bia_boas_vindas'};
     let thread = args.thread_id;
     const threads = Array.isArray(inbox.threads) ? inbox.threads.filter(object) : [];
     if (!thread && args.phone) thread = threads.find(t=>t.peer_phone===biaInitialPhone(args.phone))?.id;
@@ -48,9 +48,9 @@ export async function runBiaManagerWhatsApp(args: Obj, context: {
     return object(result) ? result : {ok:false};
   }
   if (action !== 'send') throw new Error('BIA_REQUEST_INVALID');
-  if (args.template_name && args.template_name !== 'bia_boas_vindas') throw new Error('BIA_TEMPLATE_NOT_ENABLED');
+  if (args.template_name && args.template_name !== 'bia_indicacao_investimento') throw new Error('BIA_TEMPLATE_NOT_ENABLED');
   // Initiation uses the actual approved text. Never silently substitute a custom message.
-  if (args.content && !args.template_name) return {ok:false,message:'Para abrir a conversa, use o modelo bia_boas_vindas aprovado. O conteúdo livre não foi enviado. Após a resposta, a Bia atende automaticamente o cliente pelo WhatsApp.'};
+  if (args.content && !args.template_name) return {ok:false,message:'Para abrir a conversa, use o modelo bia_indicacao_investimento aprovado. O conteúdo livre não foi enviado. Após a resposta, a Bia atende automaticamente o cliente pelo WhatsApp.'};
   let records = context.records;
   const named = records.filter(row => typeof row.person_name === 'string' && ` ${normalized(context.message)} `.includes(` ${normalized(row.person_name)} `));
   if (named.length === 1) {

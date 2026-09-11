@@ -4,7 +4,22 @@ type Runtime = { rpc: Rpc; authenticate: (token: string) => Promise<string | nul
 const object = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
 const str = (v: unknown) => typeof v === 'string' ? v : '';
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const TEMPLATE = 'bia_boas_vindas';
+export const BIA_OUTBOUND_TEMPLATE = 'bia_indicacao_investimento';
+export const BIA_INBOUND_TEMPLATE = 'bia_boas_vindas';
+const TEMPLATE = BIA_OUTBOUND_TEMPLATE;
+
+export function biaRecipientName(value: unknown): string {
+  const name = str(value).trim().replace(/\s+/g, ' ');
+  if (!name) return 'tudo bem';
+  if (name.length > 80 || !/^[\p{L}\p{M} .’'-]+$/u.test(name)) throw new Error('BIA_RECIPIENT_NAME_INVALID');
+  return name;
+}
+
+export function biaPersonalizedOpening(template: { body: string; plainText: string }, recipientName: unknown) {
+  const name = biaRecipientName(recipientName);
+  return { body: template.body.replace('{{1}}', name), plainText: template.plainText.replace('{{1}}', name),
+    components: [{ type: 'body', parameters: [{ type: 'text', text: name }] }] };
+}
 
 export function biaInitialPhone(value: unknown): string {
   const raw = str(value).trim();
@@ -16,19 +31,23 @@ export function biaInitialPhone(value: unknown): string {
 }
 
 export async function biaApprovedOpening(credentials: Obj, http: typeof fetch = fetch) {
+  return biaApprovedTemplate(credentials, BIA_OUTBOUND_TEMPLATE, http);
+}
+
+export async function biaApprovedTemplate(credentials: Obj, name: typeof BIA_OUTBOUND_TEMPLATE | typeof BIA_INBOUND_TEMPLATE, http: typeof fetch = fetch) {
   if (credentials.enabled !== true || !/^\d{1,64}$/.test(str(credentials.waba_id)) ||
     !/^\d{1,64}$/.test(str(credentials.phone_number_id)) || !/^v\d+\.\d+$/.test(str(credentials.graph_api_version)) ||
     !str(credentials.access_token)) throw new Error('BIA_CHANNEL_DISABLED');
   const url = new URL(`https://graph.facebook.com/${credentials.graph_api_version}/${credentials.waba_id}/message_templates`);
-  url.searchParams.set('name', TEMPLATE);
+  url.searchParams.set('name', name);
   url.searchParams.set('fields', 'name,status,language,category,components');
   const response = await http(url, { headers: { Authorization: `Bearer ${credentials.access_token}` }, redirect: 'error', signal: AbortSignal.timeout(12000) });
   const payload: unknown = await response.json();
   if (!response.ok || !object(payload) || !Array.isArray(payload.data)) throw new Error('BIA_TEMPLATE_UNAVAILABLE');
-  const template = payload.data.find((t: unknown) => object(t) && t.name === TEMPLATE && t.language === 'pt_BR');
+  const template = payload.data.find((t: unknown) => object(t) && t.name === name && t.language === 'pt_BR');
   if (!object(template) || template.status !== 'APPROVED') throw new Error('BIA_TEMPLATE_NOT_APPROVED');
   const components = Array.isArray(template.components) ? template.components : [];
-  // Parameterless text, footer and static quick replies need no dynamic send components.
+  // Outreach has exactly one positional name; welcome, footer and quick replies are static.
   if (components.some(c => !object(c) || !['BODY', 'FOOTER', 'BUTTONS'].includes(str(c.type)))) throw new Error('BIA_TEMPLATE_CHANGED');
   const bodies = components.filter(c => object(c) && c.type === 'BODY');
   const footers = components.filter(c => object(c) && c.type === 'FOOTER');
@@ -39,8 +58,10 @@ export async function biaApprovedOpening(credentials: Obj, http: typeof fetch = 
   if (!Array.isArray(rawButtons) || rawButtons.length > 10 || rawButtons.some(b => !object(b) || b.type !== 'QUICK_REPLY' || !str(b.text).trim())) throw new Error('BIA_TEMPLATE_CHANGED');
   const buttons = rawButtons.map(b => str(b.text));
   const plainText = [body, footer, buttons.length ? 'Opções: ' + buttons.join(' · ') : ''].filter(Boolean).join('\n\n');
-  if (!body.trim() || plainText.length > 4000 || plainText.includes('{{')) throw new Error('BIA_TEMPLATE_CHANGED');
-  const canonical = { name: TEMPLATE, language: 'pt_BR', body, footer, buttons, category: str(template.category) };
+  const expected = name === BIA_OUTBOUND_TEMPLATE ? 1 : 0;
+  if (!body.trim() || plainText.length > 3800 || (body.match(/\{\{1\}\}/g) || []).length !== expected ||
+    /[{}]/.test(expected ? body.replace('{{1}}', '') : body) || /[{}]/.test([footer, ...buttons].join(''))) throw new Error('BIA_TEMPLATE_CHANGED');
+  const canonical = { name, language: 'pt_BR', body, footer, buttons, category: str(template.category) };
   const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(JSON.stringify(canonical))));
   return { ...canonical, plainText, status: 'APPROVED', hash: Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('') };
 }
@@ -91,14 +112,16 @@ export async function executeBiaOutbound(args: Obj, actor: string, runtime: Pick
     const phone = biaInitialPhone(args.phone);
     if (!uuid.test(str(args.id)) || args.consent !== true) throw new Error('BIA_REQUEST_INVALID');
     if (!fromChat && args.hash !== template.hash) throw new Error('BIA_TEMPLATE_CHANGED');
-    const started = await admin('start', { id: args.id, phone, consent: true, template: TEMPLATE, hash: template.hash, body: template.plainText });
+    const recipient = await admin('recipient', { phone });
+    const opening = biaPersonalizedOpening(template, args.recipientName || (object(recipient) ? recipient.name : ''));
+    const started = await admin('start', { id: args.id, phone, consent: true, template: TEMPLATE, hash: template.hash, body: opening.plainText });
     if (!object(started) || started.proceed !== true) return started;
     let outcome: Obj = { status: 'unknown', errorCode: 'SEND_UNCONFIRMED' };
     try {
       const response = await http(`https://graph.facebook.com/${credentials.graph_api_version}/${credentials.phone_number_id}/messages`, {
         method: 'POST', headers: { Authorization: `Bearer ${credentials.access_token}`, 'content-type': 'application/json' },
         body: JSON.stringify({ messaging_product: 'whatsapp', recipient_type: 'individual', to: phone, type: 'template',
-          template: { name: TEMPLATE, language: { code: 'pt_BR' } }, biz_opaque_callback_data: args.id }),
+          template: { name: TEMPLATE, language: { code: 'pt_BR' }, components: opening.components }, biz_opaque_callback_data: args.id }),
         redirect: 'error', signal: AbortSignal.timeout(20000),
       });
       const payload: unknown = await response.json();

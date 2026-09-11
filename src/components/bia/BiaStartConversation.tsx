@@ -8,6 +8,7 @@ type Result = { id: string; status: string; phone?: string; threadId?: string; e
 export function BiaStartConversation({ organizationId, userId, initialPhone = '', onClose }: {
   organizationId: string; userId: string; initialPhone?: string; onClose: (threadId?: string) => void;
 }) {
+  const [recipientName, setRecipientName] = useState('');
   const [phone, setPhone] = useState(initialPhone), [consent, setConsent] = useState(false);
   const [template, setTemplate] = useState<Template | null>(null), [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false), [error, setError] = useState('');
@@ -60,7 +61,7 @@ export function BiaStartConversation({ organizationId, userId, initialPhone = ''
     const id = requestId.current || crypto.randomUUID(); requestId.current = id;
     try { sessionStorage.setItem(storageKey, id); } catch { /* No phone or message is stored in the browser. */ }
     try {
-      const next = await invoke('send', { id, phone, consent, hash: template.hash }) as Result;
+      const next = await invoke('send', { id, phone, recipientName, consent, hash: template.hash }) as Result;
       if (alive.current) setResult(next);
     } catch (e) {
       if (!alive.current) return;
@@ -81,9 +82,11 @@ export function BiaStartConversation({ organizationId, userId, initialPhone = ''
     <div className="bia-inbox-toolbar"><h2 id="bia-start-title">Iniciar conversa pelo WhatsApp</h2><button type="button" disabled={busy} onClick={close}>Voltar aos atendimentos</button></div>
     <form onSubmit={send}>
       <label>WhatsApp do destinatário, com DDD<input type="tel" name="recipient" autoComplete="tel" placeholder="(34) 99999-9999" required maxLength={30} value={phone} disabled={busy || Boolean(sent)} onChange={e => setPhone(e.target.value)} /></label>
-      <div className="bia-opening-preview"><strong>Mensagem de boas-vindas aprovada</strong>{template ? <><p>{template.body}</p>{template.footer&&<p className="bia-opening-footer">{template.footer}</p>}{Boolean(template.buttons?.length)&&<div className="bia-opening-options" aria-label="Opções da mensagem">{template.buttons?.map(label=><span key={label}>{label}</span>)}</div>}</> : <p>Consultando a mensagem aprovada na Meta…</p>}</div>
+      <label>Nome do contato (opcional)<input type="text" autoComplete="name" maxLength={80} value={recipientName} disabled={busy || Boolean(sent)} onChange={e => setRecipientName(e.target.value)} /></label>
+      <p>O nome será preenchido com o cadastro do CRM, se disponível. Sem nome, a saudação será “Olá, tudo bem!”.</p>
+      <div className="bia-opening-preview"><strong>Indicação de investimento aprovada</strong>{template ? <><p>{template.body.replace('{{1}}', recipientName.trim() || '[nome do contato]')}</p>{template.footer&&<p className="bia-opening-footer">{template.footer}</p>}{Boolean(template.buttons?.length)&&<div className="bia-opening-options" aria-label="Opções da mensagem">{template.buttons?.map(label=><span key={label}>{label}</span>)}</div>}</> : <p>Consultando a mensagem aprovada na Meta…</p>}</div>
       {!sent && <><label className="bia-outbound-consent"><input type="checkbox" checked={consent} required disabled={busy} onChange={e => setConsent(e.target.checked)} /><span>Confirmo que este contato autorizou receber mensagens da Bia pelo WhatsApp.</span></label>
-        <div className="bia-opening-actions"><button type="submit" disabled={busy || !template || !consent || !phone}>{busy ? 'Aguarde…' : 'Enviar mensagem de boas-vindas'}</button><button type="button" disabled={busy} onClick={() => void loadTemplate()}>Atualizar mensagem</button></div></>}
+        <div className="bia-opening-actions"><button type="submit" disabled={busy || !template || !consent || !phone}>{busy ? 'Aguarde…' : 'Enviar indicação de investimento'}</button><button type="button" disabled={busy} onClick={() => void loadTemplate()}>Atualizar mensagem</button></div></>}
       {result && <div className="bia-opening-status" role="status"><strong>{biaDeliveryLabel[result.status] || result.status}</strong>{result.phone && <span>Destinatário: +{result.phone}</span>}
         {result.errorCode && <p>{biaOutboundError(result.errorCode)}</p>}
         {['accepted', 'sent'].includes(result.status) && <p>Aguardando a confirmação de entrega do WhatsApp.</p>}

@@ -44,5 +44,6 @@ jobs:
           supabase/functions/enterprise-vitoria-agent-gateway/index.ts
           supabase/functions/enterprise-bia-agent-gateway/index.ts
           supabase/functions/bia-whatsapp-outbound/index.ts
+          supabase/functions/bia-whatsapp-replies/index.ts
       - name: Validate Bia WhatsApp initiation
-        run: node --test tests/bia-manager-twin.test.mts tests/arisa-manager-handler.test.mts tests/arisa-channels-ui.test.mjs tests/bia-whatsapp-channel.test.mts tests/bia-whatsapp-outbound.test.mts tests/bia-runtime-execution.test.mjs
+        run: node --test tests/bia-manager-twin.test.mts tests/arisa-manager-handler.test.mts tests/arisa-channels-ui.test.mjs tests/bia-whatsapp-channel.test.mts tests/bia-whatsapp-outbound.test.mts tests/bia-whatsapp-routing.test.mts tests/bia-runtime-execution.test.mjs

@@ -10,7 +10,7 @@ begin
     where m.organization_id=ch.organization_id and m.active and m.role='admin' and o.active limit 1;
   if actor is null then raise exception 'Configured admin and channel required'; end if;
   update crm_private.bia_whatsapp_channels set enabled=true,webhook_verified_at=now() where id=ch.id;
-  args:=jsonb_build_object('id',rid,'phone','5534999999876','consent',true,'template','bia_boas_vindas','hash',repeat('a',64),'body','Mensagem de abertura do teste transacional.');
+  args:=jsonb_build_object('id',rid,'phone','5534999999876','consent',true,'template','bia_indicacao_investimento','hash',repeat('a',64),'body','Mensagem de abertura do teste transacional.');
   begin
     perform public.bia_whatsapp_outbound_admin(ch.organization_id,gen_random_uuid(),'start',args);
     raise exception 'Unrelated actor accepted';

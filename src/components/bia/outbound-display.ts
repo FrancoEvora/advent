@@ -6,6 +6,7 @@ export function biaOutboundError(code: string | null | undefined): string {
   const messages: Record<string, string> = {
     BIA_AUTH_REQUIRED: 'Entre novamente na central da Bia.',
     BIA_OUTBOUND_FORBIDDEN: 'Somente administradores ativos podem iniciar conversas.',
+    BIA_RECIPIENT_NAME_INVALID: 'Informe um nome com até 80 caracteres, sem números ou símbolos especiais.',
     BIA_PHONE_INVALID: 'Informe um número brasileiro válido, com DDD.',
     BIA_CHANNEL_DISABLED: 'O canal da Bia precisa estar ativo e verificado.',
     BIA_TEMPLATE_UNAVAILABLE: 'Não foi possível consultar o modelo na Meta. Tente atualizar a mensagem.',

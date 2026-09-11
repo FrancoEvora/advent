@@ -1,6 +1,7 @@
 import { isObject, ManagerError, type Obj } from "./arisa-manager.ts";
 
 export const WHATSAPP_ERRORS: Record<string, string> = {
+  WHATSAPP_FOLLOW_UP_REQUIRED: "Nenhuma mensagem foi enviada. Registre em follow_up a pergunta ou mensagem autorizada para este contato após a abertura; use texto vazio somente quando não houver assunto posterior.",
   WHATSAPP_NOT_CONFIGURED: "O envio pelo WhatsApp da Arisa ainda não está habilitado. Abra Arisa → Comunicações → WhatsApp para conferir a conexão.",
   WHATSAPP_WEBHOOK_REQUIRED: "Cadastre o webhook da plataforma na Meta antes de habilitar o envio da Arisa.",
   WHATSAPP_TEMPLATE_REQUIRED: "Este contato está fora da janela de 24 horas. Para iniciar ou retomar a conversa, use um template aprovado pela Meta.",
@@ -151,3 +152,4 @@ export async function metaWhatsApp(runtime: WhatsAppRuntime, path: string, optio
   if (!isObject(body)) throw new ManagerError("WHATSAPP_UNAVAILABLE", 502);
   return body;
 }
+

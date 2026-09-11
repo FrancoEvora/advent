@@ -67,6 +67,10 @@ export async function runWhatsAppTool(admin: SupabaseClient, org: string, actor:
     const { templates, truncated } = await approvedTemplates(admin, org, deps);
     return { templates, count: templates.length, truncated, checked_at: new Date().toISOString(), note: "Somente templates com status APPROVED são retornados." };
   }
+  if (action === "request_status") {
+    if (typeof args.request_id !== "string" || !UUID.test(args.request_id)) throw new ManagerError("WHATSAPP_INVALID", 422);
+    return service(admin, "request_status", org, actor, args);
+  }
   if (action === "get") return operationState(admin, org, actor, String(args.operation_id || ""));
   if (action === "reconcile") {
     const op = await operationState(admin, org, actor, String(args.operation_id || ""));
@@ -104,7 +108,7 @@ export async function runWhatsAppTool(admin: SupabaseClient, org: string, actor:
   // A stable request/destination identity is distinct from the content hash.
   const key = await operationKey("whatsapp_send", { actor, request: context.requestId, destination: phone });
   const payload = { phone, content, requested_content: requestedContent, follow_up: followUp, template_name: templateName ?? null, template_language: templateLanguage, template_components: components, contact_id: resolvedContactId };
-  const op = await service(admin, "prepare", org, actor, { operation_key: key, payload_hash: await operationKey("whatsapp_payload", payload), message_id: context.messageId ?? null, lease: context.lease ?? null, ...payload, contact_name: args.contact_name ?? null });
+  const op = await service(admin, "prepare", org, actor, { operation_key: key, payload_hash: await operationKey("whatsapp_payload", payload), request_id: context.requestId, message_id: context.messageId ?? null, lease: context.lease ?? null, ...payload, contact_name: args.contact_name ?? null });
   if (!op.proceed) return runWhatsAppTool(admin, org, actor, "reconcile", { operation_id: op.id }, context, deps);
   const claim = await service(admin, "claim", org, actor, { id: op.id });
   if (!claim.proceed) return runWhatsAppTool(admin, org, actor, "reconcile", { operation_id: op.id }, context, deps);
@@ -136,5 +140,3 @@ export async function runWhatsAppTool(admin: SupabaseClient, org: string, actor:
     throw error;
   }
 }
-
-

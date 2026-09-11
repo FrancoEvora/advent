@@ -1,7 +1,7 @@
 export const workspacePanels = ["whatsapp-conversations", "leads", "simulations", "email", "agenda", "whatsapp", "archive", "memory"] as const;
 export type WorkspacePanel = typeof workspacePanels[number];
 export const workspaceLabels: Record<WorkspacePanel, string> = {
-  "whatsapp-conversations": "Conversas do WhatsApp", leads: "Leads e funil", simulations: "Simulações", email: "E-mail", agenda: "Agenda e Meet", whatsapp: "WhatsApp", archive: "Arquivo", memory: "Memória",
+  "whatsapp-conversations": "Conversas da Arisa", leads: "Leads e funil", simulations: "Simulações", email: "E-mail", agenda: "Agenda e Meet", whatsapp: "WhatsApp", archive: "Arquivo", memory: "Memória",
 };
 
 export function assistantWorkspacePanels(assistant: "arisa" | "bia") {
@@ -9,6 +9,7 @@ export function assistantWorkspacePanels(assistant: "arisa" | "bia") {
 }
 
 export function workspaceLabel(panel: WorkspacePanel, assistant: "arisa" | "bia" = "arisa", includeAssistant = false) {
+  if (panel === "whatsapp-conversations") return "Conversas da Arisa";
   if (panel === "whatsapp" && assistant === "bia") return "Conversas da Bia";
   return workspaceLabels[panel] + (includeAssistant ? ` da ${assistant === "bia" ? "Bia" : "Arisa"}` : "");
 }

@@ -56,6 +56,7 @@ jobs:
           tests/arisa-whatsapp-webhook.test.mts
           tests/arisa-channels-ui.test.mjs
           tests/arisa-whatsapp-monitor.test.mts
+          tests/arisa-whatsapp-panel.test.mts
           tests/arisa-message-links.test.mts
       - name: Validate Arisa private voice playback
         run: node --test tests/arisa-speech.test.mjs tests/arisa-speech-provider-errors.test.mjs

@@ -7,7 +7,9 @@ type Obj = Record<string, unknown>;
 const root = new URL("../", import.meta.url), org = "11111111-1111-4111-8111-111111111111", user = "22222222-2222-4222-8222-222222222222", messageId = "33333333-3333-4333-8333-333333333333", threadId = "44444444-4444-4444-8444-444444444444", lease = "55555555-5555-4555-8555-555555555555";
 let auth = true, adminAccess = true, visible = true, terminal = false, mutation = false, round = 0;
 let calls: { key: string; name: string; args: Obj }[] = [];
-const reset = () => { auth = true; adminAccess = true; visible = true; terminal = false; mutation = false; round = 0; calls = []; };
+let bia = false, historyRows: Obj[] = [], queryFilters: {table:string;column:string;value:unknown}[] = [];
+const crmRows = [{id:'jaq1',person_name:'Jaqueline',phone:'34999991159'},{id:'jaq2',person_name:'Jaqueline Hillebrand',phone:'34999990685'}];
+const reset = () => { auth = true; adminAccess = true; visible = true; terminal = false; mutation = false; round = 0; calls = []; bia = false; historyRows = []; queryFilters = []; };
 function createClient(_url: string, key: string) {
   return {
     auth: { getUser: async () => ({ error: auth ? null : {}, data: { user: auth ? { id: user } : null } }) },
@@ -15,7 +17,13 @@ function createClient(_url: string, key: string) {
       calls.push({ key, name, args });
       if (name === "arisa_admin_catalog") return { error: adminAccess ? null : { code: "42501", message: "ADMIN_REQUIRED" }, data: { entities: [] } };
       if (name === "get_crm_ai_runtime_credentials") return { error: null, data: { enabled: true, api_key: "private-test-key-".repeat(4), agent_model: "test-model" } };
-      if (name === "arisa_chat_claim") return { error: null, data: { lease: terminal ? null : lease, message: { id: messageId, content: "Cadastre o fornecedor Teste", created_at: "2026-09-05T12:00:00Z", file_ids: [] } } };
+      if (name === "arisa_chat_claim") return { error: null, data: { lease: terminal ? null : lease, message: { id: messageId, content: bia ? 'Final 1159' : "Cadastre o fornecedor Teste", created_at: "2026-09-05T12:00:00Z", file_ids: [] } } };
+      if (name === 'arisa_admin_query') return {error:null,data: {total:args.p_search ? 2 : 1,rows:args.p_search ? crmRows : [crmRows[0]]}};
+      if (name === 'bia_whatsapp_credentials') return {error:null,data:{enabled:true,waba_id:'123',phone_number_id:'456',graph_api_version:'v23.0',access_token:'mock-only'}};
+      if (name === 'bia_whatsapp_outbound_admin') {
+        const data = args.p_args as Obj;
+        return {error:null,data:args.p_action === 'access' ? {enabled:true} : args.p_action === 'recipient' ? {name:'Jaqueline'} : args.p_action === 'start' ? {proceed:true} : {status:data.status,provider_message_id:data.providerMessageId}};
+      }
       if (name === "arisa_admin_execute") return { error: null, data: { ok: true, record_id: "created" } };
       if (name === "arisa_recall") return { error: null, data: [] };
       if (name === "arisa_trace") return { error: null, data: "archived-trace" };
@@ -24,9 +32,9 @@ function createClient(_url: string, key: string) {
     },
     from: (name: string) => {
       assert.equal(key, "public-test");
-      const query = { select: () => query, eq: () => query, lte: () => query, order: () => query, limit: () => query,
-        maybeSingle: async () => ({ error: null, data: visible ? { assistant: "arisa", id: messageId, thread_id: threadId, content: "Resposta anterior" } : null }),
-        then: (resolve: (result: unknown) => unknown) => Promise.resolve({ error: null, data: name === "arisa_chat_actions" ? [] : [{ id: messageId, role: "user", content: "Teste", file_ids: [], created_at: "2026-09-05T12:00:00Z" }] }).then(resolve),
+      const query = { select: () => query, eq: (column:string,value:unknown) => {queryFilters.push({table:name,column,value});return query;}, lte: () => query, order: () => query, limit: () => query,
+        maybeSingle: async () => ({ error: null, data: visible ? { assistant: bia ? 'bia' : "arisa", id: messageId, thread_id: threadId, content: "Resposta anterior" } : null }),
+        then: (resolve: (result: unknown) => unknown) => Promise.resolve({ error: null, data: name === "arisa_chat_actions" ? [] : bia ? [...historyRows] : [{ id: messageId, role: "user", content: "Teste", file_ids: [], created_at: "2026-09-05T12:00:00Z" }] }).then(resolve),
       }; return query;
     },
   };
@@ -75,4 +83,40 @@ test("administrative mutation uses the CALLER token, actual message lease, and s
   assert.equal(executed.key, "public-test"); assert.equal(executed.args.p_organization_id, org); assert.equal(executed.args.p_message_id, messageId); assert.equal(executed.args.p_lease, lease); assert.match(String(executed.args.p_operation_key), /^[a-f0-9]{64}$/);
   const finish = calls.find(call => call.name === "arisa_chat_finish")!; assert.equal(finish.key, "service-test"); assert.equal(finish.args.p_lease, lease); assert.equal((finish.args.p_metadata as Obj).model, "test-model");
   assert.equal(JSON.stringify(await response.json()).includes("private-test-key"), false);
+});
+
+test('Bia handler carries only stored caller history through CRM lookup and clarified WhatsApp dispatch',async()=>{
+  bia = true;let graphPosts = 0;
+  const orderId = '88888888-8888-4888-8888-888888888888';
+  historyRows = [
+    {id:messageId,role:'user',content:'Final 1159'},
+    {id:'reply',role:'assistant',status:'completed',content:'Encontrei duas Jaquelines, final 1159 e final 0685. Qual delas?'},
+    {id:orderId,role:'user',content:'Bia, inicie contato com a Jaqueline cadastrada em nosso sistema. Via WhatsApp.'},
+  ];
+  globalThis.fetch = async (url,init) => {
+    if(String(url).includes('graph.facebook.com')) {
+      if(init?.method === 'POST') {
+        graphPosts++;const body = JSON.parse(String(init.body));assert.equal(body.to,'5534999991159');assert.equal(body.template.name,'bia_indicacao_investimento');
+        return Response.json({messages:[{id:'mock-message'}]});
+      }
+      return Response.json({data:[{name:'bia_indicacao_investimento',language:'pt_BR',status:'APPROVED',category:'MARKETING',components:[{type:'BODY',text:'Olá, {{1}}! Sou a Bia.'}]}]});
+    }
+    const body = JSON.parse(String(init?.body));assert.match(body.instructions,/RETOMADA DO WHATSAPP/);
+    const step = round++;
+    const output = step === 0 ? [{type:'function_call',call_id:'crm',name:'query',arguments:JSON.stringify({entity:'crm_records',search:'Jaqueline'})}] :
+      step === 1 ? [{type:'function_call',call_id:'wa',name:'whatsapp',arguments:JSON.stringify({action:'send',contact_id:'jaq1',phone:'34999991159',template_name:'bia_indicacao_investimento'})}] :
+      [{type:'message',content:[{type:'output_text',text:'Mensagem enviada.'}]}];
+    return Response.json({status:'completed',output,usage:{input_tokens:1,output_tokens:1}});
+  };
+  const response = await handleRequest(request());const body = await response.json();assert.equal(response.status,200);assert.equal(body.ok,true);assert.equal(graphPosts,1);
+  const lookup = calls.filter(call=>call.name === 'arisa_admin_query');assert.equal(lookup.length,2);assert.ok(lookup.every(call=>call.key === 'public-test' && call.args.p_organization_id === org));
+  const start = calls.find(call=>call.name === 'bia_whatsapp_outbound_admin' && call.args.p_action === 'start')!;
+  const {biaChatOperationId} = await import('../supabase/functions/enterprise-bia-agent-gateway/whatsapp-operator.ts');
+  assert.equal((start.args.p_args as Obj).id,await biaChatOperationId(threadId,orderId));assert.equal(start.args.p_actor,user);
+  const historyAt = queryFilters.findIndex(filter=>filter.table === 'arisa_chat_messages' && filter.column === 'thread_id');
+  assert.deepEqual(queryFilters.slice(historyAt,historyAt+3),[
+    {table:'arisa_chat_messages',column:'thread_id',value:threadId},
+    {table:'arisa_chat_messages',column:'organization_id',value:org},
+    {table:'arisa_chat_messages',column:'owner_user_id',value:user},
+  ]);
 });

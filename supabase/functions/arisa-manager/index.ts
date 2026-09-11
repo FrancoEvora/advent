@@ -162,7 +162,7 @@ export async function handleRequest(request: Request): Promise<Response> {
     claim = { admin, messageId: body.messageId, lease: claimed.lease };
     const activeLease = claimed.lease, deadline = Date.now() + 150000;
     const threadId = visible.data.thread_id as string;
-    const history = await caller.from("arisa_chat_messages").select("id,role,content,file_ids,status,created_at").eq("thread_id", threadId).lte("created_at", String(message.created_at)).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(24);
+    const history = await caller.from("arisa_chat_messages").select("id,role,content,file_ids,status,created_at").eq("thread_id", threadId).eq("organization_id", org).eq("owner_user_id", userId).lte("created_at", String(message.created_at)).order("created_at", { ascending: false }).order("id", { ascending: false }).limit(24);
     const completed = await caller.from("arisa_chat_actions").select("operation_key,action,entity,record_id,summary,result").eq("message_id", body.messageId).order("created_at");
     if (history.error || completed.error) throw new ManagerError("SERVICE_UNAVAILABLE");
     const input: Obj[] = (history.data || []).reverse().filter(row => row.id !== message.id && (row.role === "user" || row.status === "completed")).map(row => ({ role: row.role, content: String(row.content).slice(0, 12000) + (row.file_ids?.length ? "\n[Anexos disponíveis via read_file: " + JSON.stringify(row.file_ids) + "]" : "") }));
@@ -234,7 +234,7 @@ export async function handleRequest(request: Request): Promise<Response> {
       if (name === "send_email") return {data:await sendArisaMail(caller,admin,org,userId,args,{requestId:messageId,messageId,lease:activeLease})};
       if (name === "calendar") return {data:await runCalendarTool(admin,org,userId,String(args.action||""),args,{requestId:messageId,messageId,lease:activeLease})};
       if (name === "whatsapp" && assistant === "bia") {
-        const result = await runBiaManagerWhatsApp(args,{organizationId:org,actor:userId,threadId,messageId,message:String(message.content),records:[...commercialRecords.values()],callerRpc:(name,args)=>rpc(caller,name,args),adminRpc:async(name,args)=>{try{return await rpc(admin,name,args);}catch(error){throw new Error(error instanceof Error ? error.message.match(/BIA_[A-Z_]+/)?.[0] || "BIA_OUTBOUND_UNAVAILABLE" : "BIA_OUTBOUND_UNAVAILABLE");}}});
+        const result = await runBiaManagerWhatsApp(args,{organizationId:org,actor:userId,threadId,messageId,message:String(message.content),history:history.data || [],records:[...commercialRecords.values()],callerRpc:(name,args)=>rpc(caller,name,args),adminRpc:async(name,args)=>{try{return await rpc(admin,name,args);}catch(error){throw new Error(error instanceof Error ? error.message.match(/BIA_[A-Z_]+/)?.[0] || "BIA_OUTBOUND_UNAVAILABLE" : "BIA_OUTBOUND_UNAVAILABLE");}}});
         if (typeof result.reply === "string") whatsappReply = result.reply;
         return {data:result};
       }

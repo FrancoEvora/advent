@@ -104,7 +104,7 @@ export async function runBiaManagerWhatsApp(args: Obj, context: {
   if (args.content && !args.template_name) return {ok:false,message:'Para abrir a conversa, use o modelo bia_indicacao_investimento aprovado. O conteúdo livre não foi enviado. Após a resposta, a Bia atende automaticamente o cliente pelo WhatsApp.'};
   let records = context.records;
   const order = biaManagerOutreach(context.messageId,context.message,records,context.history);
-  let phone = biaManagerRecipient(order.message,args,records,order.clarifications);
+  const phone = biaManagerRecipient(order.message,args,records,order.clarifications);
   const selected = records.filter(row => { try { return biaInitialPhone(row.phone) === phone; } catch { return false; } });
   if (selected.length === 1 && typeof selected[0].id === 'string') {
     const lookup = await callerRpc('arisa_admin_query',{p_organization_id:organizationId,p_entity:'crm_records',p_filters:[{column:'id',operator:'eq',value:selected[0].id}],p_limit:2});

@@ -43,6 +43,23 @@ function fixture(options: { enabled?: boolean; failFinish?: boolean; failResolve
 }
 const args = { contact_id: contact, phone, content: "Carlos, nossa reunião será às 10h para tratar da drenagem. Arisa · Évora." };
 const context = { requestId };
+test("manager template send must explicitly preserve or dismiss its follow-up before any external call",async()=>{
+  const f=fixture();
+  await assert.rejects(runWhatsAppTool(f.db,org,actor,"send",{phone,template_name:"arisa"},{requestId,messageId:requestId,lease:id},{request:f.request}),/WHATSAPP_FOLLOW_UP_REQUIRED/);
+  assert.equal(f.calls.length,0);assert.equal(f.posts.length,0);
+});
+test("template and follow-up are stored separately and a changed purpose cannot duplicate the opening",async()=>{
+  const opening="Olá! Pode conversar comigo?";
+  const follow_up="Jaqueline, já tem retorno sobre o lead encaminhado pelo Franco?";
+  const f=fixture({provider:async(url)=>url.includes("message_templates")?Response.json({data:[{name:"arisa",language:"pt_BR",status:"APPROVED",components:[{type:"BODY",text:opening}]}]}):Response.json({messages:[{id:"wamid.accepted-follow-up"}]})});
+  const input={phone,template_name:"arisa",follow_up};const ctx={requestId,messageId:requestId,lease:id};
+  await runWhatsAppTool(f.db,org,actor,"send",input,ctx,{request:f.request});
+  const prepared=f.calls.find(c=>c.action==="prepare")!.args;
+  assert.equal(prepared.content,opening);assert.equal(prepared.follow_up,follow_up);assert.equal(prepared.message_id,requestId);
+  assert.ok(!JSON.stringify(f.posts).includes(follow_up));
+  await assert.rejects(runWhatsAppTool(f.db,org,actor,"send",{...input,follow_up:"Outra pergunta"},ctx,{request:f.request}),/WHATSAPP_REQUEST_CHANGED/);
+  assert.equal(f.posts.length,1);
+});
 
 test("provider receives only canonical recipient/body claimed by the database and callback operation ID", async () => {
   const f = fixture(); await runWhatsAppTool(f.db, org, actor, "send", args, context, { request: f.request });
@@ -158,4 +175,5 @@ test("Brazilian administrative input gains only the country code; provider ident
   assert.equal(normalizeWhatsAppRecipientInput("+44 20 7946 0958"), "442079460958");
   assert.equal(normalizeWhatsAppPhone("14155550123"), "14155550123");
 });
+
 

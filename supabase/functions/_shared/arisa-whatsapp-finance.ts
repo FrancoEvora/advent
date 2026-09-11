@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "npm:@supabase/supabase-js@2.110.7";
 import { isObject, ManagerError, type Obj } from "./arisa-manager.ts";
 import { analyzeWhatsAppAttention } from "./arisa-whatsapp-attention.ts";
+import { whatsAppFollowUp } from "./arisa-whatsapp-follow-up.ts";
 
 export function redactIdentity(text: string): string {
   return text
@@ -37,7 +38,7 @@ export async function prepareWhatsAppConversation(admin: SupabaseClient, job: Ob
   let state = await financeCall("probe");
   if (state.handled === true) return held(state);
   let safeHistory = financeHistory(history, state);
-  const triage = await analyzeWhatsAppAttention(safeHistory, config, request);
+  const triage = await analyzeWhatsAppAttention(safeHistory, config, request, whatsAppFollowUp(job.follow_up));
   let analysis = triage.analysis;
   let financial: Obj = {};
   if (["financial", "negotiation"].includes(String(analysis.kind)) && analysis.requires_authorization === false) {
@@ -57,3 +58,5 @@ export async function prepareWhatsAppConversation(admin: SupabaseClient, job: Ob
   return { history: safeHistory, attention, finance: financial, content: undefined,
     usage: { attention: triage.usage, attention_response_id: triage.response_id } as Obj };
 }
+
+

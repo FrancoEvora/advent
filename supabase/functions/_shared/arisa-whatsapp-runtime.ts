@@ -82,6 +82,11 @@ export async function runWhatsAppTool(admin: SupabaseClient, org: string, actor:
   if (args.content != null && (typeof args.content !== "string" || args.content.length > 12000)) throw new ManagerError("WHATSAPP_INVALID", 422);
   let requestedContent = typeof args.content === "string" ? args.content.trim() : "";
   if (!templateName && !requestedContent) throw new ManagerError("WHATSAPP_CONTENT_REQUIRED", 422);
+  // Manager openings must explicitly preserve the next message, or declare a greeting-only send.
+  // Background notifications and automatic replies have no source manager message.
+  if (templateName && context.messageId && typeof args.follow_up !== "string") throw new ManagerError("WHATSAPP_FOLLOW_UP_REQUIRED", 422);
+  if (args.follow_up != null && (typeof args.follow_up !== "string" || args.follow_up.length > 3000)) throw new ManagerError("WHATSAPP_INVALID", 422);
+  const followUp = templateName && context.messageId && typeof args.follow_up === "string" ? args.follow_up.trim() : "";
   const resolved = await service(admin, "resolve", org, actor, { phone: inputPhone, contact_id: contactId });
   const phone = normalizeWhatsAppPhone(resolved.phone);
   const resolvedContactId = typeof resolved.contact_id === "string" && UUID.test(resolved.contact_id) ? resolved.contact_id : null;
@@ -98,7 +103,7 @@ export async function runWhatsAppTool(admin: SupabaseClient, org: string, actor:
   } else if (components.length || content.length > 4096) throw new ManagerError("WHATSAPP_INVALID", 422);
   // A stable request/destination identity is distinct from the content hash.
   const key = await operationKey("whatsapp_send", { actor, request: context.requestId, destination: phone });
-  const payload = { phone, content, requested_content: requestedContent, template_name: templateName ?? null, template_language: templateLanguage, template_components: components, contact_id: resolvedContactId };
+  const payload = { phone, content, requested_content: requestedContent, follow_up: followUp, template_name: templateName ?? null, template_language: templateLanguage, template_components: components, contact_id: resolvedContactId };
   const op = await service(admin, "prepare", org, actor, { operation_key: key, payload_hash: await operationKey("whatsapp_payload", payload), message_id: context.messageId ?? null, lease: context.lease ?? null, ...payload, contact_name: args.contact_name ?? null });
   if (!op.proceed) return runWhatsAppTool(admin, org, actor, "reconcile", { operation_id: op.id }, context, deps);
   const claim = await service(admin, "claim", org, actor, { id: op.id });
@@ -131,3 +136,5 @@ export async function runWhatsAppTool(admin: SupabaseClient, org: string, actor:
     throw error;
   }
 }
+
+

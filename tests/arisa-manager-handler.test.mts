@@ -85,7 +85,7 @@ test("administrative mutation uses the CALLER token, actual message lease, and s
   assert.equal(JSON.stringify(await response.json()).includes("private-test-key"), false);
 });
 
-async function verifyBiaDispatch(message:string,skipModelQuery=false,direct=false) {
+async function verifyBiaDispatch(message:string,skipModelQuery=false,direct=false,phoneCorrection=false) {
   reset();biaContent = message;
   bia = true;let graphPosts = 0;
   const orderId = '88888888-8888-4888-8888-888888888888';
@@ -96,6 +96,10 @@ async function verifyBiaDispatch(message:string,skipModelQuery=false,direct=fals
   ];
   if(direct)historyRows = historyRows.slice(0,1);
   else if(skipModelQuery)historyRows.splice(1,0,...['Tente novamente','+55 34 99999-1159 Tente este número','Tente novamente','Você tem a autorização','Final 1159'].map((content,index)=>({id:'prior-'+index,role:'user',content})));
+  if(phoneCorrection)historyRows=[{id:messageId,role:'user',content:message},
+    {id:'typo2',role:'user',content:'349999991159'},
+    {id:'typo1',role:'user',content:'349999991159'},
+    {id:orderId,role:'user',content:'Bia. Apresente o Solaris para 34999991159 Jaqueline.'}];
   globalThis.fetch = async (url,init) => {
     if(String(url).includes('graph.facebook.com')) {
       if(init?.method === 'POST') {
@@ -135,4 +139,9 @@ test('Bia handler recovers CRM candidates when a retry skips the model query',as
   await verifyBiaDispatch('Tente agora',true);
   await verifyBiaDispatch('Tente novamente',true);
   await verifyBiaDispatch('+55 34 99999-1159 Tente este número',true);
+});
+
+test('Bia handler accepts an addressed presentation and preserves it across invalid phone corrections',async()=>{
+  await verifyBiaDispatch('Bia. Apresente o Solaris para 34999991159 Jaqueline.',false,true);
+  await verifyBiaDispatch('34999991159',true,false,true);
 });

@@ -159,6 +159,58 @@ test('explicit phone remains authoritative with duplicate CRM cards and a stale 
   assert.throws(()=>biaManagerRecipient('Apresente o Solaris para Renato',args,records),/AMBIGUOUS/);
 });
 
+const contextualRecords=[{id:'r1',person_name:'Renato Oliveira Alves',phone:'11999990001'},
+  {id:'r2',person_name:'Renato',phone:'11999990001'},{id:'r3',person_name:'Roberto',phone:'11999990001'},
+  {id:'r4',person_name:'Renato',phone:'11999990002'}];
+const contextualOrder='Entre em contato com ele e inicia a venda via WhatsApp';
+const contextualHistory=[
+  {id:'question',role:'user',content:'Bia algum lead novo?'},
+  {id:'lead-reply',role:'assistant',content:'Sim. Entrou 1 lead novo hoje: Renato Oliveira Alves. Interesse: investir no Solaris.'},
+  {id:messageId,role:'user',content:contextualOrder},
+  {id:'blocked1',role:'assistant',content:'O canal bloqueou por destinatário ambíguo.'},
+  {id:'name',role:'user',content:'Renato de Oliveira'},
+  {id:'blocked2',role:'assistant',content:'O canal exige autorização explícita.'},
+  {id:'consent',role:'user',content:'Ele autorizou explicitamente'},
+  {id:'blocked3',role:'assistant',content:'O canal exige autorização explícita.'},
+  {id:'why',role:'user',content:'Quem está pedindo?'},
+  {id:'explanation',role:'assistant',content:'O canal está pedindo a autorização.'},
+  {id:'approval',role:'user',content:'Eu autorizo'},
+  {id:'blocked4',role:'assistant',content:'O canal bloqueou novamente.'},
+];
+
+test('the reported pronoun, partial name, authorization discussion and retry retain one original order',()=>{
+  for(const [id,content,history] of [
+    [messageId,contextualOrder,contextualHistory.slice(0,2)],
+    ['name','Renato de Oliveira',contextualHistory.slice(0,4)],
+    ['approval','Eu autorizo',contextualHistory.slice(0,10)],
+    ['retry','Tente novamente',contextualHistory],
+  ] as [string,string,typeof contextualHistory][]) {
+    const order=biaManagerOutreach(id,content,contextualRecords,history);
+    assert.equal(order.messageId,messageId);
+    assert.equal(biaManagerRecipient(order.message,{phone:'11999990001',contact_id:'invented-id'},contextualRecords,order.clarifications,order.recipientContext),'5511999990001');
+  }
+  const order=biaManagerOutreach('retry','Tente novamente',contextualRecords,contextualHistory);
+  assert.throws(()=>biaManagerRecipient(order.message,{phone:'11999990002'},contextualRecords,order.clarifications,order.recipientContext),/AMBIGUOUS/);
+  assert.throws(()=>biaManagerRecipient(order.message,{contact_id:'r4'},contextualRecords,order.clarifications,order.recipientContext),/AMBIGUOUS/);
+});
+
+test('discussion is not new authorization, and a pronoun cannot authorize a model-chosen contact',()=>{
+  for(const message of ['Eu autorizo','Ele autorizou explicitamente','Quem está pedindo?','Tente novamente']) {
+    assert.throws(()=>biaManagerOutreach('current',message,contextualRecords,[]),/EXPLICIT/);
+  }
+  for(const content of ['Cancele o envio','Não envie','Ele não autorizou','Quais leads temos?','Como enviar para Renato?']) {
+    assert.throws(()=>biaManagerOutreach('retry','Tente novamente',contextualRecords,[...contextualHistory,{id:'barrier',role:'user',content}]),/EXPLICIT/);
+  }
+  assert.throws(()=>biaManagerRecipient(contextualOrder,{phone:'11999990001'},contextualRecords),/AMBIGUOUS/);
+  for(const recipientContext of ['Temos dois leads: Renato Oliveira Alves e Roberto.',
+    'Envie para Renato Oliveira Alves sem autorização.','Entraram 2 leads: Renato Oliveira Alves e Roberto.']) {
+    assert.throws(()=>biaManagerRecipient(contextualOrder,{},[contextualRecords[0]],[],recipientContext),/AMBIGUOUS/);
+  }
+  assert.throws(()=>biaManagerRecipient('Quais os dados dele?',{},contextualRecords,[],contextualHistory[1].content),/EXPLICIT/);
+  // Equal full names remain ambiguous even after partial-name clarification.
+  assert.throws(()=>biaManagerRecipient(contextualOrder,{},[...contextualRecords,{...contextualRecords[0],id:'r5',phone:'11999990003'}],['Renato de Oliveira'],contextualHistory[1].content),/AMBIGUOUS/);
+});
+
 test('clarified Bia outreach rechecks the live CRM and sends template 1 once across subsequent authorizations',async()=>{
   let graphPosts=0,lookups=0;const reserved=new Set<string>();const ids:string[]=[];
   const context={organizationId:org,actor,threadId,messageId:clarificationId,message:'Final 1159',records:jaquelines,history:orderHistory,

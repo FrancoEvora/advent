@@ -102,11 +102,61 @@ test('actual sales wording, phone suffix variants and retry sequence preserve au
     history.push({id:'retry-'+index,role:'user',content});
   }
   for(const message of ['Não venda para Jaqueline via WhatsApp','Como vender para Jaqueline via WhatsApp?','Simule uma venda para Jaqueline pelo WhatsApp',
-    'Venda um lote para Jaqueline','Tente novamente','Tente agora','+55 34 99999-1159 Tente este número']) {
+    'Tente novamente','Tente agora','+55 34 99999-1159 Tente este número']) {
     assert.throws(()=>biaManagerOutreach(messageId,message,jaquelines),/EXPLICIT/);
   }
   assert.throws(()=>biaManagerRecipient('Venda para Jaqueline via WhatsApp, final 1159 ou final 0685',{},jaquelines),/AMBIGUOUS/);
   assert.throws(()=>biaManagerOutreach(messageId,'Tente novamente',jaquelines,[...orderHistory,{id:'stop',role:'user',content:'Cancele o envio'}]),/EXPLICIT/);
+});
+
+test('addressed commercial orders use the customer channel without requiring a magic channel word',()=>{
+  const records=[{id:'lead1',person_name:'Renato',phone:'11999990001'}];
+  for(const message of ['Bia. Apresente o Solaris para 11999990001 Renato.','Apresente o Solaris para Renato.',
+    'Venda um lote para Renato','Ofereça um lote ao Renato','Quero que você apresente o Solaris para Renato']) {
+    const order=biaManagerOutreach(messageId,message,records);
+    assert.equal(biaManagerRecipient(order.message,{},records),'5511999990001');
+  }
+  for(const message of ['Apresente o Solaris','Apresente o Solaris para um interessado',
+    'Como apresentar o Solaris para 11999990001 Renato?','Não apresente o Solaris para Renato',
+    'Simule uma apresentação para Renato','Apresente um rascunho para Renato',
+    'Apresente o Solaris para Renato por e-mail','Envie um e-mail para Renato',
+    'Apresente o Solaris para Renato por SMS']) {
+    assert.throws(()=>biaManagerOutreach(messageId,message,records),/EXPLICIT/);
+  }
+  assert.throws(()=>biaManagerRecipient('Apresente o Solaris para Renato',{phone:'11999990002'},records),/AMBIGUOUS/);
+});
+
+test('a corrected invalid phone keeps the original authorization and id without authorizing another recipient',()=>{
+  const records=[{id:'lead1',person_name:'Renato',phone:'11999990001'}];
+  const original='Bia. Apresente o Solaris para 11999990001 Renato.';
+  const history=[{id:messageId,role:'user',content:original}];
+  for(const [index,content] of ['119999990001','119999990001','11999990001','Tente novamente'].entries()) {
+    const order=biaManagerOutreach('step-'+index,content,records,history);
+    assert.equal(order.messageId,messageId);
+    if(index<2)assert.throws(()=>biaManagerRecipient(order.message,{},records,order.clarifications),/PHONE_INVALID/);
+    else assert.equal(biaManagerRecipient(order.message,{},records,order.clarifications),'5511999990001');
+    history.push({id:'step-'+index,role:'user',content});
+  }
+  const invalidHistory=history.slice(0,3);
+  const retry=biaManagerOutreach('retry','Tente novamente',records,invalidHistory);
+  assert.throws(()=>biaManagerRecipient(retry.message,{},records,retry.clarifications),/PHONE_INVALID/);
+  const changed=biaManagerOutreach('changed','11999990002',records,invalidHistory);
+  assert.throws(()=>biaManagerRecipient(changed.message,{},records,changed.clarifications),/AMBIGUOUS/);
+  for(const content of ['Cancele o envio','Quais leads temos?']) {
+    assert.throws(()=>biaManagerOutreach('retry','11999990001',records,[...invalidHistory,{id:'barrier',role:'user',content}]),/EXPLICIT/);
+  }
+  assert.throws(()=>biaManagerOutreach('retry','11999990001',records,[]),/EXPLICIT/);
+});
+
+test('explicit phone remains authoritative with duplicate CRM cards and a stale model contact ID',()=>{
+  const records=[{id:'r1',person_name:'Renato',phone:'11999990001'},
+    {id:'r2',person_name:'Renato Almeida',phone:'+5511999990001'}];
+  const message='Bia. Apresente o Solaris para 11999990001 Renato.';
+  const args={contact_id:'nonexistent-model-id',phone:'+5511999990001'};
+  assert.equal(biaManagerRecipient(message,args,records),'5511999990001');
+  assert.equal(biaManagerRecipient(message,args,[],['119999990001','11999990001']),'5511999990001');
+  assert.throws(()=>biaManagerRecipient(message,{...args,phone:'11999990002'},records),/AMBIGUOUS/);
+  assert.throws(()=>biaManagerRecipient('Apresente o Solaris para Renato',args,records),/AMBIGUOUS/);
 });
 
 test('clarified Bia outreach rechecks the live CRM and sends template 1 once across subsequent authorizations',async()=>{

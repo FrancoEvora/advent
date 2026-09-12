@@ -8,8 +8,9 @@ const root = new URL("../", import.meta.url), org = "11111111-1111-4111-8111-111
 let auth = true, adminAccess = true, visible = true, terminal = false, mutation = false, round = 0;
 let calls: { key: string; name: string; args: Obj }[] = [];
 let bia = false, biaContent = 'Final 1159', historyRows: Obj[] = [], queryFilters: {table:string;column:string;value:unknown}[] = [];
-const crmRows = [{id:'jaq1',person_name:'Jaqueline',phone:'34999991159'},{id:'jaq2',person_name:'Jaqueline Hillebrand',phone:'34999990685'}];
-const reset = () => { auth = true; adminAccess = true; visible = true; terminal = false; mutation = false; round = 0; calls = []; bia = false; historyRows = []; queryFilters = []; };
+const defaultCrmRows = [{id:'jaq1',person_name:'Jaqueline',phone:'34999991159'},{id:'jaq2',person_name:'Jaqueline Hillebrand',phone:'34999990685'}];
+let crmRows=defaultCrmRows;
+const reset = () => { auth = true; adminAccess = true; visible = true; terminal = false; mutation = false; round = 0; calls = []; bia = false; historyRows = []; queryFilters = []; crmRows=defaultCrmRows; };
 function createClient(_url: string, key: string) {
   return {
     auth: { getUser: async () => ({ error: auth ? null : {}, data: { user: auth ? { id: user } : null } }) },
@@ -85,8 +86,9 @@ test("administrative mutation uses the CALLER token, actual message lease, and s
   assert.equal(JSON.stringify(await response.json()).includes("private-test-key"), false);
 });
 
-async function verifyBiaDispatch(message:string,skipModelQuery=false,direct=false) {
+async function verifyBiaDispatch(message:string,skipModelQuery=false,direct=false,phoneCorrection=false,duplicatePhone=false) {
   reset();biaContent = message;
+  if(duplicatePhone)crmRows=defaultCrmRows.map(row=>({...row,phone:defaultCrmRows[0].phone}));
   bia = true;let graphPosts = 0;
   const orderId = '88888888-8888-4888-8888-888888888888';
   historyRows = [
@@ -96,6 +98,10 @@ async function verifyBiaDispatch(message:string,skipModelQuery=false,direct=fals
   ];
   if(direct)historyRows = historyRows.slice(0,1);
   else if(skipModelQuery)historyRows.splice(1,0,...['Tente novamente','+55 34 99999-1159 Tente este número','Tente novamente','Você tem a autorização','Final 1159'].map((content,index)=>({id:'prior-'+index,role:'user',content})));
+  if(phoneCorrection)historyRows=[{id:messageId,role:'user',content:message},
+    {id:'typo2',role:'user',content:'349999991159'},
+    {id:'typo1',role:'user',content:'349999991159'},
+    {id:orderId,role:'user',content:'Bia. Apresente o Solaris para 34999991159 Jaqueline.'}];
   globalThis.fetch = async (url,init) => {
     if(String(url).includes('graph.facebook.com')) {
       if(init?.method === 'POST') {
@@ -107,16 +113,16 @@ async function verifyBiaDispatch(message:string,skipModelQuery=false,direct=fals
     const body = JSON.parse(String(init?.body));assert.match(body.instructions,/RETOMADA DO WHATSAPP/);
     const step = round++ + (skipModelQuery ? 1 : 0);
     const output = step === 0 ? [{type:'function_call',call_id:'crm',name:'query',arguments:JSON.stringify({entity:'crm_records',search:'Jaqueline'})}] :
-      step === 1 ? [{type:'function_call',call_id:'wa',name:'whatsapp',arguments:JSON.stringify({action:'send',...(skipModelQuery ? {} : {contact_id:'jaq1'}),phone:'34999991159',template_name:'bia_indicacao_investimento'})}] :
+      step === 1 ? [{type:'function_call',call_id:'wa',name:'whatsapp',arguments:JSON.stringify({action:'send',...(duplicatePhone ? {contact_id:'nonexistent-model-id'} : skipModelQuery ? {} : {contact_id:'jaq1'}),phone:'34999991159',template_name:'bia_indicacao_investimento'})}] :
       [{type:'message',content:[{type:'output_text',text:'Mensagem enviada.'}]}];
     return Response.json({status:'completed',output,usage:{input_tokens:1,output_tokens:1}});
   };
   const response = await handleRequest(request());const body = await response.json();assert.equal(response.status,200);assert.equal(body.ok,true);assert.equal(graphPosts,1);
-  const lookup = calls.filter(call=>call.name === 'arisa_admin_query');assert.equal(lookup.length,2);assert.ok(lookup.every(call=>call.key === 'public-test' && call.args.p_organization_id === org));
+  const lookup = calls.filter(call=>call.name === 'arisa_admin_query');assert.equal(lookup.length,duplicatePhone ? 1 : 2);assert.ok(lookup.every(call=>call.key === 'public-test' && call.args.p_organization_id === org));
   const start = calls.find(call=>call.name === 'bia_whatsapp_outbound_admin' && call.args.p_action === 'start')!;
   const {biaChatOperationId} = await import('../supabase/functions/enterprise-bia-agent-gateway/whatsapp-operator.ts');
   assert.equal((start.args.p_args as Obj).id,await biaChatOperationId(threadId,direct ? messageId : orderId));assert.equal(start.args.p_actor,user);
-  if(skipModelQuery)assert.deepEqual(lookup[0].args.p_filters,[{column:'phone',operator:'contains',value:'1159'}]);
+  if(skipModelQuery)assert.deepEqual(lookup[0].args.p_filters,duplicatePhone ? [{column:'id',operator:'eq',value:'nonexistent-model-id'}] : [{column:'phone',operator:'contains',value:'1159'}]);
   const historyAt = queryFilters.findIndex(filter=>filter.table === 'arisa_chat_messages' && filter.column === 'thread_id');
   assert.deepEqual(queryFilters.slice(historyAt,historyAt+3),[
     {table:'arisa_chat_messages',column:'thread_id',value:threadId},
@@ -135,4 +141,10 @@ test('Bia handler recovers CRM candidates when a retry skips the model query',as
   await verifyBiaDispatch('Tente agora',true);
   await verifyBiaDispatch('Tente novamente',true);
   await verifyBiaDispatch('+55 34 99999-1159 Tente este número',true);
+});
+
+test('Bia handler accepts an addressed presentation and preserves it across invalid phone corrections',async()=>{
+  await verifyBiaDispatch('Bia. Apresente o Solaris para 34999991159 Jaqueline.',false,true);
+  await verifyBiaDispatch('34999991159',true,false,true);
+  await verifyBiaDispatch('34999991159',false,false,true,true);
 });

@@ -104,7 +104,10 @@ export function biaManagerRecipient(message: string, args: Obj, records: Obj[], 
     else if (selection.kind === 'phone') matches = matches.filter(row => { try { return biaInitialPhone(row.phone) === selection.value; } catch { return false; } });
     else if (selection.kind === 'name') matches = matches.filter(row => typeof row.person_name === 'string' && normalized(row.person_name) === selection.value);
   }
-  if (matches.length !== 1 || (args.contact_id && args.contact_id !== matches[0].id)) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
+  // An administrator-supplied full phone identifies the messaging destination.
+  // Duplicate CRM cards or a model-generated contact ID cannot override it;
+  // name-only orders still require one unambiguous live record.
+  if (!matches.length || (!phones.length && (matches.length !== 1 || (args.contact_id && args.contact_id !== matches[0].id)))) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
   const phone = biaInitialPhone(matches[0].phone);
   if (args.phone && biaInitialPhone(args.phone) !== phone) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
   return phone;

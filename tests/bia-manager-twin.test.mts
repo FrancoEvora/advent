@@ -148,6 +148,17 @@ test('a corrected invalid phone keeps the original authorization and id without 
   assert.throws(()=>biaManagerOutreach('retry','11999990001',records,[]),/EXPLICIT/);
 });
 
+test('explicit phone remains authoritative with duplicate CRM cards and a stale model contact ID',()=>{
+  const records=[{id:'r1',person_name:'Renato',phone:'11999990001'},
+    {id:'r2',person_name:'Renato Almeida',phone:'+5511999990001'}];
+  const message='Bia. Apresente o Solaris para 11999990001 Renato.';
+  const args={contact_id:'nonexistent-model-id',phone:'+5511999990001'};
+  assert.equal(biaManagerRecipient(message,args,records),'5511999990001');
+  assert.equal(biaManagerRecipient(message,args,[],['119999990001','11999990001']),'5511999990001');
+  assert.throws(()=>biaManagerRecipient(message,{...args,phone:'11999990002'},records),/AMBIGUOUS/);
+  assert.throws(()=>biaManagerRecipient('Apresente o Solaris para Renato',args,records),/AMBIGUOUS/);
+});
+
 test('clarified Bia outreach rechecks the live CRM and sends template 1 once across subsequent authorizations',async()=>{
   let graphPosts=0,lookups=0;const reserved=new Set<string>();const ids:string[]=[];
   const context={organizationId:org,actor,threadId,messageId:clarificationId,message:'Final 1159',records:jaquelines,history:orderHistory,

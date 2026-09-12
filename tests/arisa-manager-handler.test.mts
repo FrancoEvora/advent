@@ -10,7 +10,8 @@ let calls: { key: string; name: string; args: Obj }[] = [];
 let bia = false, biaContent = 'Final 1159', historyRows: Obj[] = [], queryFilters: {table:string;column:string;value:unknown}[] = [];
 const defaultCrmRows = [{id:'jaq1',person_name:'Jaqueline',phone:'34999991159'},{id:'jaq2',person_name:'Jaqueline Hillebrand',phone:'34999990685'}];
 let crmRows=defaultCrmRows;
-const reset = () => { auth = true; adminAccess = true; visible = true; terminal = false; mutation = false; round = 0; calls = []; bia = false; historyRows = []; queryFilters = []; crmRows=defaultCrmRows; };
+let crmQuery: ((args:Obj)=>Obj)|undefined;
+const reset = () => { auth = true; adminAccess = true; visible = true; terminal = false; mutation = false; round = 0; calls = []; bia = false; historyRows = []; queryFilters = []; crmRows=defaultCrmRows; crmQuery=undefined; };
 function createClient(_url: string, key: string) {
   return {
     auth: { getUser: async () => ({ error: auth ? null : {}, data: { user: auth ? { id: user } : null } }) },
@@ -19,7 +20,7 @@ function createClient(_url: string, key: string) {
       if (name === "arisa_admin_catalog") return { error: adminAccess ? null : { code: "42501", message: "ADMIN_REQUIRED" }, data: { entities: [] } };
       if (name === "get_crm_ai_runtime_credentials") return { error: null, data: { enabled: true, api_key: "private-test-key-".repeat(4), agent_model: "test-model" } };
       if (name === "arisa_chat_claim") return { error: null, data: { lease: terminal ? null : lease, message: { id: messageId, content: bia ? biaContent : "Cadastre o fornecedor Teste", created_at: "2026-09-05T12:00:00Z", file_ids: [] } } };
-      if (name === 'arisa_admin_query') return {error:null,data: {total:2,rows:crmRows}};
+      if (name === 'arisa_admin_query') return {error:null,data: crmQuery ? crmQuery(args) : {total:2,rows:crmRows}};
       if (name === 'bia_whatsapp_credentials') return {error:null,data:{enabled:true,waba_id:'123',phone_number_id:'456',graph_api_version:'v23.0',access_token:'mock-only'}};
       if (name === 'bia_whatsapp_outbound_admin') {
         const data = args.p_args as Obj;
@@ -33,9 +34,10 @@ function createClient(_url: string, key: string) {
     },
     from: (name: string) => {
       assert.equal(key, "public-test");
-      const query = { select: () => query, eq: (column:string,value:unknown) => {queryFilters.push({table:name,column,value});return query;}, lte: () => query, order: () => query, limit: () => query,
+      let queryLimit=Infinity;
+      const query = { select: () => query, eq: (column:string,value:unknown) => {queryFilters.push({table:name,column,value});return query;}, lte: () => query, order: () => query, limit: (value:number) => {queryLimit=value;return query;},
         maybeSingle: async () => ({ error: null, data: visible ? { assistant: bia ? 'bia' : "arisa", id: messageId, thread_id: threadId, content: "Resposta anterior" } : null }),
-        then: (resolve: (result: unknown) => unknown) => Promise.resolve({ error: null, data: name === "arisa_chat_actions" ? [] : bia ? [...historyRows] : [{ id: messageId, role: "user", content: "Teste", file_ids: [], created_at: "2026-09-05T12:00:00Z" }] }).then(resolve),
+        then: (resolve: (result: unknown) => unknown) => Promise.resolve({ error: null, data: name === "arisa_chat_actions" ? [] : bia ? historyRows.slice(0,queryLimit) : [{ id: messageId, role: "user", content: "Teste", file_ids: [], created_at: "2026-09-05T12:00:00Z" }] }).then(resolve),
       }; return query;
     },
   };
@@ -147,4 +149,45 @@ test('Bia handler accepts an addressed presentation and preserves it across inva
   await verifyBiaDispatch('Bia. Apresente o Solaris para 34999991159 Jaqueline.',false,true);
   await verifyBiaDispatch('34999991159',true,false,true);
   await verifyBiaDispatch('34999991159',false,false,true,true);
+});
+
+test('Bia handler dispatches the screenshot sequence with the original order beyond the model window',async()=>{
+  bia=true;biaContent='Tente novamente';let graphPosts=0;
+  const orderId='99999999-9999-4999-8999-999999999999';
+  crmRows=[{id:'r1',person_name:'Renato Oliveira Alves',phone:'11999990001'},
+    {id:'r2',person_name:'Renato',phone:'11999990001'},{id:'r3',person_name:'Renato',phone:'11999990002'}];
+  crmQuery=args=>args.p_search ? {total:1,rows:[crmRows[0]]} : {total:crmRows.length,rows:crmRows};
+  const chronological:Obj[]=[
+    {id:'question',role:'user',content:'Bia algum lead novo?'},
+    {id:'lead',role:'assistant',status:'completed',content:'Entrou 1 lead novo hoje: Renato Oliveira Alves.'},
+    {id:orderId,role:'user',content:'Entre em contato com ele e inicia a venda via WhatsApp'},
+    ...['Renato de Oliveira','Ele autorizou explicitamente','Quem está pedindo?','Eu autorizo',...Array(16).fill('Tente novamente')].flatMap((content,index)=>[
+      {id:'blocked-'+index,role:'assistant',status:'completed',content:'O canal bloqueou o envio.'},
+      {id:'user-'+index,role:'user',content},
+    ]),{id:messageId,role:'user',content:biaContent},
+  ];
+  historyRows=chronological.reverse();
+  globalThis.fetch=async(url,init)=>{
+    if(String(url).includes('graph.facebook.com')) {
+      if(init?.method==='POST') {
+        graphPosts++;const body=JSON.parse(String(init.body));assert.equal(body.to,'5511999990001');assert.equal(body.template.name,'bia_indicacao_investimento');
+        return Response.json({messages:[{id:'mock-message'}]});
+      }
+      return Response.json({data:[{name:'bia_indicacao_investimento',language:'pt_BR',status:'APPROVED',category:'MARKETING',components:[{type:'BODY',text:'Olá, {{1}}! Sou a Bia.'}]}]});
+    }
+    const body=JSON.parse(String(init?.body));
+    if(round===0) {assert.ok(body.input.length<=24);assert.ok(body.input.every((row:Obj)=>!String(row.content).includes('Entre em contato com ele')));}
+    const step=round++;
+    return Response.json({status:'completed',output:step===0 ? [{type:'function_call',call_id:'crm',name:'query',arguments:JSON.stringify({entity:'crm_records',search:'Renato Oliveira Alves'})}] :
+      step===1 ? [{type:'function_call',call_id:'wa',name:'whatsapp',arguments:JSON.stringify({action:'send',contact_id:'r1',phone:'11999990001',template_name:'bia_indicacao_investimento'})}] :
+      [{type:'message',content:[{type:'output_text',text:'O canal bloqueou o envio.'}]}]});
+  };
+  const response=await handleRequest(request());assert.equal(response.status,200);assert.equal(graphPosts,1);
+  const lookup=calls.filter(call=>call.name==='arisa_admin_query');assert.equal(lookup.length,2);assert.ok(lookup.every(call=>call.key==='public-test' && call.args.p_organization_id===org));
+  assert.deepEqual(lookup[1].args.p_filters,[{column:'person_name',operator:'contains',value:'Renato'}]);
+  const start=calls.find(call=>call.name==='bia_whatsapp_outbound_admin' && call.args.p_action==='start')!;
+  const {biaChatOperationId}=await import('../supabase/functions/enterprise-bia-agent-gateway/whatsapp-operator.ts');
+  assert.equal((start.args.p_args as Obj).id,await biaChatOperationId(threadId,orderId));
+  const finish=calls.find(call=>call.name==='arisa_chat_finish')!;
+  assert.match(String(finish.args.p_content),/Enviei a mensagem/);assert.doesNotMatch(String(finish.args.p_content),/bloqueou/);
 });

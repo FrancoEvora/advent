@@ -70,7 +70,8 @@ function buildInput(context:Obj,gateway:Obj,message:string,operatorAuthenticated
  const facts=Array.isArray(knowledge.approvedFacts)?knowledge.approvedFacts.filter(v=>typeof v==='string').slice(0,40):[];
  const guardrails=Array.isArray(knowledge.guardrails)?knowledge.guardrails.filter(v=>typeof v==='string').slice(0,40):[];
  const history=recentMessages(context);
- return [{role:'system',content:SYSTEM},{role:'developer',content:JSON.stringify({operadorAutenticado:operatorAuthenticated,canal:gateway.channel||'site',agora:new Date().toISOString(),horarioLocal:new Date().toLocaleString('sv-SE',{timeZone:'America/Sao_Paulo'}),timezone:'America/Sao_Paulo',etapa:context.stage,perfil:context.profile,contato:{nome:contact.name||null,telefoneInformado:gateway.channel==='whatsapp'||!!phone(contact.phone)},visita:gateway.visitState||null,bloqueio:gateway.holdStatus||null,fatosAprovados:facts,regrasDoCanal:guardrails})},...history.map(m=>({role:m.direction==='user'?'user':'assistant',content:String(m.content||'').slice(0,1200)})),{role:'user',content:message}];
+ if(obj(gateway.campaignContext))guardrails.push('Este atendimento veio da campanha informada pelo servidor. Continue a abertura já enviada, use o objetivo informado no cadastro e não repita perguntas já respondidas. Não alegue indicação. Qualifique finalidade, prazo de compra e preferências, uma pergunta por vez. Consulte condições vigentes nas ferramentas; não invente descontos, juros nem promessa de valorização. Se a pessoa pedir outro horário, pergunte o horário e registre o retorno. Se não tiver interesse ou pedir para parar, interrompa a abordagem. Encaminhe ao atendimento humano quando solicitado.');
+ return [{role:'system',content:SYSTEM},{role:'developer',content:JSON.stringify({operadorAutenticado:operatorAuthenticated,canal:gateway.channel||'site',agora:new Date().toISOString(),horarioLocal:new Date().toLocaleString('sv-SE',{timeZone:'America/Sao_Paulo'}),timezone:'America/Sao_Paulo',etapa:context.stage,perfil:context.profile,contato:{nome:contact.name||null,telefoneInformado:gateway.channel==='whatsapp'||!!phone(contact.phone)},visita:gateway.visitState||null,bloqueio:gateway.holdStatus||null,fatosAprovados:facts,regrasDoCanal:guardrails,campanha:gateway.campaignContext||null})},...history.map(m=>({role:m.direction==='user'?'user':'assistant',content:String(m.content||'').slice(0,1200)})),{role:'user',content:message}];
 }
 async function diagnose(admin:any,org:string,r:Response,p:unknown,model:string){
  const err=obj(p)&&obj(p.error)?p.error:{}; const incomplete=obj(p)&&obj(p.incomplete_details)?p.incomplete_details:{};
@@ -266,3 +267,4 @@ export async function handleRequest(request:Request){
  }
 }
 Deno.serve(handleRequest);
+

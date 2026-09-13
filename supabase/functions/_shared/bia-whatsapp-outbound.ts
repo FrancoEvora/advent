@@ -34,7 +34,8 @@ export async function biaApprovedOpening(credentials: Obj, http: typeof fetch = 
   return biaApprovedTemplate(credentials, BIA_OUTBOUND_TEMPLATE, http);
 }
 
-export async function biaApprovedTemplate(credentials: Obj, name: typeof BIA_OUTBOUND_TEMPLATE | typeof BIA_INBOUND_TEMPLATE, http: typeof fetch = fetch) {
+export async function biaApprovedTemplate(credentials: Obj, name: string, http: typeof fetch = fetch) {
+  if (!/^bia_[a-z0-9_]{1,100}$/.test(name)) throw new Error('BIA_TEMPLATE_CHANGED');
   if (credentials.enabled !== true || !/^\d{1,64}$/.test(str(credentials.waba_id)) ||
     !/^\d{1,64}$/.test(str(credentials.phone_number_id)) || !/^v\d+\.\d+$/.test(str(credentials.graph_api_version)) ||
     !str(credentials.access_token)) throw new Error('BIA_CHANNEL_DISABLED');
@@ -58,7 +59,7 @@ export async function biaApprovedTemplate(credentials: Obj, name: typeof BIA_OUT
   if (!Array.isArray(rawButtons) || rawButtons.length > 10 || rawButtons.some(b => !object(b) || b.type !== 'QUICK_REPLY' || !str(b.text).trim())) throw new Error('BIA_TEMPLATE_CHANGED');
   const buttons = rawButtons.map(b => str(b.text));
   const plainText = [body, footer, buttons.length ? 'Opções: ' + buttons.join(' · ') : ''].filter(Boolean).join('\n\n');
-  const expected = name === BIA_OUTBOUND_TEMPLATE ? 1 : 0;
+  const expected = name === BIA_INBOUND_TEMPLATE ? 0 : 1;
   if (!body.trim() || plainText.length > 3800 || (body.match(/\{\{1\}\}/g) || []).length !== expected ||
     /[{}]/.test(expected ? body.replace('{{1}}', '') : body) || /[{}]/.test([footer, ...buttons].join(''))) throw new Error('BIA_TEMPLATE_CHANGED');
   const canonical = { name, language: 'pt_BR', body, footer, buttons, category: str(template.category) };

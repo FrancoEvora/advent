@@ -5,7 +5,7 @@ import Link from "next/link";
 import { client } from "./chat-client";
 import styles from "./notifications.module.css";
 
-type Notice = { id: string; title: string; message: string; read_at: string | null; created_at: string };
+type Notice = { id: string; title: string; message: string; read_at: string | null; created_at: string; metadata?: { thread_id?: string; source?: string } };
 export default function ArisaNotificationBell({ organizationId, assistantName = "Arisa" }: { organizationId: string; assistantName?: string }) {
   const [items, setItems] = useState<Notice[]>([]);
   const [unread, setUnread] = useState(0);
@@ -50,13 +50,14 @@ export default function ArisaNotificationBell({ organizationId, assistantName = 
     </button>
     {open && <section id="arisa-notifications" className={styles.panel} aria-label={`Avisos da ${assistantName}`}>
       <div className={styles.heading}><strong>Novidades para você</strong><button type="button" onClick={() => setOpen(false)} aria-label="Fechar avisos">×</button></div>
-      <p>Pedidos de reunião, recados e assuntos que aguardam sua atenção.</p>
+      <p>Conversas iniciadas, pedidos de reunião e assuntos que aguardam sua atenção.</p>
       {error && <p role="alert">{error} <button type="button" onClick={() => void refresh()}>Atualizar</button></p>}
       {unread > 0 && items.some(item => !item.read_at) && <button type="button" disabled={busy} onClick={() => void markRead(items.filter(item => !item.read_at).map(item => item.id))}>Marcar os avisos exibidos como lidos</button>}
       <div className={styles.list}>
         {items.map(item => <article key={item.id} className={item.read_at ? styles.read : styles.unread}>
           <strong>{item.title}</strong><p>{item.message}</p>
           <time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" })}</time>
+          {item.metadata?.source === "bia_whatsapp" && /^[0-9a-f-]{36}$/i.test(item.metadata.thread_id || "") && <Link href={`/bia?painel=whatsapp&atendimento=${item.metadata.thread_id}`} onClick={() => setOpen(false)}>Ver conversa da Bia</Link>}
           {!item.read_at && <button type="button" disabled={busy} onClick={() => void markRead([item.id])}>Marcar como lido</button>}
         </article>)}
         {!items.length && !error && <p>Nenhum aviso registrado para você.</p>}

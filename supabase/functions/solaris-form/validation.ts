@@ -1,7 +1,7 @@
 export const SOLARIS_FORM_SLUG = "solaris-futura-casa";
 export const SOLARIS_FORM_PATH = "/atendimento/solaris/cadastro";
 export const SOLARIS_CONSENT = "solaris-whatsapp-v1";
-export type SolarisSubmission = { requestId: string; name: string; phone: string; purpose: "investir" | "morar"; budget: "300_500" | "acima_500"; consent: true; attribution: Record<string, string> };
+export type SolarisSubmission = { requestId: string; name: string; phone: string; purpose: "investir" | "morar"; budget: "300_500" | "acima_500" | null; consent: true; attribution: Record<string, string> };
 
 export function normalizePhone(value: unknown): string | null {
   if (typeof value !== "string") return null;
@@ -19,11 +19,11 @@ export function validateSolarisSubmission(value: unknown): SolarisSubmission | n
   const data = value as Record<string, unknown>;
   const name = typeof data.name === "string" ? data.name.trim().replace(/\s+/g, " ") : "";
   const phone = normalizePhone(data.phone);
-  if (!/^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(String(data.requestId)) || name.length < 3 || name.length > 120 || !phone || data.consent !== true || data.website || !["investir", "morar"].includes(String(data.purpose)) || !["300_500", "acima_500"].includes(String(data.budget))) return null;
+  if (!/^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(String(data.requestId)) || name.length < 3 || name.length > 120 || !phone || data.consent !== true || data.website || !["investir", "morar"].includes(String(data.purpose)) || (data.budget != null && !["300_500", "acima_500"].includes(String(data.budget)))) return null;
   const attribution: Record<string, string> = {};
   const raw = data.attribution && typeof data.attribution === "object" && !Array.isArray(data.attribution) ? data.attribution as Record<string, unknown> : {};
   for (const key of ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "fbclid", "campaign_id", "adset_id", "ad_id"]) {
     if (typeof raw[key] === "string") attribution[key] = raw[key].slice(0,200);
   }
-  return { requestId: String(data.requestId).toLowerCase(), name, phone, consent: true, purpose: data.purpose as SolarisSubmission["purpose"], budget: data.budget as SolarisSubmission["budget"], attribution };
+  return { requestId: String(data.requestId).toLowerCase(), name, phone, consent: true, purpose: data.purpose as SolarisSubmission["purpose"], budget: (data.budget ?? null) as SolarisSubmission["budget"], attribution };
 }

@@ -40,7 +40,8 @@ try{
   assert.equal(response.status(),200);
   await page.locator('[data-solaris-version="book-v6"][data-solaris-revision="parque-embaixador"]').waitFor();
   assert.equal(await page.locator('#mapa-titulo, dialog').count(),0,'Former implantation section is replaced, not duplicated');
-  assert.equal((await page.locator('#embaixador blockquote').innerText()).replace(/\s+/g,' ').trim(),quote);
+  const quoteText=(await page.locator('#embaixador blockquote p').allTextContents()).join(' ').replace(/\s+/g,' ').trim();
+  assert.equal(quoteText,quote);
   assert.match(await page.locator('#embaixador figcaption').innerText(),/Leo Chaves[\s\S]*Embaixador Évora Urbanismo/);
   assert.equal(await page.locator('#embaixador a[href="#formulario"]').count(),1);
   assert.equal(await page.getByText('O Solaris traduz um jeito de viver',{exact:false}).count(),0,'Do not publish the unsourced draft quote');

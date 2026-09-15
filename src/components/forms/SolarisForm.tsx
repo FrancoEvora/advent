@@ -4,6 +4,8 @@ import { useEffect, useState, type KeyboardEvent } from "react";
 import Image from "next/image";
 import { SolarisCaptureForm } from "./SolarisCaptureForm";
 import { SolarisAmbassador } from "./SolarisAmbassador";
+import { SolarisBookLink } from "./SolarisBookLink";
+import { SolarisPartners } from "./SolarisPartners";
 import styles from "./solaris-form.module.css";
 import updates from "./solaris-updates.module.css";
 
@@ -52,7 +54,7 @@ export function SolarisForm() {
   }
 
   return (
-    <main className={styles.shell} id="conteudo-principal" data-solaris-version="book-v6" data-solaris-revision="parque-embaixador">
+    <main className={styles.shell} id="conteudo-principal" data-solaris-version="book-v6" data-solaris-revision="parque-embaixador" data-solaris-downloads="book-v6">
       <a className={styles.skip} href="#formulario">Ir para o formulário</a>
       <header className={styles.header}>
         <div className={styles.headerInner}>
@@ -109,7 +111,7 @@ export function SolarisForm() {
             <div className={styles.experienceCopy}><span className={styles.experienceNumber}>{selected.number} / 06</span><h3>{selected.title}</h3><p>{selected.description}</p><ul>{selected.items.map(item => <li key={item}>{item}</li>)}</ul><a className={styles.lightLink} href="#formulario">Quero saber mais <span aria-hidden="true">→</span></a></div>
           </div>
           <noscript><p>O projeto também prevê bosques, lago ornamental, pesca, academia, spa, sauna, tênis, beach tennis, futebol society, espaços infantis, pet place e hípica. Solicite mais informações à equipe.</p></noscript>
-          <div className={styles.bookAccess}><span>Todos os detalhes, no seu tempo.</span><a href="#formulario">Solicitar apresentação completa <span aria-hidden="true">→</span></a></div>
+          <div className={styles.bookAccess}><span>Todos os detalhes, no seu tempo.</span><SolarisBookLink>Baixar book completo (PDF)</SolarisBookLink></div>
         </div>
       </section>
       <section className={`${styles.section} ${styles.security}`} aria-labelledby="seguranca-titulo">
@@ -127,6 +129,7 @@ export function SolarisForm() {
         </div>
       </section>
       <SolarisAmbassador />
+      <SolarisPartners />
       <section className={styles.faqSection} aria-labelledby="faq-titulo"><div className={`${styles.sectionInner} ${styles.faqGrid}`}><div><p className={styles.eyebrow}>PARA DAR O PRÓXIMO PASSO</p><h2 id="faq-titulo">Sua nova escolha<br />começa com <em>clareza.</em></h2></div><div className={styles.faqList}>
         <details><summary>Os lotes têm qual tamanho mínimo?</summary><p>O book apresenta lotes a partir de 360 m². A equipe da Futura Casa informa as metragens e unidades disponíveis no momento do atendimento.</p></details>
         <details><summary>Como conhecer os valores e as condições?</summary><p>Cadastre seu nome, WhatsApp e objetivo para receber atendimento sobre os lotes. O book prevê financiamento facilitado com a loteadora; valores, entradas, juros, correções e prazos devem ser confirmados na proposta comercial.</p></details>
@@ -134,7 +137,7 @@ export function SolarisForm() {
         <details><summary>Qual é o prazo de entrega?</summary><p>O book informa entrega das obras em 24 meses, sem definir aqui a data inicial da contagem nem o cronograma de cada estrutura. Confirme os marcos, o escopo e os prazos aplicáveis na documentação contratual.</p></details>
         <details><summary>O cadastro já reserva um lote?</summary><p>Não. O cadastro registra o seu interesse para atendimento. A disponibilidade, as condições e uma eventual reserva são tratadas com a equipe comercial.</p></details>
       </div></div></section>
-      <section className={styles.finalCta} aria-labelledby="proximo-passo-titulo"><div className={styles.sectionInner}><p className={styles.finalEyebrow}>SOLARIS RESIDENCIAL RESORT</p><h2 id="proximo-passo-titulo">O seu novo jeito de viver<br /><em>começa aqui.</em></h2><p>Conheça os lotes e encontre o seu lugar entre natureza, lazer e bem-estar.</p><a className={styles.goldButton} href="#formulario">Receber lotes e condições <span aria-hidden="true">→</span></a><a className={styles.finalBook} href="#formulario">Solicitar a apresentação comercial →</a></div></section>
+      <section className={styles.finalCta} aria-labelledby="proximo-passo-titulo"><div className={styles.sectionInner}><p className={styles.finalEyebrow}>SOLARIS RESIDENCIAL RESORT</p><h2 id="proximo-passo-titulo">O seu novo jeito de viver<br /><em>começa aqui.</em></h2><p>Conheça os lotes e encontre o seu lugar entre natureza, lazer e bem-estar.</p><a className={styles.goldButton} href="#formulario">Receber lotes e condições <span aria-hidden="true">→</span></a><SolarisBookLink className={styles.finalBook}>Baixar book comercial (PDF)</SolarisBookLink></div></section>
       <footer className={styles.footer}><div className={styles.footerTop}><Brand small /><div><span>REALIZAÇÃO</span><Image src={`${ASSETS}/evora.avif`} alt="Évora Urbanismo" width={170} height={46} unoptimized loading="lazy" /></div><div><span>ATENDIMENTO</span><strong>Futura Casa</strong><small>Parceria do empreendimento: Zenith Empreendimentos.</small></div></div><div className={styles.disclaimer}><p>Conteúdo baseado no Book Comercial Solaris 2026, versão V6, com imagens institucionais fornecidas para esta página. Perspectivas ilustrativas e estruturas previstas em projeto. Consulte o memorial descritivo, a documentação contratual, o cronograma de implantação e a disponibilidade atual. Não há promessa de rentabilidade ou valorização garantida.</p><span>Solaris Residencial Resort · Monte Carmelo, Minas Gerais</span></div></footer>
       {!registered && <div className={`${styles.mobileCta} ${formVisible ? styles.mobileCtaHidden : ""}`} aria-hidden={formVisible}><div><strong>Solaris</strong><span>Lotes a partir de 360 m²</span></div><a href="#formulario" tabIndex={formVisible ? -1 : 0}>Quero conhecer <span aria-hidden="true">→</span></a></div>}
     </main>

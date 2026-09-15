@@ -1,6 +1,8 @@
 import Image from "next/image";
+import { SolarisBookLink } from "./SolarisBookLink";
 import styles from "./solaris-form.module.css";
 import updates from "./solaris-updates.module.css";
+import downloads from "./solaris-downloads.module.css";
 
 // Transcrição da mensagem fornecida no Book Comercial Solaris 2026 V6, página 2.
 // Não é um depoimento criado para esta página.
@@ -26,7 +28,11 @@ export function SolarisAmbassador() {
             </figcaption>
           </figure>
           <p className={updates.sourceNote}>Mensagem publicada no book comercial Solaris · Página 2</p>
-          <a className={styles.goldButton} href="#formulario">Receber lotes e condições <span aria-hidden="true">→</span></a>
+          <div className={downloads.ambassadorActions}>
+            <a className={styles.goldButton} href="#formulario">Receber lotes e condições <span aria-hidden="true">→</span></a>
+            <SolarisBookLink className={downloads.secondaryDownload}>Baixar book completo (PDF)</SolarisBookLink>
+          </div>
+          <p className={downloads.downloadMeta}>23 páginas · 32 MB · Download livre, sem cadastro</p>
         </div>
       </div>
     </section>

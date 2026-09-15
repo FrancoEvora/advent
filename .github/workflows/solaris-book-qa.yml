@@ -1,0 +1,58 @@
+name: Solaris Book QA
+on:
+  push:
+    branches: [codex/solaris-book-publish-20260915, main]
+    paths:
+      - 'src/components/forms/**'
+      - 'src/app/atendimento/**'
+      - 'public/forms/solaris/book/**'
+      - 'tests/solaris-book-browser.mjs'
+      - '.github/workflows/solaris-book-qa.yml'
+  pull_request:
+    paths:
+      - 'src/components/forms/**'
+      - 'src/app/atendimento/**'
+      - 'public/forms/solaris/book/**'
+      - 'tests/solaris-book-browser.mjs'
+      - '.github/workflows/solaris-book-qa.yml'
+permissions:
+  contents: read
+concurrency:
+  group: solaris-book-qa-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: node --experimental-strip-types --test tests/solaris-public-form.test.mts
+      - name: Install isolated browser test runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/solaris-qa" --no-save --package-lock=false playwright@1.58.2
+          "$RUNNER_TEMP/solaris-qa/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Verify the real Next.js page with a mocked lead endpoint
+        env:
+          QA_NODE_MODULES: ${{ runner.temp }}/solaris-qa/node_modules
+        run: |
+          mkdir -p qa-output
+          npm start -- --hostname 127.0.0.1 > qa-output/server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000/atendimento/solaris/cadastro > /dev/null; then break; fi
+            sleep 2
+          done
+          node tests/solaris-book-browser.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: solaris-book-qa
+          path: qa-output/
+          retention-days: 14

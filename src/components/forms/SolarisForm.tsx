@@ -1,183 +1,143 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import Image from "next/image";
-import { normalizePhone } from "@/lib/forms/solaris";
+import { SolarisCaptureForm } from "./SolarisCaptureForm";
 import styles from "./solaris-form.module.css";
 
-const benefits = [
-  ["01", "Lotes disponíveis", "Conheça as opções do Solaris e encontre uma que faça sentido para o seu objetivo."],
-  ["02", "Condições comerciais", "Receba informações sobre valores e possibilidades de pagamento, conforme a disponibilidade."],
-  ["03", "Atendimento pelo WhatsApp", "Tire suas dúvidas com a equipe da Futura Casa antes de dar o próximo passo."],
+const ASSETS = "/forms/solaris/book";
+const experiences = [
+  { id: "resort", tab: "Lazer resort", number: "01", title: "O lazer encontra um novo endereço.", description: "Complexo aquático, Casa Évora e espaços para celebrar. Uma proposta que une lazer, convivência e a experiência de morar bem.", items: ["Piscinas adulto e infantil", "Casa Évora e espaço gourmet", "Restaurante e espaço de eventos"], image: "resort", width: 1200, height: 837, page: "6, 8, 14 e 16", alt: "Perspectiva ilustrativa do complexo aquático e da Casa Évora apresentada no book Solaris." },
+  { id: "natureza", tab: "Natureza", number: "02", title: "Viver cercado de natureza, todos os dias.", description: "Bosques, ciclovias, trilhas e um lago ornamental. Espaços pensados para caminhar, contemplar e transformar a natureza em parte da rotina.", items: ["Bosques e trilhas sombreadas", "Lago ornamental e areal", "Deck e setor de pesca"], image: "natureza", width: 600, height: 622, page: "7, 11 e 18", alt: "Perspectiva ilustrativa de uma trilha em meio aos bosques do Solaris, extraída do book." },
+  { id: "bem-estar", tab: "Bem-estar", number: "03", title: "Corpo, mente e equilíbrio.", description: "A Casa Évora reúne a proposta de uma academia profissional e ambientes de spa e sauna, com arquitetura integrada à natureza.", items: ["Academia profissional", "Spa e sauna", "Design biofílico e acessibilidade"], image: "academia", width: 700, height: 484, page: "8 e 13", alt: "Perspectiva ilustrativa da academia da Casa Évora, com vista para o paisagismo." },
+  { id: "esportes", tab: "Esportes", number: "04", title: "Mais movimento. Mais vida ao ar livre.", description: "Do tênis ao beach tennis, do futebol aos encontros com os amigos: espaços para uma rotina ativa e momentos de convivência.", items: ["Quadras de tênis e beach tennis", "Campo de futebol society", "Quadra poliesportiva"], image: "tenis", width: 700, height: 514, page: "15, 17 e 21", alt: "Perspectiva ilustrativa das quadras de tênis e beach tennis do Solaris." },
+  { id: "familia", tab: "Família", number: "05", title: "Um lugar pensado para toda a família.", description: "Crianças e pets também têm seu espaço. A proposta do Solaris reúne ambientes para brincar, caminhar e compartilhar momentos juntos.", items: ["Brinquedoteca e espaços infantis", "Dog park / pet place", "Caminhadas ao ar livre"], image: "familia", width: 700, height: 427, page: "9 e 21", alt: "Ilustração do book Solaris com brinquedoteca e dog park, espaços previstos para crianças e pets." },
+  { id: "hipica", tab: "Hípica", number: "06", title: "A natureza ganha movimento e liberdade.", description: "A hípica foi idealizada para aproximar a família da vida ao ar livre, dos animais e da tradição equestre, em um ambiente integrado à paisagem.", items: ["Conexão com os animais", "Experiências ao ar livre", "Tradição equestre"], image: "hipica", width: 650, height: 749, page: "12", alt: "Perspectiva ilustrativa da hípica planejada para o Solaris, extraída do book comercial." },
 ];
+const mapItems = ["Espaços gourmet e quiosques para churrasco", "Quadras de tênis", "Portaria de serviço", "Casa Évora: academia, spa, sauna, lounge bar, restaurante e espaço gourmet", "Parque aquático", "Quadras de beach tennis", "Portaria de entrada", "Espaço Évora", "Quadra poliesportiva", "Pet place", "Área verde contemplativa", "Bosque, ciclovia e pista de caminhada", "Setor de águas e pesca", "Hípica", "Setor de pomar e hortaliças", "Lago ornamental e areal"];
+const safetyItems = ["Portaria 24 horas", "Controle de acesso", "Biometria e reconhecimento facial", "Monitoramento por câmeras e drones"];
+
+function Brand({ small = false }: { small?: boolean }) {
+  return <span className={`${styles.brand} ${small ? styles.brandSmall : ""}`}>
+    <Image className={styles.brandMark} src={`${ASSETS}/simbolo.avif`} alt="" width={52} height={54} unoptimized />
+    <span className={styles.brandWords}><span>Solaris</span><small>RESIDENCIAL RESORT</small></span>
+  </span>;
+}
 
 export function SolarisForm() {
-  const [page, setPage] = useState(1);
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [consent, setConsent] = useState(false);
-  const [purpose, setPurpose] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [receipt, setReceipt] = useState("");
-  const [website, setWebsite] = useState("");
-  const requestId = useRef("");
-  const title = useRef<HTMLHeadingElement>(null);
-  const submitting = useRef(false);
+  const [active, setActive] = useState(0);
+  const [registered, setRegistered] = useState(false);
+  const [formVisible, setFormVisible] = useState(false);
+  const dialog = useRef<HTMLDialogElement>(null);
+  const selected = experiences[active];
 
-  useEffect(() => { requestId.current = crypto.randomUUID(); }, []);
-  useEffect(() => { if (page > 1) title.current?.focus(); }, [page]);
+  useEffect(() => {
+    const form = document.getElementById("formulario");
+    if (!form || !("IntersectionObserver" in window)) return;
+    const observer = new IntersectionObserver(([entry]) => setFormVisible(entry.isIntersecting), { threshold: 0.12 });
+    observer.observe(form);
+    return () => observer.disconnect();
+  }, []);
 
-  async function next(event: FormEvent) {
+  function switchTab(event: KeyboardEvent<HTMLButtonElement>, index: number) {
+    let next = index;
+    if (event.key === "ArrowRight") next = (index + 1) % experiences.length;
+    else if (event.key === "ArrowLeft") next = (index + experiences.length - 1) % experiences.length;
+    else if (event.key === "Home") next = 0;
+    else if (event.key === "End") next = experiences.length - 1;
+    else return;
     event.preventDefault();
-    if (busy || submitting.current) return;
-    setError("");
-    if (page === 1) {
-      if (name.trim().length < 3) return setError("Informe seu nome para continuar.");
-      if (!normalizePhone(phone)) return setError("Informe um WhatsApp válido com DDD.");
-      // The existing notice and affirmative authorization are preserved.
-      setConsent(true);
-      setPage(2);
-      return;
-    }
-    if (page !== 2) return;
-    if (!purpose) return setError("Selecione investir ou morar.");
-    submitting.current = true;
-    setBusy(true);
-    try {
-      // Anchor links keep the original campaign URL and its attribution intact.
-      const attribution = Object.fromEntries(new URLSearchParams(window.location.search));
-      if (!requestId.current) requestId.current = crypto.randomUUID();
-      const response = await fetch("/api/forms/solaris", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId: requestId.current, name, phone, consent, purpose, website, attribution }),
-        signal: AbortSignal.timeout(20000),
-      });
-      const result = await response.json() as { id?: string; error?: string };
-      if (!response.ok || result.id !== requestId.current) {
-        throw new Error(result.error || "Não foi possível registrar agora. Tente novamente.");
-      }
-      // A click, a step transition or an HTTP 200 without the receipt is not a lead.
-      setReceipt(result.id.slice(0, 8).toUpperCase());
-      setPage(3);
-    } catch (err) {
-      setError(err instanceof Error && err.name !== "TimeoutError"
-        ? err.message
-        : "Não foi possível confirmar agora. Seus dados continuam preenchidos; tente novamente.");
-    } finally {
-      submitting.current = false;
-      setBusy(false);
-    }
+    setActive(next);
+    document.getElementById(`tab-${experiences[next].id}`)?.focus();
   }
 
-  const titles = ["Receba lotes e condições.", "Investir ou morar?", "Obrigado!"];
-
   return (
-    <main className={styles.shell} id="conteudo-principal">
+    <main className={styles.shell} id="conteudo-principal" data-solaris-version="book-v6">
       <a className={styles.skip} href="#formulario">Ir para o formulário</a>
-      <div className={styles.wrap}>
-        <header className={styles.header}>
-          <svg className={styles.logo} viewBox="54 7 188 120" role="img" aria-label="Futura Casa — inteligência imobiliária, marketing e vendas">
-            <image href="/forms/solaris/marca-original.png" width="842" height="1052" />
-          </svg>
-          <span>Monte Carmelo · MG</span>
-          <a className={styles.headerCta} href="#formulario">Quero conhecer <span aria-hidden="true">↗</span></a>
-        </header>
-
-        <div className={styles.grid}>
-          <section className={styles.property} aria-labelledby="solaris-titulo">
-            <p className={styles.eyebrow}>SOLARIS · RESIDENCIAL RESORT</p>
-            <h1 id="solaris-titulo">Seu próximo capítulo <em>começa com um lugar.</em></h1>
-            <p className={styles.location}>Lotes em Monte Carmelo (MG) para morar ou investir.</p>
-            <p className={styles.heroDescription}>Conheça o Solaris e receba as opções de lotes e condições comerciais pelo WhatsApp. Informação para escolher com mais clareza, no seu tempo.</p>
-            <div className={styles.campaignTags}><span>Plano Safra 2026</span><span>Obras em andamento</span></div>
-            <a className={styles.heroCta} href="#formulario">Quero receber lotes e condições <span aria-hidden="true">→</span></a>
-            <p className={styles.ctaNote}>Primeiro você conhece. Depois, decide.</p>
-            <div className={styles.heroTrust}>
-              <span className={styles.trustMark} aria-hidden="true">FC</span>
-              <p><strong>Atendimento Futura Casa</strong><span>Uma conversa sobre o que faz sentido para você.</span></p>
-            </div>
-          </section>
-
-          <section className={styles.panel} id="formulario" aria-label="Cadastro de interesse no Solaris">
-            <div className={styles.progressLabel}><span>Seu interesse no Solaris</span><span>{page} de 3</span></div>
-            <progress max={3} value={page} aria-label={`Etapa ${page} de 3`} />
-            <form onSubmit={next} noValidate aria-busy={busy}>
-              {page === 3 && <div className={styles.success} aria-hidden="true">✓</div>}
-              <h2 className={styles.formTitle} ref={title} tabIndex={-1}>{titles[page - 1]}</h2>
-              {page === 1 && <>
-                <p className={styles.intro}>Informe seu nome e WhatsApp. No próximo passo, diga se busca um lote para investir ou morar.</p>
-                <label className={styles.field}>Nome<input name="name" autoComplete="name" value={name} onChange={e => setName(e.target.value)} maxLength={120} placeholder="Seu nome" required /></label>
-                <label className={styles.field}>WhatsApp com DDD<input name="tel" type="tel" inputMode="tel" autoComplete="tel" value={phone} onChange={e => setPhone(e.target.value)} maxLength={22} placeholder="(34) 99999-9999" required /></label>
-                <p className={styles.privacy} id="solaris-consent-notice">Ao clicar em Continuar, você autoriza a Futura Casa a usar seu nome e WhatsApp para entrar em contato sobre o Solaris. Seus dados serão usados para este atendimento. Para corrigir ou excluir seus dados e encerrar o contato, fale com <a href="https://www.instagram.com/redefuturacasa/" target="_blank" rel="noreferrer">@redefuturacasa</a>.</p>
-                <div className={styles.trap} aria-hidden="true"><label>Website<input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></label></div>
-              </>}
-              {page === 2 && <>
-                <p className={styles.intro}>Qual é o seu objetivo com o lote? Essa resposta ajuda a equipe a orientar o atendimento.</p>
-                <fieldset className={styles.choices}>
-                  <legend className={styles.srOnly}>Objetivo com o lote</legend>
-                  {[["investir", "Investir"], ["morar", "Morar"]].map(([value, label]) => (
-                    <label className={purpose === value ? styles.chosen : styles.choice} key={value}>
-                      <span>{label}</span><input type="radio" name="purpose" value={value} checked={purpose === value} onChange={() => setPurpose(value)} />
-                    </label>
-                  ))}
-                </fieldset>
-              </>}
-              {page === 3 && <div className={styles.confirmation} role="status">
-                <h3>Seu interesse foi registrado.</h3>
-                <p>Recebemos seu cadastro com sucesso. A equipe da Futura Casa poderá entrar em contato pelo WhatsApp com informações sobre o Solaris.</p>
-                <span>Registro {receipt}</span>
-              </div>}
-              {error && <p className={styles.error} role="alert">{error}</p>}
-              {page < 3 && <div className={styles.actions}>
-                {page > 1 && <button type="button" className={styles.back} disabled={busy} onClick={() => { setError(""); setPage(page - 1); }}>‹ Voltar</button>}
-                <button type="submit" className={styles.continue} disabled={busy} aria-describedby={page === 1 ? "solaris-consent-notice" : undefined}>
-                  {busy ? "Registrando…" : page === 2 ? "Registrar meu interesse →" : "Continuar →"}
-                </button>
-              </div>}
-            </form>
-            <footer>Seus dados são usados para o atendimento sobre o Solaris.</footer>
-          </section>
+      <header className={styles.header}>
+        <div className={styles.headerInner}>
+          <a className={styles.brandLink} href="#inicio" aria-label="Solaris Residencial Resort — início"><Brand /></a>
+          <nav className={styles.nav} aria-label="Conheça o Solaris"><a href="#essencia">O Solaris</a><a href="#experiencias">Lazer e natureza</a><a href="#localizacao">Localização</a></nav>
+          <a className={styles.headerCta} href="#formulario">Conhecer lotes <span aria-hidden="true">↗</span></a>
         </div>
-
-        <section className={styles.benefits} aria-labelledby="beneficios-titulo">
-          <div className={styles.sectionHead}><p className={styles.eyebrow}>O QUE VOCÊ VAI RECEBER</p><h2 id="beneficios-titulo">Antes de escolher um lote,<br />conheça as possibilidades.</h2></div>
-          <div className={styles.benefitGrid}>{benefits.map(([number, heading, description]) => (
-            <article className={styles.benefit} key={number}><span>{number}</span><h3>{heading}</h3><p>{description}</p></article>
-          ))}</div>
-        </section>
-
-        <section className={styles.campaign} aria-labelledby="campanha-titulo">
-          <figure className={styles.campaignVisual}>
-            <Image src="/forms/solaris/solaris.png" width={255} height={319} alt="Campanha Solaris Residencial Resort: Plano Safra 2026, com atendimento Futura Casa." unoptimized loading="lazy" />
-            <figcaption>Conheça a campanha Solaris.</figcaption>
-          </figure>
-          <div className={styles.campaignCopy}>
-            <p className={styles.eyebrow}>PLANO SAFRA 2026</p>
-            <h2 id="campanha-titulo">Do seu interesse<br />à sua próxima escolha.</h2>
-            <p>Condições pensadas para o produtor rural, em parceria com a JVF Group. Converse com a Futura Casa para conhecer as opções do Solaris Residencial Resort.</p>
-            <p className={styles.availability}>Valores, disponibilidade dos lotes, prazos e condições de pagamento devem ser confirmados com a equipe no atendimento.</p>
-            <a className={styles.textCta} href="#formulario">Quero conhecer as condições <span aria-hidden="true">→</span></a>
+      </header>
+      <section className={styles.hero} id="inicio" aria-labelledby="solaris-titulo">
+        <div className={styles.heroImage}>
+          <Image src={`${ASSETS}/resort.avif`} alt="Perspectiva ilustrativa do lazer resort do Solaris, com piscinas e Casa Évora ao entardecer." fill sizes="100vw" unoptimized loading="eager" fetchPriority="high" />
+        </div>
+        <div className={styles.heroGrid}>
+          <div className={styles.heroCopy}>
+            <p className={styles.heroEyebrow}><span aria-hidden="true">◉</span> MONTE CARMELO · MINAS GERAIS</p>
+            <h1 id="solaris-titulo">Mais natureza.<br />Mais lazer.<br /><em>Mais vida.</em></h1>
+            <p className={styles.heroDescription}>Segurança, tranquilidade e conforto para toda a sua família. Um novo jeito de viver no coração do Parque das Árvores.</p>
+            <div className={styles.heroLinks}><a className={styles.goldButton} href="#formulario">Quero conhecer o Solaris <span aria-hidden="true">→</span></a><a className={styles.heroExplore} href="#experiencias">Explore o residencial <span aria-hidden="true">↓</span></a></div>
+            <p className={styles.heroFine}>Lotes a partir de 360 m² · Perspectiva ilustrativa do projeto</p>
           </div>
-        </section>
-
-        <section className={styles.faq} aria-labelledby="duvidas-titulo">
-          <div className={styles.sectionHead}><p className={styles.eyebrow}>ANTES DE COMEÇAR</p><h2 id="duvidas-titulo">Sua próxima conversa,<br />sem dúvidas sobre o caminho.</h2></div>
-          <div className={styles.faqList}>
-            <details><summary>O que acontece depois do cadastro?</summary><p>Após o registro, a equipe da Futura Casa poderá entrar em contato pelo WhatsApp informado para apresentar lotes disponíveis e condições comerciais do Solaris.</p></details>
-            <details><summary>Posso conhecer as opções para morar ou investir?</summary><p>Sim. No formulário, você indica seu objetivo para orientar a conversa. O cadastro não representa reserva de lote nem contratação.</p></details>
-            <details><summary>Onde fica o Solaris?</summary><p>O Solaris Residencial Resort fica em Monte Carmelo, Minas Gerais. No atendimento, você pode solicitar informações de localização e orientações para conhecer o empreendimento.</p></details>
-            <details><summary>Preciso informar renda ou faixa de investimento?</summary><p>Não. Pedimos apenas nome, WhatsApp e se seu objetivo é investir ou morar. As demais informações podem ser tratadas durante o atendimento.</p></details>
+          <SolarisCaptureForm onRegistered={() => setRegistered(true)} />
+        </div>
+      </section>
+      <section className={styles.facts} aria-label="Diferenciais do empreendimento">
+        <div><span>LOTES A PARTIR DE</span><strong>360 <small>m²</small></strong><p>Espaço para o seu próximo capítulo</p></div>
+        <div><span>NATUREZA E BEM-ESTAR</span><strong>+300 mil <small>m²</small></strong><p>De área verde, conforme o book</p></div>
+        <div><span>SEGURANÇA PLANEJADA</span><strong>24 <small>horas</small></strong><p>Portaria e controle de acesso previstos</p></div>
+        <div><span>SEU CAMINHO ATÉ O LOTE</span><strong className={styles.factWords}>Financiamento<br />com a loteadora</strong><p>Consulte as condições comerciais</p></div>
+      </section>
+      <section className={`${styles.section} ${styles.essence}`} id="essencia" aria-labelledby="essencia-titulo">
+        <div className={styles.essenceCopy}>
+          <p className={styles.eyebrow}>A ESSÊNCIA DO SOLARIS</p>
+          <h2 id="essencia-titulo">Um novo jeito<br />de viver <em>bem.</em></h2>
+          <span className={styles.goldRule} />
+          <p className={styles.largeText}>A vida é feita de momentos simples e verdadeiros.</p>
+          <p>Estar perto da família. Ter tempo para caminhar. Sentir a natureza fazer parte de cada dia. No Solaris, bem-estar, natureza e lazer se encontram em um projeto pensado para viver mais perto do que importa.</p>
+          <div className={styles.essencePills}><span>Natureza presente</span><span>Arquitetura biofílica</span><span>Vida em família</span></div>
+          <a className={styles.textLink} href="#formulario">Encontre o seu lugar <span aria-hidden="true">→</span></a>
+        </div>
+        <figure className={styles.essenceVisual}>
+          <Image src={`${ASSETS}/natureza.avif`} alt="Perspectiva ilustrativa de uma caminhada entre os bosques e trilhas do Solaris." width={600} height={622} sizes="(max-width: 760px) 90vw, 42vw" unoptimized loading="lazy" />
+          <div className={styles.natureBadge}><strong>+300 mil m²</strong><span>Para cultivar bem-estar,<br />conexão e momentos que transformam.</span></div>
+          <figcaption>Perspectiva ilustrativa · Natureza e bem-estar no projeto</figcaption>
+        </figure>
+      </section>
+      <section className={styles.experiences} id="experiencias" aria-labelledby="experiencias-titulo">
+        <div className={styles.sectionInner}>
+          <div className={styles.sectionHeading}><div><p className={styles.eyebrow}>LAZER, CONVIVÊNCIA E BEM-ESTAR</p><h2 id="experiencias-titulo">A experiência de um resort.<br /><em>A sensação de estar em casa.</em></h2></div><p>Conheça os espaços previstos no projeto apresentado no book comercial.</p></div>
+          <div className={styles.tabs} role="tablist" aria-label="Experiências do Solaris">
+            {experiences.map((item, index) => <button type="button" key={item.id} role="tab" id={`tab-${item.id}`} aria-selected={active === index} aria-controls="experiencia-painel" tabIndex={active === index ? 0 : -1} onClick={() => setActive(index)} onKeyDown={event => switchTab(event, index)}>{item.tab}</button>)}
           </div>
-        </section>
-
-        <section className={styles.finalCta} aria-labelledby="proximo-passo-titulo">
-          <div><p className={styles.eyebrow}>O PRÓXIMO PASSO É SEU</p><h2 id="proximo-passo-titulo">Conheça o Solaris.<br />Decida com informação.</h2></div>
-          <a className={styles.heroCta} href="#formulario">Receber lotes e condições <span aria-hidden="true">→</span></a>
-        </section>
-        <footer className={styles.siteFooter}><span>Futura Casa · Solaris Residencial Resort</span><span>Monte Carmelo · Minas Gerais</span></footer>
-      </div>
+          <div className={styles.experiencePanel} id="experiencia-painel" role="tabpanel" aria-labelledby={`tab-${selected.id}`} tabIndex={0}>
+            <figure><Image key={selected.image} src={`${ASSETS}/${selected.image}.avif`} alt={selected.alt} width={selected.width} height={selected.height} sizes="(max-width: 760px) 90vw, 60vw" unoptimized loading="lazy" /><figcaption>Perspectiva ilustrativa · Book comercial, páginas {selected.page}</figcaption></figure>
+            <div className={styles.experienceCopy}><span className={styles.experienceNumber}>{selected.number} / 06</span><h3>{selected.title}</h3><p>{selected.description}</p><ul>{selected.items.map(item => <li key={item}>{item}</li>)}</ul><a className={styles.lightLink} href="#formulario">Quero saber mais <span aria-hidden="true">→</span></a></div>
+          </div>
+          <noscript><p>O projeto também prevê bosques, lago ornamental, pesca, academia, spa, sauna, tênis, beach tennis, futebol society, espaços infantis, pet place e hípica. Solicite mais informações à equipe.</p></noscript>
+          <div className={styles.bookAccess}><span>Todos os detalhes, no seu tempo.</span><a href="#formulario">Solicitar apresentação completa <span aria-hidden="true">→</span></a></div>
+        </div>
+      </section>
+      <section className={`${styles.section} ${styles.security}`} aria-labelledby="seguranca-titulo">
+        <figure className={styles.gateVisual}><Image src={`${ASSETS}/portaria.avif`} alt="Perspectiva ilustrativa da portaria do Solaris Residencial Resort apresentada no book." width={1100} height={421} unoptimized loading="lazy" /><figcaption>Portaria · Perspectiva ilustrativa do projeto</figcaption></figure>
+        <div className={styles.securityBottom}><div><p className={styles.eyebrow}>SEGURANÇA E TRANQUILIDADE</p><h2 id="seguranca-titulo">Conforto para viver.<br /><em>Tranquilidade para pertencer.</em></h2></div><div><p>O projeto prevê portaria 24 horas e tecnologias de controle e monitoramento para oferecer mais tranquilidade à sua rotina.</p><ul className={styles.securityList}>{safetyItems.map((item, index) => <li key={item}><span aria-hidden="true">0{index + 1}</span>{item}</li>)}</ul></div></div>
+      </section>
+      <section className={styles.locationSection} id="localizacao" aria-labelledby="localizacao-titulo">
+        <div className={`${styles.sectionInner} ${styles.locationGrid}`}>
+          <div className={styles.locationCopy}><p className={styles.eyebrow}>LOCALIZAÇÃO PRIVILEGIADA</p><h2 id="localizacao-titulo">No coração do<br /><em>Parque das Árvores.</em></h2><p className={styles.largeText}>Monte Carmelo. Um bairro planejado para o futuro.</p><p>Mobilidade, sustentabilidade, lazer e qualidade de vida em uma proposta integrada. O Solaris faz parte do Parque das Árvores, aproximando natureza, conveniência e a vida na cidade.</p><div className={styles.locationReferences}><span>REFERÊNCIAS DO ENTORNO NO BOOK</span><p>UFU · FUCAMP · Hospital Municipal · Mart Minas</p></div><a className={styles.textLink} href="#formulario">Conhecer a localização e os lotes <span aria-hidden="true">→</span></a></div>
+          <figure className={styles.neighborhoodVisual}><Image src={`${ASSETS}/bairro.avif`} alt="Perspectiva ilustrativa do bairro planejado Parque das Árvores, reproduzida do book Solaris." width={850} height={492} unoptimized loading="lazy" /><figcaption>Parque das Árvores · Perspectiva ilustrativa de implantação</figcaption></figure>
+        </div>
+      </section>
+      <section className={`${styles.section} ${styles.mapSection}`} aria-labelledby="mapa-titulo">
+        <div className={styles.mapHeading}><div><p className={styles.eyebrow}>IMPLANTAÇÃO DO PROJETO</p><h2 id="mapa-titulo">Cada espaço tem um propósito.<br /><em>Todos levam a viver melhor.</em></h2></div><a className={styles.outlineButton} href={`${ASSETS}/implantacao.avif`} target="_blank" rel="noopener" onClick={event => { if (dialog.current?.showModal) { event.preventDefault(); dialog.current.showModal(); } }}>Ampliar implantação <span aria-hidden="true">↗</span></a></div>
+        <figure className={styles.mapVisual}><Image src={`${ASSETS}/implantacao.avif`} alt="Implantação original reproduzida da página 21 do book, com as quadras do Solaris, lago e espaços de lazer." width={900} height={632} unoptimized loading="lazy" /><figcaption>Planta reproduzida do book, sem alteração de quadras ou lotes. A imagem não indica disponibilidade comercial.</figcaption></figure>
+        <details className={styles.mapLegend}><summary>Conheça os 16 espaços indicados no book <span aria-hidden="true">+</span></summary><ol>{mapItems.map((item, index) => <li key={item}><span>{index + 1}</span>{item}</li>)}</ol></details>
+      </section>
+      <section className={styles.faqSection} aria-labelledby="faq-titulo"><div className={`${styles.sectionInner} ${styles.faqGrid}`}><div><p className={styles.eyebrow}>PARA DAR O PRÓXIMO PASSO</p><h2 id="faq-titulo">Sua nova escolha<br />começa com <em>clareza.</em></h2></div><div className={styles.faqList}>
+        <details><summary>Os lotes têm qual tamanho mínimo?</summary><p>O book apresenta lotes a partir de 360 m². A equipe da Futura Casa informa as metragens e unidades disponíveis no momento do atendimento.</p></details>
+        <details><summary>Como conhecer os valores e as condições?</summary><p>Cadastre seu nome, WhatsApp e objetivo para receber atendimento sobre os lotes. O book prevê financiamento facilitado com a loteadora; valores, entradas, juros, correções e prazos devem ser confirmados na proposta comercial.</p></details>
+        <details><summary>As imagens mostram estruturas já entregues?</summary><p>As imagens desta página são perspectivas ilustrativas extraídas do book. Os espaços são apresentados como previstos em projeto, não como comprovação de execução ou entrega. Confirme o memorial descritivo e o estágio das obras no atendimento.</p></details>
+        <details><summary>Qual é o prazo de entrega?</summary><p>O book informa entrega das obras em 24 meses, sem definir aqui a data inicial da contagem nem o cronograma de cada estrutura. Confirme os marcos, o escopo e os prazos aplicáveis na documentação contratual.</p></details>
+        <details><summary>O cadastro já reserva um lote?</summary><p>Não. O cadastro registra o seu interesse para atendimento. A disponibilidade, as condições e uma eventual reserva são tratadas com a equipe comercial.</p></details>
+      </div></div></section>
+      <section className={styles.finalCta} aria-labelledby="proximo-passo-titulo"><div className={styles.sectionInner}><p className={styles.finalEyebrow}>SOLARIS RESIDENCIAL RESORT</p><h2 id="proximo-passo-titulo">O seu novo jeito de viver<br /><em>começa aqui.</em></h2><p>Conheça os lotes e encontre o seu lugar entre natureza, lazer e bem-estar.</p><a className={styles.goldButton} href="#formulario">Receber lotes e condições <span aria-hidden="true">→</span></a><a className={styles.finalBook} href="#formulario">Solicitar a apresentação comercial →</a></div></section>
+      <footer className={styles.footer}><div className={styles.footerTop}><Brand small /><div><span>REALIZAÇÃO</span><Image src={`${ASSETS}/evora.avif`} alt="Évora Urbanismo" width={170} height={46} unoptimized loading="lazy" /></div><div><span>ATENDIMENTO</span><strong>Futura Casa</strong><small>Parceria do empreendimento: Zenith Empreendimentos.</small></div></div><div className={styles.disclaimer}><p>Conteúdo e imagens baseados no Book Comercial Solaris 2026, versão V6. Perspectivas ilustrativas e estruturas previstas em projeto. Consulte o memorial descritivo, a documentação contratual, o cronograma de implantação e a disponibilidade atual. Não há promessa de rentabilidade ou valorização garantida.</p><span>Solaris Residencial Resort · Monte Carmelo, Minas Gerais</span></div></footer>
+      {!registered && <div className={`${styles.mobileCta} ${formVisible ? styles.mobileCtaHidden : ""}`} aria-hidden={formVisible}><div><strong>Solaris</strong><span>Lotes a partir de 360 m²</span></div><a href="#formulario" tabIndex={formVisible ? -1 : 0}>Quero conhecer <span aria-hidden="true">→</span></a></div>}
+      <dialog ref={dialog} className={styles.mapDialog} aria-labelledby="dialog-mapa-titulo"><div className={styles.dialogHeader}><h2 id="dialog-mapa-titulo">Implantação Solaris</h2><button type="button" onClick={() => dialog.current?.close()} aria-label="Fechar implantação">Fechar ×</button></div><Image src={`${ASSETS}/implantacao.avif`} alt="Implantação do Solaris reproduzida integralmente da área do mapa no book comercial." width={900} height={632} unoptimized /><p>Imagem ilustrativa. Não representa a disponibilidade dos lotes.</p></dialog>
     </main>
   );
 }

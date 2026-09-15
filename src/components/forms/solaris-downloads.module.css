@@ -2,8 +2,8 @@
 
 /* Equal-width, stacked actions keep the book label and arrow aligned with the primary CTA. */
 .ambassadorActions{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;width:100%;max-width:320px;align-items:stretch}
-.ambassadorActions>a{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;max-width:100%;min-height:52px;padding:14px 18px;font:600 12px/1.5 Arial,Helvetica,sans-serif;border-radius:3px;white-space:normal;text-align:left;box-sizing:border-box}
-.ambassadorActions>a>span{display:inline-block;flex:0 0 18px;text-align:center;font-size:19px;line-height:1}
+.ambassadorActions>a{display:grid;grid-template-columns:minmax(0,1fr) 18px;align-items:center;gap:12px;width:100%;max-width:100%;min-height:52px;padding:14px 18px;font:600 12px/1.5 Arial,Helvetica,sans-serif;border:1px solid #dbc089;border-radius:3px;white-space:normal;text-align:left;box-sizing:border-box}
+.ambassadorActions>a>span{display:block;width:18px;justify-self:center;text-align:center;font-size:19px;line-height:1}
 .ambassadorActions .secondaryDownload{color:#064d43;background:transparent;border:1px solid #b29354;text-decoration:none}
 .ambassadorActions .secondaryDownload:hover{color:#064d43;background:#eee9df;border-color:#8c6c32}
 .ambassadorActions a:focus-visible{outline:3px solid #bd9546;outline-offset:5px}

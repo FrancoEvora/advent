@@ -48,13 +48,18 @@ try{
     if(width===390)await page.screenshot({path:path.join(output,'hero-mobile.png'),animations:'disabled'});
     results.push({width,...bounds,pass:true});
   }
-  for(const label of ['Lazer resort','Natureza','Bem-estar','Esportes','Família','Hípica']){
+  const gallery=[['Lazer resort','resort'],['Natureza','natureza'],['Bem-estar','academia'],['Esportes','tenis'],['Família','familia'],['Hípica','hipica']];
+  for(const [label,asset] of gallery){
     await page.getByRole('tab',{name:label,exact:true}).click();
-    await page.locator('#experiencia-painel img').evaluate(im=>im.decode());
+    // React replaces the keyed image. Wait for the new src and completion before decoding it.
+    await page.waitForFunction(expected=>{
+      const image=document.querySelector('#experiencia-painel img');
+      return image instanceof HTMLImageElement && image.getAttribute('src')?.includes(`/${expected}.avif`) && image.complete && image.naturalWidth>0;
+    },asset);
     assert.equal(await page.getByRole('tab',{name:label,exact:true}).getAttribute('aria-selected'),'true');
   }
   await page.getByRole('tab',{name:'Hípica',exact:true}).press('Home');
-  assert.equal(await page.getByRole('tab',{name:'Lazer resort',exact:true}).getAttribute('aria-selected'),'true');
+  await page.waitForFunction(()=>document.querySelector('#tab-resort')?.getAttribute('aria-selected')==='true');
   await page.getByRole('link',{name:'Ampliar implantação'}).click();
   assert.equal(await page.locator('dialog').evaluate(d=>d.open),true);
   await page.screenshot({path:path.join(output,'map.png'),animations:'disabled'});

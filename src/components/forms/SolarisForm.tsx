@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import Image from "next/image";
 import { SolarisCaptureForm } from "./SolarisCaptureForm";
+import { SolarisAmbassador } from "./SolarisAmbassador";
 import styles from "./solaris-form.module.css";
+import updates from "./solaris-updates.module.css";
 
 const ASSETS = "/forms/solaris/book";
 const experiences = [
@@ -14,7 +16,6 @@ const experiences = [
   { id: "familia", tab: "Família", number: "05", title: "Um lugar pensado para toda a família.", description: "Crianças e pets também têm seu espaço. A proposta do Solaris reúne ambientes para brincar, caminhar e compartilhar momentos juntos.", items: ["Brinquedoteca e espaços infantis", "Dog park / pet place", "Caminhadas ao ar livre"], image: "familia", width: 700, height: 427, page: "9 e 21", alt: "Ilustração do book Solaris com brinquedoteca e dog park, espaços previstos para crianças e pets." },
   { id: "hipica", tab: "Hípica", number: "06", title: "A natureza ganha movimento e liberdade.", description: "A hípica foi idealizada para aproximar a família da vida ao ar livre, dos animais e da tradição equestre, em um ambiente integrado à paisagem.", items: ["Conexão com os animais", "Experiências ao ar livre", "Tradição equestre"], image: "hipica", width: 650, height: 749, page: "12", alt: "Perspectiva ilustrativa da hípica planejada para o Solaris, extraída do book comercial." },
 ];
-const mapItems = ["Espaços gourmet e quiosques para churrasco", "Quadras de tênis", "Portaria de serviço", "Casa Évora: academia, spa, sauna, lounge bar, restaurante e espaço gourmet", "Parque aquático", "Quadras de beach tennis", "Portaria de entrada", "Espaço Évora", "Quadra poliesportiva", "Pet place", "Área verde contemplativa", "Bosque, ciclovia e pista de caminhada", "Setor de águas e pesca", "Hípica", "Setor de pomar e hortaliças", "Lago ornamental e areal"];
 const safetyItems = ["Portaria 24 horas", "Controle de acesso", "Biometria e reconhecimento facial", "Monitoramento por câmeras e drones"];
 
 function Brand({ small = false }: { small?: boolean }) {
@@ -28,7 +29,6 @@ export function SolarisForm() {
   const [active, setActive] = useState(0);
   const [registered, setRegistered] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
-  const dialog = useRef<HTMLDialogElement>(null);
   const selected = experiences[active];
 
   useEffect(() => {
@@ -52,7 +52,7 @@ export function SolarisForm() {
   }
 
   return (
-    <main className={styles.shell} id="conteudo-principal" data-solaris-version="book-v6">
+    <main className={styles.shell} id="conteudo-principal" data-solaris-version="book-v6" data-solaris-revision="parque-embaixador">
       <a className={styles.skip} href="#formulario">Ir para o formulário</a>
       <header className={styles.header}>
         <div className={styles.headerInner}>
@@ -119,25 +119,24 @@ export function SolarisForm() {
       <section className={styles.locationSection} id="localizacao" aria-labelledby="localizacao-titulo">
         <div className={`${styles.sectionInner} ${styles.locationGrid}`}>
           <div className={styles.locationCopy}><p className={styles.eyebrow}>LOCALIZAÇÃO PRIVILEGIADA</p><h2 id="localizacao-titulo">No coração do<br /><em>Parque das Árvores.</em></h2><p className={styles.largeText}>Monte Carmelo. Um bairro planejado para o futuro.</p><p>Mobilidade, sustentabilidade, lazer e qualidade de vida em uma proposta integrada. O Solaris faz parte do Parque das Árvores, aproximando natureza, conveniência e a vida na cidade.</p><div className={styles.locationReferences}><span>REFERÊNCIAS DO ENTORNO NO BOOK</span><p>UFU · FUCAMP · Hospital Municipal · Mart Minas</p></div><a className={styles.textLink} href="#formulario">Conhecer a localização e os lotes <span aria-hidden="true">→</span></a></div>
-          <figure className={styles.neighborhoodVisual}><Image src={`${ASSETS}/bairro.avif`} alt="Perspectiva ilustrativa do bairro planejado Parque das Árvores, reproduzida do book Solaris." width={850} height={492} unoptimized loading="lazy" /><figcaption>Parque das Árvores · Perspectiva ilustrativa de implantação</figcaption></figure>
+          <figure className={updates.neighborhood}>
+            <a href={`${ASSETS}/parque-das-arvores-setores.avif`} target="_blank" rel="noopener" aria-label="Ver imagem dos setores do Parque das Árvores em tamanho ampliado"><Image src={`${ASSETS}/parque-das-arvores-setores.avif`} alt="Perspectiva ilustrativa do Bairro Parque das Árvores com marcadores de localização do Solaris, acesso, praça e setores, conforme a imagem fornecida." width={1024} height={683} unoptimized loading="lazy" /></a>
+            <figcaption>Parque das Árvores · Perspectiva ilustrativa com a identificação dos setores</figcaption>
+            <a className={updates.mapLink} href={`${ASSETS}/parque-das-arvores-setores.avif`} target="_blank" rel="noopener">Ampliar mapa do bairro <span aria-hidden="true">↗</span></a>
+          </figure>
         </div>
       </section>
-      <section className={`${styles.section} ${styles.mapSection}`} aria-labelledby="mapa-titulo">
-        <div className={styles.mapHeading}><div><p className={styles.eyebrow}>IMPLANTAÇÃO DO PROJETO</p><h2 id="mapa-titulo">Cada espaço tem um propósito.<br /><em>Todos levam a viver melhor.</em></h2></div><a className={styles.outlineButton} href={`${ASSETS}/implantacao.avif`} target="_blank" rel="noopener" onClick={event => { if (dialog.current?.showModal) { event.preventDefault(); dialog.current.showModal(); } }}>Ampliar implantação <span aria-hidden="true">↗</span></a></div>
-        <figure className={styles.mapVisual}><Image src={`${ASSETS}/implantacao.avif`} alt="Implantação original reproduzida da página 21 do book, com as quadras do Solaris, lago e espaços de lazer." width={900} height={632} unoptimized loading="lazy" /><figcaption>Planta reproduzida do book, sem alteração de quadras ou lotes. A imagem não indica disponibilidade comercial.</figcaption></figure>
-        <details className={styles.mapLegend}><summary>Conheça os 16 espaços indicados no book <span aria-hidden="true">+</span></summary><ol>{mapItems.map((item, index) => <li key={item}><span>{index + 1}</span>{item}</li>)}</ol></details>
-      </section>
+      <SolarisAmbassador />
       <section className={styles.faqSection} aria-labelledby="faq-titulo"><div className={`${styles.sectionInner} ${styles.faqGrid}`}><div><p className={styles.eyebrow}>PARA DAR O PRÓXIMO PASSO</p><h2 id="faq-titulo">Sua nova escolha<br />começa com <em>clareza.</em></h2></div><div className={styles.faqList}>
         <details><summary>Os lotes têm qual tamanho mínimo?</summary><p>O book apresenta lotes a partir de 360 m². A equipe da Futura Casa informa as metragens e unidades disponíveis no momento do atendimento.</p></details>
         <details><summary>Como conhecer os valores e as condições?</summary><p>Cadastre seu nome, WhatsApp e objetivo para receber atendimento sobre os lotes. O book prevê financiamento facilitado com a loteadora; valores, entradas, juros, correções e prazos devem ser confirmados na proposta comercial.</p></details>
-        <details><summary>As imagens mostram estruturas já entregues?</summary><p>As imagens desta página são perspectivas ilustrativas extraídas do book. Os espaços são apresentados como previstos em projeto, não como comprovação de execução ou entrega. Confirme o memorial descritivo e o estágio das obras no atendimento.</p></details>
+        <details><summary>As imagens mostram estruturas já entregues?</summary><p>As imagens do empreendimento são perspectivas ilustrativas do book e dos materiais institucionais. Os espaços são apresentados como previstos em projeto, não como comprovação de execução ou entrega. Confirme o memorial descritivo e o estágio das obras no atendimento.</p></details>
         <details><summary>Qual é o prazo de entrega?</summary><p>O book informa entrega das obras em 24 meses, sem definir aqui a data inicial da contagem nem o cronograma de cada estrutura. Confirme os marcos, o escopo e os prazos aplicáveis na documentação contratual.</p></details>
         <details><summary>O cadastro já reserva um lote?</summary><p>Não. O cadastro registra o seu interesse para atendimento. A disponibilidade, as condições e uma eventual reserva são tratadas com a equipe comercial.</p></details>
       </div></div></section>
       <section className={styles.finalCta} aria-labelledby="proximo-passo-titulo"><div className={styles.sectionInner}><p className={styles.finalEyebrow}>SOLARIS RESIDENCIAL RESORT</p><h2 id="proximo-passo-titulo">O seu novo jeito de viver<br /><em>começa aqui.</em></h2><p>Conheça os lotes e encontre o seu lugar entre natureza, lazer e bem-estar.</p><a className={styles.goldButton} href="#formulario">Receber lotes e condições <span aria-hidden="true">→</span></a><a className={styles.finalBook} href="#formulario">Solicitar a apresentação comercial →</a></div></section>
-      <footer className={styles.footer}><div className={styles.footerTop}><Brand small /><div><span>REALIZAÇÃO</span><Image src={`${ASSETS}/evora.avif`} alt="Évora Urbanismo" width={170} height={46} unoptimized loading="lazy" /></div><div><span>ATENDIMENTO</span><strong>Futura Casa</strong><small>Parceria do empreendimento: Zenith Empreendimentos.</small></div></div><div className={styles.disclaimer}><p>Conteúdo e imagens baseados no Book Comercial Solaris 2026, versão V6. Perspectivas ilustrativas e estruturas previstas em projeto. Consulte o memorial descritivo, a documentação contratual, o cronograma de implantação e a disponibilidade atual. Não há promessa de rentabilidade ou valorização garantida.</p><span>Solaris Residencial Resort · Monte Carmelo, Minas Gerais</span></div></footer>
+      <footer className={styles.footer}><div className={styles.footerTop}><Brand small /><div><span>REALIZAÇÃO</span><Image src={`${ASSETS}/evora.avif`} alt="Évora Urbanismo" width={170} height={46} unoptimized loading="lazy" /></div><div><span>ATENDIMENTO</span><strong>Futura Casa</strong><small>Parceria do empreendimento: Zenith Empreendimentos.</small></div></div><div className={styles.disclaimer}><p>Conteúdo baseado no Book Comercial Solaris 2026, versão V6, com imagens institucionais fornecidas para esta página. Perspectivas ilustrativas e estruturas previstas em projeto. Consulte o memorial descritivo, a documentação contratual, o cronograma de implantação e a disponibilidade atual. Não há promessa de rentabilidade ou valorização garantida.</p><span>Solaris Residencial Resort · Monte Carmelo, Minas Gerais</span></div></footer>
       {!registered && <div className={`${styles.mobileCta} ${formVisible ? styles.mobileCtaHidden : ""}`} aria-hidden={formVisible}><div><strong>Solaris</strong><span>Lotes a partir de 360 m²</span></div><a href="#formulario" tabIndex={formVisible ? -1 : 0}>Quero conhecer <span aria-hidden="true">→</span></a></div>}
-      <dialog ref={dialog} className={styles.mapDialog} aria-labelledby="dialog-mapa-titulo"><div className={styles.dialogHeader}><h2 id="dialog-mapa-titulo">Implantação Solaris</h2><button type="button" onClick={() => dialog.current?.close()} aria-label="Fechar implantação">Fechar ×</button></div><Image src={`${ASSETS}/implantacao.avif`} alt="Implantação do Solaris reproduzida integralmente da área do mapa no book comercial." width={900} height={632} unoptimized /><p>Imagem ilustrativa. Não representa a disponibilidade dos lotes.</p></dialog>
     </main>
   );
 }

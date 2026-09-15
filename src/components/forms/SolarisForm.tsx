@@ -8,6 +8,7 @@ import { SolarisBookLink } from "./SolarisBookLink";
 import { SolarisPartners } from "./SolarisPartners";
 import styles from "./solaris-form.module.css";
 import updates from "./solaris-updates.module.css";
+import downloads from "./solaris-downloads.module.css";
 
 const ASSETS = "/forms/solaris/book";
 const experiences = [
@@ -138,7 +139,16 @@ export function SolarisForm() {
         <details><summary>O cadastro já reserva um lote?</summary><p>Não. O cadastro registra o seu interesse para atendimento. A disponibilidade, as condições e uma eventual reserva são tratadas com a equipe comercial.</p></details>
       </div></div></section>
       <section className={styles.finalCta} aria-labelledby="proximo-passo-titulo"><div className={styles.sectionInner}><p className={styles.finalEyebrow}>SOLARIS RESIDENCIAL RESORT</p><h2 id="proximo-passo-titulo">O seu novo jeito de viver<br /><em>começa aqui.</em></h2><p>Conheça os lotes e encontre o seu lugar entre natureza, lazer e bem-estar.</p><a className={styles.goldButton} href="#formulario">Receber lotes e condições <span aria-hidden="true">→</span></a><SolarisBookLink className={styles.finalBook}>Baixar book comercial (PDF)</SolarisBookLink></div></section>
-      <footer className={styles.footer}><div className={styles.footerTop}><Brand small /><div><span>REALIZAÇÃO</span><Image src={`${ASSETS}/evora.avif`} alt="Évora Urbanismo" width={170} height={46} unoptimized loading="lazy" /></div><div><span>ATENDIMENTO</span><strong>Futura Casa</strong><small>Parceria do empreendimento: Zenith Empreendimentos.</small></div></div><div className={styles.disclaimer}><p>Conteúdo baseado no Book Comercial Solaris 2026, versão V6, com imagens institucionais fornecidas para esta página. Perspectivas ilustrativas e estruturas previstas em projeto. Consulte o memorial descritivo, a documentação contratual, o cronograma de implantação e a disponibilidade atual. Não há promessa de rentabilidade ou valorização garantida.</p><span>Solaris Residencial Resort · Monte Carmelo, Minas Gerais</span></div></footer>
+      <footer className={styles.footer}>
+        <div className={downloads.footerBrands} data-solaris-footer="solaris-futura">
+          <div data-footer-brand="solaris"><Brand small /></div>
+          <div className={downloads.footerService} data-footer-brand="futura-casa">
+            <span>ATENDIMENTO</span>
+            <Image src={`${ASSETS}/futura-casa-footer.webp`} alt="Futura Casa — Inteligência Imobiliária, Marketing e Vendas" width={258} height={163} unoptimized loading="lazy" />
+          </div>
+        </div>
+        <div className={styles.disclaimer}><p>Conteúdo baseado no Book Comercial Solaris 2026, versão V6, com imagens institucionais fornecidas para esta página. Perspectivas ilustrativas e estruturas previstas em projeto. Consulte o memorial descritivo, a documentação contratual, o cronograma de implantação e a disponibilidade atual. Não há promessa de rentabilidade ou valorização garantida.</p><span>Solaris Residencial Resort · Monte Carmelo, Minas Gerais</span></div>
+      </footer>
       {!registered && <div className={`${styles.mobileCta} ${formVisible ? styles.mobileCtaHidden : ""}`} aria-hidden={formVisible}><div><strong>Solaris</strong><span>Lotes a partir de 360 m²</span></div><a href="#formulario" tabIndex={formVisible ? -1 : 0}>Quero conhecer <span aria-hidden="true">→</span></a></div>}
     </main>
   );

@@ -21,6 +21,12 @@ for (const [id, , , gitSHA] of logos) {
   assert.equal(createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex'), gitSHA);
   await sharp(bytes, { failOn: 'warning' }).png().toFile(path.join(out, `logo-${id}.png`));
 }
+const brandBytes = await fs.readFile('public/forms/solaris/book/futura-casa-footer.webp');
+assert.equal(createHash('sha1').update(`blob ${brandBytes.length}\0`).update(brandBytes).digest('hex'), '8e72315eaab8c00af5dde2ffc5b2b5f3ef6db614');
+const brandMetadata = await sharp(brandBytes, { failOn: 'warning' }).metadata();
+assert.equal(brandMetadata.width, 258);
+assert.equal(brandMetadata.height, 163);
+await sharp(brandBytes).png().toFile(path.join(out, 'futura-casa-reference.png'));
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ acceptDownloads: true });
 const page = await context.newPage();
@@ -32,6 +38,14 @@ try {
   const response = await page.goto('http://127.0.0.1:3000/atendimento/solaris/cadastro?utm_source=qa_downloads&utm_campaign=book_v6', { waitUntil: 'networkidle' });
   assert.equal(response.status(), 200);
   await page.locator('[data-solaris-downloads="book-v6"]').waitFor();
+  const footer = page.locator('footer:has([data-solaris-footer="solaris-futura"])');
+  assert.equal(await footer.count(), 1);
+  assert.deepEqual(await footer.locator('[data-footer-brand]').evaluateAll(items => items.map(item => item.getAttribute('data-footer-brand'))), ['solaris', 'futura-casa']);
+  assert.equal(await footer.locator('img').count(), 2);
+  assert.match(await footer.locator('[data-footer-brand="solaris"]').textContent(), /Solaris/);
+  assert.match(await footer.locator('[data-footer-brand="futura-casa"] img').getAttribute('src'), /futura-casa-footer\.webp/);
+  assert.doesNotMatch(await footer.textContent(), /REALIZAÇÃO|Parceria do empreendimento|Zenith/);
+  assert.equal(await footer.locator('img[alt="Évora Urbanismo"]').count(), 0);
   const links = page.locator('a[data-solaris-book-download="v6"]');
   assert.equal(await links.count(), 3);
   for (let i = 0; i < 3; i++) {
@@ -48,18 +62,31 @@ try {
   for (const width of [320, 390, 768, 1440]) {
     await page.setViewportSize({ width, height: 900 });
     await page.evaluate(() => { for (const image of document.images) image.loading = 'eager'; });
-    await page.waitForFunction(() => Array.from(document.querySelectorAll('#parceiros img')).every(image => image.complete && image.naturalWidth > 0));
+    await page.waitForFunction(() => Array.from(document.querySelectorAll('#parceiros img, [data-solaris-footer] img')).every(image => image.complete && image.naturalWidth > 0));
     const bounds = await page.evaluate(() => ({ client: document.documentElement.clientWidth, scroll: document.documentElement.scrollWidth }));
     assert.ok(bounds.scroll <= bounds.client + 1, `Overflow at ${width}`);
     const positions = await page.locator('#parceiros [data-partner]').evaluateAll(items => items.map(item => { const r = item.getBoundingClientRect(); return { x: r.x, y: r.y }; }));
     if (width <= 760) assert.ok(positions[0].y < positions[1].y && positions[1].y < positions[2].y, 'Mobile partner order');
     else assert.ok(Math.abs(positions[0].y - positions[2].y) < 1, 'Desktop partner columns');
+    const actionBounds = await page.locator('#embaixador a[href="#formulario"], #embaixador [data-solaris-book-download]').evaluateAll(items => items.map(item => {
+      const r = item.getBoundingClientRect();
+      const arrow = item.querySelector('span[aria-hidden="true"]').getBoundingClientRect();
+      return { x: r.x, right: r.right, y: r.y, bottom: r.bottom, width: r.width, height: r.height, arrowX: arrow.x, arrowCenter: arrow.y + arrow.height / 2 };
+    }));
+    assert.equal(actionBounds.length, 2);
+    const [primary, book] = actionBounds;
+    assert.ok(Math.abs(primary.x - book.x) < 1 && Math.abs(primary.right - book.right) < 1, 'Both actions must share their left and right edges');
+    assert.ok(Math.abs(primary.height - book.height) < 1 && book.height >= 48, 'Equal, touch-friendly action heights');
+    assert.ok(book.y >= primary.bottom + 10, 'Consistent vertical action gap');
+    assert.ok(Math.abs(primary.arrowX - book.arrowX) < 1, 'Arrows must be aligned');
+    for (const action of actionBounds) assert.ok(Math.abs(action.arrowCenter - (action.y + action.height / 2)) < 1, 'Vertically centered arrow');
     await page.locator('#parceiros').screenshot({ path: path.join(out, `partners-${width}.png`), animations: 'disabled' });
+    await footer.screenshot({ path: path.join(out, `footer-${width}.png`), animations: 'disabled' });
     if (width === 390 || width === 1440) {
       await page.locator('#embaixador').screenshot({ path: path.join(out, `ambassador-${width}.png`), animations: 'disabled' });
       await page.locator('section[aria-labelledby="proximo-passo-titulo"]').screenshot({ path: path.join(out, `final-cta-${width}.png`), animations: 'disabled' });
     }
-    widths.push({ width, ...bounds, pass: true });
+    widths.push({ width, ...bounds, pass: true, downloadAligned: true, footerBrands: 2, actionBounds });
   }
   // Real public HEAD: no credentials, cookies, or API key. The server, not just the HTML attribute, forces download.
   const head = await context.request.head(expectedURL, { timeout: 90000 });
@@ -91,8 +118,8 @@ try {
   assert.equal(await page.locator('#formulario input[name="name"]').inputValue(), '');
   assert.equal(attemptedSubmissions, 0, 'Downloading the book must not submit a lead');
   assert.deepEqual(clientErrors, []);
-  await fs.writeFile(path.join(out, 'report.json'), JSON.stringify({ pass: true, download: { originalFile: true, bytes, sha256, filename: 'Solaris_Book_2026_V6.pdf', authenticationRequired: false, ungated: true, browserClick: true }, links: 3, partners: logos.map(([id, name, role]) => ({ id, name, role })), layout: widths, clientErrors, crmWrites: 0 }, null, 2));
-  console.log('Solaris download: original PDF integrity, real ungated browser download and responsive partner strip verified.');
+  await fs.writeFile(path.join(out, 'report.json'), JSON.stringify({ pass: true, footer: { brands: ['Solaris', 'Futura Casa'], sourceCrop: true, duplicateEvoraRemoved: true }, download: { originalFile: true, bytes, sha256, filename: 'Solaris_Book_2026_V6.pdf', authenticationRequired: false, ungated: true, browserClick: true, aligned: true }, links: 3, partners: logos.map(([id, name, role]) => ({ id, name, role })), layout: widths, clientErrors, crmWrites: 0 }, null, 2));
+  console.log('Solaris: two-brand footer, reference logo, aligned download, original PDF integrity and partner strip verified.');
 } catch (error) {
   await page.screenshot({ path: path.join(out, 'failure.png'), fullPage: true }).catch(() => {});
   await fs.writeFile(path.join(out, 'failure.json'), JSON.stringify({ message: error.message, stack: error.stack, clientErrors }, null, 2));

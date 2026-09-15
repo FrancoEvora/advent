@@ -7,6 +7,7 @@ on:
       - 'src/app/atendimento/**'
       - 'public/forms/solaris/book/**'
       - 'tests/solaris-book-browser.mjs'
+      - 'tests/solaris-downloads-browser.mjs'
       - '.github/workflows/solaris-book-qa.yml'
   pull_request:
     paths:
@@ -14,6 +15,7 @@ on:
       - 'src/app/atendimento/**'
       - 'public/forms/solaris/book/**'
       - 'tests/solaris-book-browser.mjs'
+      - 'tests/solaris-downloads-browser.mjs'
       - '.github/workflows/solaris-book-qa.yml'
 permissions:
   contents: read
@@ -50,6 +52,7 @@ jobs:
             sleep 2
           done
           node tests/solaris-book-browser.mjs
+          node tests/solaris-downloads-browser.mjs
       - uses: actions/upload-artifact@v4
         if: always()
         with:

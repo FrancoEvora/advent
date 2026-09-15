@@ -42,7 +42,8 @@ try{
   assert.equal(await page.locator('#mapa-titulo, dialog').count(),0,'Former implantation section is replaced, not duplicated');
   const quoteText=(await page.locator('#embaixador blockquote p').allTextContents()).join(' ').replace(/\s+/g,' ').trim();
   assert.equal(quoteText,quote);
-  assert.match(await page.locator('#embaixador figcaption').innerText(),/Leo Chaves[\s\S]*Embaixador Évora Urbanismo/);
+  assert.equal(await page.locator('#embaixador figcaption strong').textContent(),'Leo Chaves');
+  assert.equal(await page.locator('#embaixador figcaption span').textContent(),'Embaixador Évora Urbanismo');
   assert.equal(await page.locator('#embaixador a[href="#formulario"]').count(),1);
   assert.equal(await page.getByText('O Solaris traduz um jeito de viver',{exact:false}).count(),0,'Do not publish the unsourced draft quote');
   for(const width of [320,390,768,1440]){

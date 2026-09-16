@@ -29,11 +29,13 @@ try {
     await page.goto('http://127.0.0.1:3188/evora',{waitUntil:'networkidle'});
     await page.evaluate(()=>document.querySelectorAll('img[src]').forEach(i=>i.loading='eager'));
     await page.waitForFunction(()=>Array.from(document.querySelectorAll('img[src]')).every(i=>i.complete && i.naturalWidth>0));
+    await page.evaluate(()=>Promise.all(Array.from(document.querySelectorAll('img[src]'),i=>i.decode())));
     assert.equal(await page.locator('h1').count(),1);
     assert.equal(await page.locator('.global-module-nav').count(),0);
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth+1),'Horizontal overflow at '+width);
     assert.equal(await page.locator('a[href^="#"]').evaluateAll(as=>as.filter(a=>!document.querySelector(a.getAttribute('href'))).length),0);
-    assert.equal(await page.locator('svg use').evaluateAll(xs=>xs.filter(x=>{let b=x.getBBox();return !b.width&&!b.height;}).length),0,'SVG icons missing');
+    assert.equal(await page.locator('svg use').evaluateAll(xs=>xs.filter(x=>x.closest('svg').getBoundingClientRect().width>0).filter(x=>{let b=x.getBBox();return !b.width&&!b.height;}).length),0,'Visible SVG icons missing');
+    assert.equal(await page.locator('#contact-interest option').count(),5);
     assert.ok(!(await page.locator('#contact-form').evaluate(f=>f.checkValidity())));
     if (width<=760) {
       await page.getByRole('button',{name:'Abrir menu',exact:true}).click();
@@ -46,6 +48,7 @@ try {
     assert.equal(await page.locator('#gallery-counter').innerText(),'1 / 4');
     for (let i=0;i<4;i++) {
       await page.waitForFunction(()=>{const i=document.getElementById('gallery-image');return i.complete && i.naturalWidth>0;});
+      await page.locator('#gallery-image').evaluate(i=>i.decode());
       if (i===1 && width===1440) await page.screenshot({path:'qa-output/gallery-desktop.png'});
       await page.locator('#gallery-next').click();
     }
@@ -66,7 +69,7 @@ try {
     await page.locator('[data-privacy]').first().click();assert.ok(await page.locator('#privacy').evaluate(d=>d.open));
     await page.keyboard.press('Escape');
     await page.locator('#contact-form').evaluate(f=>f.reset());
-    await page.evaluate(()=>{history.replaceState(null,'','/evora');scrollTo(0,0);});
+    await page.evaluate(async()=>{for(const i of document.querySelectorAll('img[src]'))await i.decode();history.replaceState(null,'','/evora');scrollTo(0,0);});
     await page.screenshot({path:`qa-output/evora-${width}.png`,fullPage:true});
     if(width===1440)await page.screenshot({path:'qa-output/evora-desktop-hero.png'});
     assert.deepEqual(errors,[]);results.push({width,status:'PASS',errors,images:'loaded',overflow:false,whatsapp:'validated locally; no message sent'});

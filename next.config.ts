@@ -13,13 +13,24 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
   async redirects() {
-    // The institutional site is a separate Vercel project, not an ERP route.
-    // Preserve old shared links without serving institutional code on this origin.
-    return [{
-      source: "/evora/:path*",
-      destination: "https://evora-institucional.vercel.app/",
-      permanent: true,
-    }];
+    return [
+      {
+        // Fail closed for the public hostname if it is accidentally associated
+        // with this private application. Do not serve any ERP route on it.
+        // Temporary until the domain is moved to the institutional project.
+        source: "/:path*",
+        has: [{ type: "host", value: "evora\\.terraragroup\\.com\\.br" }],
+        destination: "https://evora-institucional.vercel.app/",
+        permanent: false,
+      },
+      {
+        // The institutional site is a separate Vercel project, not an ERP route.
+        // Preserve old shared links without serving institutional code here.
+        source: "/evora/:path*",
+        destination: "https://evora-institucional.vercel.app/",
+        permanent: true,
+      },
+    ];
   },
   async headers() {
     return [

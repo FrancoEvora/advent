@@ -14,8 +14,8 @@
 .footerBrands>div{min-width:0}
 .footerService{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
 .footerService>span{font:500 10px/1.5 Arial,Helvetica,sans-serif;letter-spacing:2px;color:#8c7441}
-.footerService>img{display:block;width:196px;max-width:100%;height:auto;object-fit:contain;border-radius:4px}
+.footerService>img{display:block;width:224px;max-width:100%;height:auto;object-fit:contain;border:0;border-radius:0;background:transparent}
 
 @media(max-width:1080px){.partnerStrip{padding:30px 28px}.partnerItem{padding:8px 18px}.partnerRole{font-size:9px;letter-spacing:1.1px}}
-@media(max-width:760px){.partnerStrip{padding:15px 24px}.partnerGrid{grid-template-columns:1fr}.partnerItem{border-right:0;border-bottom:1px solid #b2935480;padding:25px 12px;max-width:390px;width:100%;margin:0 auto}.partnerItem:last-child{border-bottom:0}.partnerRole{font-size:10px;min-height:0;max-width:290px}.partnerLogo{margin-top:14px;height:96px}.partnerItem[data-partner=jvf] img{width:184px}.partnerItem[data-partner=evora] img{width:212px}.partnerItem[data-partner=zenith] img{width:146px}.footerService>span{font-size:9px}.footerService>img{width:184px}}
+@media(max-width:760px){.partnerStrip{padding:15px 24px}.partnerGrid{grid-template-columns:1fr}.partnerItem{border-right:0;border-bottom:1px solid #b2935480;padding:25px 12px;max-width:390px;width:100%;margin:0 auto}.partnerItem:last-child{border-bottom:0}.partnerRole{font-size:10px;min-height:0;max-width:290px}.partnerLogo{margin-top:14px;height:96px}.partnerItem[data-partner=jvf] img{width:184px}.partnerItem[data-partner=evora] img{width:212px}.partnerItem[data-partner=zenith] img{width:146px}.footerService>span{font-size:9px}.footerService>img{width:208px}}
 @media(max-width:600px){.footerBrands{display:grid;grid-template-columns:minmax(0,1fr);justify-items:start;gap:26px}.footerService{gap:10px}}

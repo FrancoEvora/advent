@@ -21,11 +21,12 @@ for (const [id, , , gitSHA] of logos) {
   assert.equal(createHash('sha1').update(`blob ${bytes.length}\0`).update(bytes).digest('hex'), gitSHA);
   await sharp(bytes, { failOn: 'warning' }).png().toFile(path.join(out, `logo-${id}.png`));
 }
-const brandBytes = await fs.readFile('public/forms/solaris/book/futura-casa-footer.webp');
-assert.equal(createHash('sha1').update(`blob ${brandBytes.length}\0`).update(brandBytes).digest('hex'), '8e72315eaab8c00af5dde2ffc5b2b5f3ef6db614');
+const brandBytes = await fs.readFile('public/forms/solaris/book/futura-casa-monocromatica-v1.webp');
+assert.equal(createHash('sha1').update(`blob ${brandBytes.length}\0`).update(brandBytes).digest('hex'), 'f02dc050c0c86e865db8ef9aea6321babdbda04d');
 const brandMetadata = await sharp(brandBytes, { failOn: 'warning' }).metadata();
-assert.equal(brandMetadata.width, 258);
-assert.equal(brandMetadata.height, 163);
+assert.equal(brandMetadata.width, 720);
+assert.equal(brandMetadata.height, 346);
+assert.equal(brandMetadata.hasAlpha, true, 'Futura Casa must have a transparent background');
 await sharp(brandBytes).png().toFile(path.join(out, 'futura-casa-reference.png'));
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({ acceptDownloads: true });
@@ -43,7 +44,7 @@ try {
   assert.deepEqual(await footer.locator('[data-footer-brand]').evaluateAll(items => items.map(item => item.getAttribute('data-footer-brand'))), ['solaris', 'futura-casa']);
   assert.equal(await footer.locator('img').count(), 2);
   assert.match(await footer.locator('[data-footer-brand="solaris"]').textContent(), /Solaris/);
-  assert.match(await footer.locator('[data-footer-brand="futura-casa"] img').getAttribute('src'), /futura-casa-footer\.webp/);
+  assert.match(await footer.locator('[data-footer-brand="futura-casa"] img').getAttribute('src'), /futura-casa-monocromatica-v1\.webp/);
   assert.doesNotMatch(await footer.textContent(), /REALIZAÇÃO|Parceria do empreendimento|Zenith/);
   assert.equal(await footer.locator('img[alt="Évora Urbanismo"]').count(), 0);
   const links = page.locator('a[data-solaris-book-download="v6"]');

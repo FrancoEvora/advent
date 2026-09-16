@@ -12,6 +12,15 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   reactStrictMode: true,
+  async redirects() {
+    // The institutional site is a separate Vercel project, not an ERP route.
+    // Preserve old shared links without serving institutional code on this origin.
+    return [{
+      source: "/evora/:path*",
+      destination: "https://evora-institucional.vercel.app/",
+      permanent: true,
+    }];
+  },
   async headers() {
     return [
       {

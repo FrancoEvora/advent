@@ -144,7 +144,7 @@ export function SolarisForm() {
           <div data-footer-brand="solaris"><Brand small /></div>
           <div className={downloads.footerService} data-footer-brand="futura-casa">
             <span>ATENDIMENTO</span>
-            <Image src={`${ASSETS}/futura-casa-footer.webp`} alt="Futura Casa — Inteligência Imobiliária, Marketing e Vendas" width={258} height={163} unoptimized loading="lazy" />
+            <Image src={`${ASSETS}/futura-casa-monocromatica-v1.webp`} alt="Futura Casa — Inteligência Imobiliária, Marketing e Vendas" width={720} height={346} unoptimized loading="lazy" />
           </div>
         </div>
         <div className={styles.disclaimer}><p>Conteúdo baseado no Book Comercial Solaris 2026, versão V6, com imagens institucionais fornecidas para esta página. Perspectivas ilustrativas e estruturas previstas em projeto. Consulte o memorial descritivo, a documentação contratual, o cronograma de implantação e a disponibilidade atual. Não há promessa de rentabilidade ou valorização garantida.</p><span>Solaris Residencial Resort · Monte Carmelo, Minas Gerais</span></div>

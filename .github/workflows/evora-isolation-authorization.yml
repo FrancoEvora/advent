@@ -1,0 +1,29 @@
+name: Evora isolated deployment authorization
+on:
+  push:
+    branches: [codex/evora-isolation-20260916]
+    paths: ['.github/workflows/evora-isolation-authorization.yml']
+permissions:
+  contents: read
+jobs:
+  authorization:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check existing Vercel deployment authorization
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          node --input-type=module <<'JS'
+          const token = process.env.VERCEL_TOKEN;
+          if (!token) {
+            console.log('VERCEL_DEPLOY_AUTHORIZATION=NOT_CONFIGURED');
+            process.exit(0);
+          }
+          const response = await fetch('https://api.vercel.com/v9/projects/prj_nwbanG1FjXypYgaLVnFdJu1noHsv?teamId=team_MqRTvNvoaArIVzGLcNA6OU4v', {
+            headers: {Authorization: `Bearer ${token}`},
+            signal: AbortSignal.timeout(20000)
+          });
+          console.log('VERCEL_DEPLOY_AUTHORIZATION=' + (response.ok ? 'AVAILABLE' : 'UNAVAILABLE'));
+          console.log('HTTP_STATUS=' + response.status);
+          JS

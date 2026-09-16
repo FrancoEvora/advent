@@ -1,21 +1,16 @@
-# Site institucional Évora Urbanismo
+# Évora institucional — migração para projeto independente
 
-Publicado pela integração existente GitHub → Vercel. Rota pública: https://advent-tau.vercel.app/evora.
+Em 16/09/2026, a pedido de Franco, o institucional foi separado da hospedagem Enterprise.
 
-## Separação e escopo
-- `public/evora/` contém HTML, CSS, JavaScript e imagens locais. Pode ser hospedado de forma independente, sem banco de dados ou credenciais.
-- `src/app/evora/route.ts` entrega o documento público em `/evora`, sem renderizar o layout do ERP, acessar o CRM ou alterar a autenticação.
-- A marca e as cores foram recuperadas do Enterprise: `public/evora-brand.svg` e `src/app/styles/v5-brand.css` (#1D5271, #12384F, #79B82B). Nenhuma nova marca foi inventada.
-- As imagens são cópias do acervo já publicado em `public/forms/solaris/book/`. Originais preservados. Perspectivas e concepções são identificadas como ilustrativas.
-- Apresenta Évora → Parque das Árvores (bairro) → Solaris Residencial Resort (residencial integrado). Sem preços, rentabilidade garantida ou datas de entrega.
+- Site público: https://evora-institucional.vercel.app/
+- Projeto Vercel exclusivo: `evora-institucional`, ID `prj_XtYR9la742vwv5vj5iUzNZvVnbsz`.
+- Código e build autônomos: `sites/evora-institucional/`.
+- A antiga rota Next.js `src/app/evora/route.ts` e a pasta pública `public/evora` foram removidas. `next.config.ts` contém apenas um redirecionamento permanente de `/evora/:path*` ao novo site.
+- Preservados os demais módulos, os cadastros comerciais existentes, a autenticação e as configurações do Enterprise.
+- O novo site não aponta para o cadastro comercial interno do Solaris: seu CTA seleciona Solaris no formulário do próprio institucional e abre o WhatsApp.
+- O projeto público é estático, não herda segredos do projeto `advent` e não publica serviços de backend.
+- Nenhuma alteração de DNS. A associação de `evora.terraragroup.com.br` permanece uma etapa separada; não divulgar esse endereço como ativo.
 
-## Atendimento
-O formulário apenas prepara uma mensagem e abre `https://wa.me/5511917664123`. A pessoa confirma o envio no WhatsApp. Não há gravação de dados neste site nem confirmação fictícia de envio. O CTA específico do Solaris abre o cadastro já existente em `/atendimento/solaris/cadastro`; outros interesses seguem para o contato institucional.
+A fonte permanece versionada no monorepositório GitHub, mas fora do diretório público do Enterprise. Hospedagem, domínio, build e recursos entregues ao visitante são distintos. Não há vínculo automático de Git configurado no novo projeto; a publicação inicial foi direta pela conexão Vercel. O projeto Vercel independente já foi verificado como READY antes da remoção da instalação antiga.
 
-Contatos públicos utilizados: WhatsApp (11) 91766-4123, relacionamento@evoraurbanismo.com.br, escritório Av. Rondon Pacheco, 381, Sala 401, Uberlândia/MG. Fonte: site institucional público www.evoraurbanismo.com.br, consultado em 16/09/2026. Revisar sempre que houver mudança do canal oficial.
-
-## Publicação independente / domínio
-A pasta está pronta para ser selecionada como Root Directory de um projeto estático Vercel. O `vercel.json` dentro dela não altera o projeto Next.js que hospeda o Enterprise. Ao configurar um domínio definitivo, atualizar canonical, og:url e JSON-LD no index.html. Nenhuma configuração DNS ou domínio foi modificada nesta entrega.
-
-## Verificação
-A rotina `Évora Institutional QA` verifica carregamento das imagens, 4 larguras de tela, links internos, menu móvel, galerias, privacidade e preparação do WhatsApp sem enviar mensagens. Os artefatos incluem capturas e uma cópia ZIP do site. A publicação do Next.js deve permanecer READY antes de considerar a rota entregue.
+A separação de projetos reduz a superfície compartilhada, mas não constitui auditoria integral de segurança. Autenticação, autorização e proteção dos endpoints internos continuam obrigatórias. Deployments históricos não foram apagados; o redirecionamento é aplicado à versão de produção atual.

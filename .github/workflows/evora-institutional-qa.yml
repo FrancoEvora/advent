@@ -1,16 +1,20 @@
 name: Evora Institutional QA
 on:
   push:
-    branches: [main]
+    branches: [main, codex/evora-isolation-20260916]
     paths:
+      - 'sites/evora-institucional/**'
       - 'public/evora/**'
       - 'src/app/evora/**'
+      - 'next.config.ts'
       - 'tests/evora-site-browser.mjs'
       - '.github/workflows/evora-institutional-qa.yml'
   pull_request:
     paths:
+      - 'sites/evora-institucional/**'
       - 'public/evora/**'
       - 'src/app/evora/**'
+      - 'next.config.ts'
       - 'tests/evora-site-browser.mjs'
       - '.github/workflows/evora-institutional-qa.yml'
   workflow_dispatch:
@@ -28,23 +32,25 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Build isolated institutional site without dependencies or network
+        run: node sites/evora-institucional/build.mjs
       - name: Install isolated browser runner
         run: |
           npm install --prefix "$RUNNER_TEMP/evora-qa" --no-save --package-lock=false playwright@1.58.2
           "$RUNNER_TEMP/evora-qa/node_modules/.bin/playwright" install --with-deps chromium
-      - name: Verify public pages and interactions without submitting user data
+      - name: Verify live public site isolation, visuals and interactions without submitting data
         env:
           QA_NODE_MODULES: ${{ runner.temp }}/evora-qa/node_modules
         run: node tests/evora-site-browser.mjs
-      - name: Package independent source
+      - name: Package independent source and production files
         if: always()
         run: |
           mkdir -p qa-output
-          cp docs/evora-institucional.md qa-output/README.md
-          (cd public/evora && zip -qr ../../qa-output/evora-urbanismo-site.zip .)
+          cp sites/evora-institucional/README.md qa-output/README.md
+          (cd sites/evora-institucional && zip -qr ../../qa-output/evora-institucional-projeto.zip .)
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: evora-institutional-qa
+          name: evora-institutional-isolation-qa
           path: qa-output/
           retention-days: 14

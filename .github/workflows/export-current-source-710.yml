@@ -1,0 +1,32 @@
+name: Export current source 7.10
+on:
+  push:
+    branches:
+      - agent/export-current-source-710
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pack sanitized repository
+        run: |
+          tar \
+            --exclude=.git \
+            --exclude=.next \
+            --exclude=node_modules \
+            --exclude=.vercel \
+            --exclude='.env*' \
+            --exclude='*.pem' \
+            --exclude='*.key' \
+            -czf /tmp/advent-current-source.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: advent-current-source-710
+          path: /tmp/advent-current-source.tar.gz
+          retention-days: 1

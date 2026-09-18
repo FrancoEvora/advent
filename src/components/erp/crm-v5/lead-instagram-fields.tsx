@@ -24,6 +24,7 @@ type ProfileAnalysis={
 type AnalysisRow={
   id:string;
   instagram_username:string;
+  access_basis?:"lead_consent"|"public_profile";
   analysis_status:string;
   analysis:ProfileAnalysis;
   sources:Array<{url:string;title?:string}>;
@@ -72,7 +73,7 @@ export function LeadInstagramFields({lead: record}: {lead: CrmRecord | null}) {
   const savedUsername=lead?.instagram_username||null;
   const changed = username !== savedUsername;
   const authorized = !!lead?.instagram_consent && !changed && !revoke;
-  const canAnalyze=!!lead?.id&&!!lead?.organization_id&&!!username&&authorized&&!changed;
+  const canAnalyze=!!lead?.id&&!!lead?.organization_id&&!!username&&!changed;
   const consentDate = lead?.instagram_consent_at ? new Date(lead.instagram_consent_at) : null;
   const timestamp = consentDate && !Number.isNaN(consentDate.getTime())
     ? consentDate.toLocaleString("pt-BR", {timeZone: "America/Sao_Paulo"}) : null;
@@ -85,11 +86,11 @@ export function LeadInstagramFields({lead: record}: {lead: CrmRecord | null}) {
   useEffect(()=>{
     let active=true;
     setAnalysisError("");
-    if(!lead?.id||!lead.organization_id||!savedUsername||!authorized){setAnalysis(null);return()=>{active=false};}
+    if(!lead?.id||!lead.organization_id||!savedUsername){setAnalysis(null);return()=>{active=false};}
     const client=getSupabase();
     if(!client)return()=>{active=false};
     client.from("crm_instagram_profile_analyses")
-      .select("id,instagram_username,analysis_status,analysis,sources,model,created_at")
+      .select("id,instagram_username,access_basis,analysis_status,analysis,sources,model,created_at")
       .eq("organization_id",lead.organization_id)
       .eq("crm_record_id",lead.id)
       .eq("instagram_username",savedUsername)
@@ -101,7 +102,7 @@ export function LeadInstagramFields({lead: record}: {lead: CrmRecord | null}) {
         if(data&&validAnalysis(data.analysis))setAnalysis(data as AnalysisRow);else setAnalysis(null);
       });
     return()=>{active=false};
-  },[lead?.id,lead?.organization_id,savedUsername,authorized]);
+  },[lead?.id,lead?.organization_id,savedUsername]);
 
   async function analyzeProfile(){
     if(!canAnalyze||analysisBusy)return;
@@ -128,7 +129,7 @@ export function LeadInstagramFields({lead: record}: {lead: CrmRecord | null}) {
       <input name="instagramUsername" value={value} onChange={event => {setValue(event.target.value);setAnalysisError("");}} placeholder="@seuperfil ou link do perfil" maxLength={200} autoComplete="off" autoCapitalize="none" spellCheck={false} aria-describedby="lead-instagram-note" />
     </label>
     {username && <p><a href={`https://www.instagram.com/${username}/`} target="_blank" rel="noopener noreferrer">Abrir perfil informado: @{username} ↗</a></p>}
-    <p role="status"><strong>{authorized ? "Personalização autorizada pelo lead" : username ? "Sem autorização para personalização pelo Instagram" : "Instagram não informado"}</strong></p>
+    <p role="status"><strong>{authorized ? "Personalização autorizada pelo lead" : username ? "Perfil informado · análise restrita a conteúdo público" : "Instagram não informado"}</strong></p>
     {authorized && <p>{timestamp ? `Autorização registrada em ${timestamp} (Brasília). ` : ""}{lead?.instagram_consent_version ? `Termo: ${lead.instagram_consent_version}.` : ""}</p>}
     {lead?.instagram_source && <p>Origem do perfil: {lead.instagram_source === "solaris_landing_page" ? "formulário da landing page do Solaris" : "cadastro manual no CRM"}.</p>}
     {lead?.instagram_consent && <label style={{display:"flex",alignItems:"flex-start",gap:8}}><input style={{width:18,height:18,flex:"0 0 18px"}} type="checkbox" name="instagramRevokeConsent" value="yes" checked={revoke} onChange={event => setRevoke(event.target.checked)} /><span>Retirar autorização de personalização ao salvar o cadastro.</span></label>}
@@ -139,8 +140,8 @@ export function LeadInstagramFields({lead: record}: {lead: CrmRecord | null}) {
       </div>
       {!username&&<p className={ai.helper}>Informe e salve o Instagram para disponibilizar a análise.</p>}
       {username&&changed&&<p className={ai.helper}>Salve o cadastro antes de analisar o novo perfil.</p>}
-      {username&&!changed&&!authorized&&<p className={ai.helper}>A análise por IA exige a autorização de personalização registrada pelo lead.</p>}
-      {authorized&&<p className={ai.helper}>A IA usa a mesma configuração OpenAI da Arisa e pesquisa somente conteúdo público. O resultado serve para preparar a conversa, nunca para crédito, preço, elegibilidade ou tratamento desfavorável.</p>}
+      {username&&!changed&&!authorized&&<p className={ai.helper}>Sem autorização específica, a IA analisará exclusivamente conteúdo publicamente acessível do perfil informado e fontes públicas relacionadas, sem contornar login, perfil privado ou outras restrições de acesso.</p>}
+      {username&&!changed&&<p className={ai.helper}>A IA usa a mesma configuração OpenAI da Arisa. O resultado serve para preparar a conversa, nunca para crédito, preço, elegibilidade ou tratamento desfavorável.</p>}
       {analysisError&&<p className={ai.error} role="alert">{analysisError}</p>}
 
       {analysis&&validAnalysis(analysis.analysis)&&<article className={ai.card} aria-label="Análise de IA do perfil do Instagram">
@@ -157,10 +158,10 @@ export function LeadInstagramFields({lead: record}: {lead: CrmRecord | null}) {
         {!!analysis.analysis.approach.cautions.length&&<><h4 className={ai.sectionTitle}>Cuidados</h4><ul className={ai.list}>{analysis.analysis.approach.cautions.map((item,index)=><li key={index}>{item}</li>)}</ul></>}
         {!!analysis.analysis.limitations.length&&<><h4 className={ai.sectionTitle}>Limitações da leitura</h4><ul className={ai.list}>{analysis.analysis.limitations.map((item,index)=><li key={index}>{item}</li>)}</ul></>}
         {!!analysis.sources?.length&&<><h4 className={ai.sectionTitle}>Fontes públicas consultadas</h4><div className={ai.sources}>{analysis.sources.slice(0,12).map((source,index)=><a key={source.url+index} href={source.url} target="_blank" rel="noopener noreferrer">{sourceLabel(source)} ↗</a>)}</div></>}
-        <p className={ai.meta}>{analysisTimestamp?`Analisado em ${analysisTimestamp} (Brasília). `:""}A análise é uma hipótese comercial baseada em evidências públicas e deve ser validada na conversa com o lead.</p>
+        <p className={ai.meta}>{analysisTimestamp?`Analisado em ${analysisTimestamp} (Brasília). `:""}{analysis.access_basis==="public_profile"?"Base de acesso: conteúdo público. ":"Base de acesso: autorização registrada pelo lead. "}A análise é uma hipótese comercial e deve ser validada na conversa com o lead.</p>
       </article>}
     </div>
 
-    <p id="lead-instagram-note" style={{fontSize:12,lineHeight:1.6}}>Perfil fornecido, não verificado. Cadastrar ou alterar o @ não autoriza análise e não conecta a conta. Alterar o perfil remove a autorização anterior. O atendimento continua normalmente sem Instagram.</p>
+    <p id="lead-instagram-note" style={{fontSize:12,lineHeight:1.6}}>Perfil fornecido, não verificado. Cadastrar ou alterar o @ não conecta a conta. Sem autorização específica do lead, a análise fica limitada ao conteúdo publicamente acessível. Alterar o perfil remove eventual autorização anterior. O atendimento continua normalmente sem Instagram.</p>
   </section>;
 }

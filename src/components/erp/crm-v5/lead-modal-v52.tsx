@@ -41,7 +41,7 @@ export function LeadModalV52({data,crm,lead,close,done}:{data:ErpData;crm:CrmEnt
       {archived&&<div className={styles.archivedNotice} role="status"><strong>Cadastro arquivado e protegido contra alterações</strong><span>Para evitar reativação ou edição acidental, somente a consulta do cadastro, dos documentos e das conversas está disponível.</span></div>}
       {lead&&<LeadCommercialDossier lead={lead}/>}
       {lead&&<LeadConversationHistory organizationId={data.organization.id} crmRecordId={lead.id} accessToken={data.session.access_token} leadName={lead.person_name}/>}
-      <fieldset className={styles.editableFields} disabled={archived||saving}>
+      <fieldset className={styles.editableFields} disabled={archived}>
         <LeadCommercialFields data={data} crm={crm} lead={lead}/>
         <LeadInstagramFields key={lead?.id||"new"} lead={lead}/>
         <BuyerProfileFields lead={lead}/>

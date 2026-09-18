@@ -22,6 +22,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Standalone Node/CommonJS test runner, executed directly (not React application code).
+    "scripts/test-solaris-instagram.cjs",
   ]),
 ]);
 

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { normalizePhone } from "@/lib/forms/solaris";
+import { normalizePhone, normalizeInstagram, SOLARIS_INSTAGRAM_CONSENT_TEXT } from "@/lib/forms/solaris";
 import styles from "./solaris-form.module.css";
+import social from "./solaris-instagram.module.css";
 
 /** Uses the existing Solaris ingestion API; never writes a partial lead. */
 export function SolarisCaptureForm({ onRegistered }: { onRegistered?: () => void }) {
@@ -11,6 +12,8 @@ export function SolarisCaptureForm({ onRegistered }: { onRegistered?: () => void
   const [phone, setPhone] = useState("");
   const [consent, setConsent] = useState(false);
   const [purpose, setPurpose] = useState("");
+  const [instagram, setInstagram] = useState("");
+  const [instagramConsent, setInstagramConsent] = useState(false);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [receipt, setReceipt] = useState("");
@@ -18,6 +21,7 @@ export function SolarisCaptureForm({ onRegistered }: { onRegistered?: () => void
   const requestId = useRef("");
   const title = useRef<HTMLHeadingElement>(null);
   const submitting = useRef(false);
+  const instagramUsername = normalizeInstagram(instagram);
 
   useEffect(() => { requestId.current = crypto.randomUUID(); }, []);
   useEffect(() => { if (page > 1) title.current?.focus(); }, [page]);
@@ -35,6 +39,7 @@ export function SolarisCaptureForm({ onRegistered }: { onRegistered?: () => void
     }
     if (page !== 2) return;
     if (!purpose) return setError("Selecione investir ou morar.");
+    if (instagram.trim() && !instagramUsername) return setError("Confira seu Instagram: informe o @ ou o link do perfil, não de uma publicação. Você também pode deixar o campo em branco.");
     submitting.current = true;
     setBusy(true);
     try {
@@ -43,7 +48,7 @@ export function SolarisCaptureForm({ onRegistered }: { onRegistered?: () => void
       const response = await fetch("/api/forms/solaris", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ requestId: requestId.current, name, phone, consent, purpose, website, attribution }),
+        body: JSON.stringify({ requestId: requestId.current, name, phone, consent, purpose, website, attribution, instagram: instagramUsername, instagramConsent: !!instagramUsername && instagramConsent }),
         signal: AbortSignal.timeout(20000),
       });
       const result = await response.json() as { id?: string; error?: string };
@@ -78,12 +83,21 @@ export function SolarisCaptureForm({ onRegistered }: { onRegistered?: () => void
           <div className={styles.trap} aria-hidden="true"><label>Website<input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></label></div>
         </>}
         {page === 2 && <>
-          <p className={styles.formIntro}>Só mais uma informação para orientar a sua conversa com a equipe.</p>
+          <p className={styles.formIntro}>Conte seu objetivo. Compartilhar o Instagram é opcional.</p>
           <fieldset className={styles.choices}><legend>Qual é o seu objetivo com o lote?</legend>
             {[["morar", "Quero morar"], ["investir", "Quero investir"]].map(([value, label]) => (
               <label className={purpose === value ? styles.chosen : styles.choice} key={value}><span>{label}</span><input type="radio" name="purpose" value={value} checked={purpose === value} onChange={() => setPurpose(value)} /></label>
             ))}
           </fieldset>
+          <div className={social.section}>
+            <label className={styles.field} htmlFor="solaris-instagram">Instagram <span className={social.optional}>(opcional)</span>
+              <input id="solaris-instagram" name="instagram" value={instagram} onChange={e => { setInstagram(e.target.value); setInstagramConsent(false); }} maxLength={200} placeholder="@seuperfil ou link do Instagram" autoCapitalize="none" autoComplete="off" spellCheck={false} aria-describedby={`solaris-instagram-help${error ? " solaris-form-error" : ""}`} />
+            </label>
+            <p id="solaris-instagram-help" className={social.help}>O perfil será registrado junto ao seu cadastro. Você pode continuar sem informar.</p>
+            {instagramUsername && <a className={social.profile} href={`https://www.instagram.com/${instagramUsername}/`} target="_blank" rel="noopener noreferrer">Conferir o perfil informado: @{instagramUsername} ↗</a>}
+            {instagram.trim() && <label className={social.consent}><input type="checkbox" name="instagramConsent" checked={instagramConsent} onChange={e => setInstagramConsent(e.target.checked)} /><span>{SOLARIS_INSTAGRAM_CONSENT_TEXT}</span></label>}
+            {instagram.trim() && <p className={social.help}>Esta autorização é opcional e não conecta sua conta nem libera acesso a conteúdo privado. Para retirá-la, fale com <a href="https://www.instagram.com/redefuturacasa/" target="_blank" rel="noopener noreferrer">@redefuturacasa</a>.</p>}
+          </div>
         </>}
         {page === 3 && <div className={styles.confirmation} role="status"><h3>Seu interesse foi registrado.</h3><p>A equipe da Futura Casa poderá entrar em contato pelo WhatsApp informado para apresentar as opções do Solaris.</p><span>Registro {receipt}</span></div>}
         {error && <p className={styles.formError} id="solaris-form-error" role="alert">{error}</p>}

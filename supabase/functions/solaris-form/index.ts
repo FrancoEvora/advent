@@ -11,7 +11,7 @@ Deno.serve(async(request:Request)=>{
  if(Number(request.headers.get("content-length")||0)>8192)return reply({error:"Dados muito longos."},413);
  let data;
  try{const raw=await request.text();if(raw.length>8192)return reply({error:"Dados muito longos."},413);data=validateSolarisSubmission(JSON.parse(raw));}catch{return reply({error:"Dados inválidos."},400)}
- if(!data)return reply({error:"Confira seu nome, WhatsApp, opções e autorização de contato."},400);
+ if(!data)return reply({error:"Confira seu nome, WhatsApp, opções, Instagram e autorização de contato."},400);
  try{
   const secret=readKeys("SUPABASE_SECRET_KEYS").default||Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"";
   const db=createClient(Deno.env.get("SUPABASE_URL")||"",secret,{auth:{persistSession:false,autoRefreshToken:false},global:{fetch:(input,init)=>fetch(input,{...init,signal:AbortSignal.timeout(15000)})}});
@@ -22,6 +22,7 @@ Deno.serve(async(request:Request)=>{
   if(error){
    if(error.message.includes("FORM_RATE_LIMIT"))return reply({error:"Muitas tentativas. Aguarde um pouco e tente novamente."},429);
    if(error.message.includes("FORM_ID_CONFLICT"))return reply({error:"Este envio já foi registrado com outros dados. Reabra o formulário para um novo cadastro."},409);
+   if(error.message.includes("FORM_INVALID"))return reply({error:"Confira os dados e o Instagram informado, que é opcional."},400);
    console.error("Solaris persistence failed",{code:error.code});throw new Error("Persistence failed");
   }
   if(!result||result.id!==data.requestId)throw new Error("Invalid receipt");

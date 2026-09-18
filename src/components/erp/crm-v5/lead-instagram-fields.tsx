@@ -1,5 +1,5 @@
 "use client";
-import {useEffect,useMemo,useState} from "react";
+import {useEffect,useMemo,useState,type ChangeEvent} from "react";
 import {getSupabase} from "@/lib/supabase";
 import {normalizeInstagram} from "@/lib/forms/solaris";
 import type {CrmRecord} from "../types";
@@ -155,7 +155,7 @@ export function LeadInstagramFields({lead: record}: {lead: CrmRecord | null}) {
     finally{setAnalysisBusy(false);}
   }
 
-  async function analyzeCaptures(event:React.ChangeEvent<HTMLInputElement>){
+  async function analyzeCaptures(event:ChangeEvent<HTMLInputElement>){
     const input=event.currentTarget;
     const files=Array.from(input.files||[]);
     input.value="";

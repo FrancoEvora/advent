@@ -335,7 +335,7 @@ Deno.serve(async(request:Request)=>{
     if(config.error||!isObject(config.data)||config.data.enabled!==true)throw new Error("AI_DISABLED");
 
     let result:{analysis:Analysis;sources:Source[];retrievalMethod:string;responseId:string|null;usage:Obj;model:string};
-    let cached=false;
+    const cached=false;
     if(body.action==="analyze_captures"){
       result=await runOpenAICaptures(config.data,lead,username,captureImages(body.images));
     }else{

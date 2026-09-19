@@ -13,18 +13,33 @@ await page.route('**/api/forms/solaris',async route=>{
 await fs.mkdir('qa-output',{recursive:true});
 try{
   await page.goto(`${process.env.QA_BASE_URL || 'http://localhost:3107'}/atendimento/solaris/cadastro?utm_source=qa_local&utm_campaign=vizinhos`,{waitUntil:'networkidle'});
-  await page.locator('[data-solaris-version="natureza-v1"]').waitFor();
+  await page.locator('[data-solaris-version="revista-v2"]').waitFor();
+  assert.equal(await page.locator('#formulario').count(),1,'One form retains a single request and state');
+  const suppliedImages=['trilha','lago','arara','paisagem-aerea','amanhecer','cavalgada-familia','cavalgada-campo','entardecer','arvore','garca'];
+  for(const name of suppliedImages)assert.equal(await page.locator(`img[src="/forms/solaris/editorial/${name}.webp"]`).count(),1);
   for(const width of [320,390,768,1440]){
     await page.setViewportSize({width,height:900});
+    await page.evaluate(()=>window.scrollTo(0,0));
     await page.evaluate(()=>{for(const img of document.images)img.loading='eager'});
     await page.waitForFunction(()=>[...document.querySelectorAll('main img')].every(i=>i.complete&&i.naturalWidth));
     assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`overflow ${width}`);
     const logo=page.getByAltText('Futura Casa — Inteligência Imobiliária, Marketing e Vendas');
     const size=await logo.evaluate(i=>({w:i.clientWidth,h:i.clientHeight,nw:i.naturalWidth,nh:i.naturalHeight}));
     assert.ok(Math.abs(size.w/size.h-size.nw/size.nh)<.05,'Logo must retain its full aspect ratio');
-    await page.screenshot({path:`qa-output/solaris-nature-${width}.png`,fullPage:true});
+    const formTop=await page.locator('#formulario').evaluate(el=>el.getBoundingClientRect().top+scrollY);
+    assert.ok(formTop<900,`Form must be in the opening at ${width}: ${formTop}`);
+    await page.screenshot({path:`qa-output/solaris-magazine-${width}.png`,fullPage:true});
+    if(width===390||width===1440){
+      await page.screenshot({path:`qa-output/solaris-magazine-cover-${width}.png`});
+      await page.locator('#vizinhos').scrollIntoViewIfNeeded();
+      await page.screenshot({path:`qa-output/solaris-magazine-neighbors-${width}.png`});
+    }
   }
-  await page.getByRole('link',{name:'Conhecer os lotes →',exact:true}).click();
+  await page.getByRole('link',{name:'Quero conhecer o Solaris →',exact:true}).click();
+  const targetTop=await page.locator('#formulario').evaluate(el=>el.getBoundingClientRect().top);
+  assert.ok(targetTop>=75&&targetTop<150,'Sticky header must not cover the form anchor');
+  await page.getByText('Veja as perspectivas de alguns espaços do projeto',{exact:false}).click();
+  assert.equal(await page.locator('details[open] img').count(),3);
   const form=page.locator('#formulario');
   await form.getByRole('button',{name:'Continuar'}).click();
   assert.match(await form.getByRole('alert').innerText(),/nome/);
@@ -39,5 +54,5 @@ try{
   await form.getByRole('button',{name:'Receber lotes e condições'}).click();
   await page.waitForFunction(()=>document.querySelector('#formulario')?.textContent.includes('registrado'));
   assert.equal(submitted.requestId,firstId);assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({viewports:[320,390,768,1440],overflow:false,images:true,logoUncropped:true,formValidation:true,retry:true,attribution:true,consoleErrors:errors,productionLeadsCreated:0}));
+  console.log(JSON.stringify({viewports:[320,390,768,1440],overflow:false,suppliedImages:10,formInOpening:true,singleForm:true,logoUncropped:true,formValidation:true,retry:true,attribution:true,consoleErrors:errors,productionLeadsCreated:0}));
 }finally{await browser.close()}

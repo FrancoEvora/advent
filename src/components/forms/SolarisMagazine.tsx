@@ -1,7 +1,7 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { SolarisCaptureForm } from "./SolarisCaptureForm";
-import { SolarisBookLink } from "./SolarisBookLink";
+import { SolarisBookLink, SOLARIS_BOOK_DOWNLOAD_URL } from "./SolarisBookLink";
 import { SolarisPartners } from "./SolarisPartners";
 import base from "./solaris-form.module.css";
 import s from "./solaris-magazine.module.css";
@@ -81,7 +81,15 @@ export function SolarisMagazine() {
       <div className={s.storyHeading}><h2 id="vida-titulo">O tempo junto<br /><em>vira memória.</em></h2><p>Compartilhar um passeio, conhecer caminhos, estar perto dos animais. A vida ao ar livre aproxima gerações e abre espaço para experiências que ficam.</p></div>
       <div className={s.outdoorGrid}>
         <Photo name="trilha" alt="Grupo com capacetes em passeio de quadriciclo por um caminho arborizado." width={1400} height={934} className={s.trilha}>01 / Descobrir caminhos. Cena de passeio do acervo; quadriciclos não integram a oferta de equipamentos aqui apresentada.</Photo>
-        <Photo name="leo-chaves-embaixador" alt="Leo Chaves, embaixador do Solaris." width={1000} height={1500} className={s.ambassador}><strong>Leo Chaves</strong><span>Embaixador do Solaris</span></Photo>
+        <figure className={s.ambassador}>
+          <Image src={`${PHOTOS}/leo-chaves-embaixador.webp`} alt="Leo Chaves, embaixador do Solaris." width={1000} height={1500} unoptimized loading="lazy" />
+          <figcaption>
+            <div className={s.ambassadorIdentity}><strong>Leo Chaves</strong><span>Embaixador do Solaris</span></div>
+            {/* Trecho conferido na página 2 do Book Comercial Solaris 2026 V6. */}
+            <blockquote className={s.ambassadorQuote} cite={`${SOLARIS_BOOK_DOWNLOAD_URL}#page=2`}><p>“A vida é feita<br />de momentos<br />simples e<br />verdadeiros.”</p></blockquote>
+            <a className={s.ambassadorSource} href={`${SOLARIS_BOOK_DOWNLOAD_URL}#page=2`} target="_blank" rel="noopener noreferrer">Mensagem no book · pág. 2 ↗</a>
+          </figcaption>
+        </figure>
         <article className={s.hipica} id="centro-hipico" aria-labelledby="hipica-titulo">
           <p className={s.kicker}>CAVALOS, NATUREZA E CONVIVÊNCIA</p>
           <h3 id="hipica-titulo">Centro Hípico<br /><em>anexo ao Solaris.</em></h3>

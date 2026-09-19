@@ -13,9 +13,9 @@ await page.route('**/api/forms/solaris',async route=>{
 await fs.mkdir('qa-output',{recursive:true});
 try{
   await page.goto(`${process.env.QA_BASE_URL || 'http://localhost:3107'}/atendimento/solaris/cadastro?utm_source=qa_local&utm_campaign=vizinhos`,{waitUntil:'networkidle'});
-  await page.locator('[data-solaris-version="revista-v2"]').waitFor();
+  await page.locator('[data-solaris-version="revista-v3"]').waitFor();
   assert.equal(await page.locator('#formulario').count(),1,'One form retains a single request and state');
-  const suppliedImages=['trilha','lago','arara','paisagem-aerea','amanhecer','cavalgada-familia','cavalgada-campo','entardecer','arvore','garca'];
+  const suppliedImages=['trilha','lago','arara','paisagem-aerea','amanhecer','leo-chaves-embaixador','centro-hipico-pista','centro-hipico-cavalo','entardecer','arvore','garca'];
   const imagePaths=await page.locator('main img').evaluateAll(images=>images.map(image=>new URL(image.getAttribute('src'),location.href).pathname));
   for(const name of suppliedImages)assert.equal(imagePaths.filter(path=>path===`/forms/solaris/editorial/${name}.webp`).length,1);
   for(const width of [320,390,768,1440]){
@@ -55,6 +55,5 @@ try{
   await form.getByRole('button',{name:'Receber lotes e condições'}).click();
   await page.waitForFunction(()=>document.querySelector('#formulario')?.textContent.includes('registrado'));
   assert.equal(submitted.requestId,firstId);assert.deepEqual(errors,[]);
-  console.log(JSON.stringify({viewports:[320,390,768,1440],overflow:false,suppliedImages:10,formInOpening:true,singleForm:true,logoUncropped:true,formValidation:true,retry:true,attribution:true,consoleErrors:errors,productionLeadsCreated:0}));
+  console.log(JSON.stringify({viewports:[320,390,768,1440],overflow:false,suppliedImages:suppliedImages.length,formInOpening:true,singleForm:true,logoUncropped:true,formValidation:true,retry:true,attribution:true,consoleErrors:errors,productionLeadsCreated:0}));
 }finally{await browser.close()}
-

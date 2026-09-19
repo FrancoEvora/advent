@@ -14,7 +14,7 @@ const amenities = [
   { title: "Esporte & movimento", text: "Uma partida depois do trabalho ou uma atividade para compartilhar com os filhos.", items: ["Quadras de tênis e beach tennis", "Campo de futebol society", "Quadra poliesportiva"] },
   { title: "Cuidado & bem-estar", text: "Ambientes previstos para cuidar do corpo e reservar um tempo para você.", items: ["Academia profissional", "Spa e sauna", "Acessibilidade na proposta do projeto"] },
   { title: "Infância & convivência", text: "Crianças e pets também fazem parte de uma casa que se estende para o lado de fora.", items: ["Brinquedoteca e espaços infantis", "Dog park / pet place", "Áreas de convivência ao ar livre"] },
-  { title: "Cavalos & vida ao ar livre", text: "A tradição equestre se aproxima da proposta de uma rotina mais conectada à natureza.", items: ["Hípica prevista no projeto", "Convivência e contato com os animais", "Consulte a implantação e as regras de uso"] },
+  { title: "Centro Hípico", text: "Anexo ao Solaris, o Centro Hípico aproxima a vida equestre da proposta de morar perto da natureza.", items: ["Centro Hípico anexo ao Solaris", "Convivência e contato com os animais", "Consulte as atividades e as condições de acesso"] },
 ];
 
 function Brand() {
@@ -35,7 +35,7 @@ function SectionLabel({ number, children }: { number: string; children: ReactNod
 }
 
 export function SolarisMagazine() {
-  return <main className={`${base.shell} ${s.page}`} id="conteudo-principal" data-solaris-version="revista-v2">
+  return <main className={`${base.shell} ${s.page}`} id="conteudo-principal" data-solaris-version="revista-v3">
     <a className={base.skip} href="#formulario">Ir para o formulário</a>
     <div className={s.topline}><span>MONTE CARMELO · MINAS GERAIS</span><span>NATUREZA, CONVIVÊNCIA E UM NOVO JEITO DE MORAR</span></div>
     <header className={s.header}>
@@ -79,7 +79,20 @@ export function SolarisMagazine() {
     <section className={s.section} id="vida-livre" aria-labelledby="vida-titulo">
       <SectionLabel number="03">HISTÓRIAS DO LADO DE FORA</SectionLabel>
       <div className={s.storyHeading}><h2 id="vida-titulo">O tempo junto<br /><em>vira memória.</em></h2><p>Compartilhar um passeio, conhecer caminhos, estar perto dos animais. A vida ao ar livre aproxima gerações e abre espaço para experiências que ficam.</p></div>
-      <div className={s.outdoorGrid}><Photo name="trilha" alt="Grupo com capacetes em passeio de quadriciclo por um caminho arborizado." width={1400} height={934} className={s.trilha}>01 / Descobrir caminhos. Cena de passeio do acervo; quadriciclos não integram a oferta de equipamentos aqui apresentada.</Photo><Photo name="cavalgada-familia" alt="Um adulto e uma criança em uma cena de passeio a cavalo." width={800} height={1029} className={s.family}>02 / Estar junto. Experiências que aproximam gerações.</Photo><article className={s.hipica}><p className={s.kicker}>NO PROJETO: HÍPICA</p><h3>Uma conexão<br />com os animais.</h3><p>A hípica prevista no Solaris traduz essa proximidade com a vida ao ar livre e com a tradição equestre. Um dos elementos que dão personalidade à proposta de lazer do residencial.</p><p>Consulte a equipe sobre a implantação, o funcionamento e as condições de utilização desse espaço.</p></article><Photo name="cavalgada-campo" alt="Pessoa a cavalo atravessando um campo aberto." width={1200} height={800} className={s.horse}>03 / Um outro ritmo. Imagem de inspiração do acervo.</Photo></div>
+      <div className={s.outdoorGrid}>
+        <Photo name="trilha" alt="Grupo com capacetes em passeio de quadriciclo por um caminho arborizado." width={1400} height={934} className={s.trilha}>01 / Descobrir caminhos. Cena de passeio do acervo; quadriciclos não integram a oferta de equipamentos aqui apresentada.</Photo>
+        <Photo name="leo-chaves-embaixador" alt="Leo Chaves, embaixador do Solaris." width={1000} height={1500} className={s.ambassador}><strong>Leo Chaves</strong><span>Embaixador do Solaris</span></Photo>
+        <article className={s.hipica} id="centro-hipico" aria-labelledby="hipica-titulo">
+          <p className={s.kicker}>CAVALOS, NATUREZA E CONVIVÊNCIA</p>
+          <h3 id="hipica-titulo">Centro Hípico<br /><em>anexo ao Solaris.</em></h3>
+          <p>Um espaço dedicado à vida equestre, anexo ao Solaris. A proximidade com os cavalos traz outra possibilidade de convivência e de experiências ao ar livre para a vizinhança.</p>
+          <p>Conheça a proposta do Centro Hípico e converse com a equipe sobre as atividades, o funcionamento e as condições de acesso.</p>
+        </article>
+        <div className={s.equestrianGallery} aria-label="Imagens de referência da vida equestre">
+          <Photo name="centro-hipico-pista" alt="Praticantes de equitação em uma pista de terra com cavalos e tambores." width={842} height={562}>02 / Movimento e contato com os cavalos. Imagem de referência.</Photo>
+          <Photo name="centro-hipico-cavalo" alt="Criança sorrindo montada em um cavalo em uma área de equitação." width={842} height={562}>03 / Uma experiência que aproxima gerações. Imagem de referência.</Photo>
+        </div>
+      </div>
     </section>
 
     <section className={`${s.section} ${s.amenities}`} id="lazer" aria-labelledby="lazer-titulo">

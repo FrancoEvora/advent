@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { SolarisNature } from "@/components/forms/SolarisNature";
+import { SolarisMagazine } from "@/components/forms/SolarisMagazine";
 
 export const metadata: Metadata = {
   title: "Solaris | Uma vida mais simples, perto da natureza",
@@ -10,11 +10,11 @@ export const metadata: Metadata = {
     title: "Solaris | Seus próximos vizinhos",
     description: "Uma vida mais simples. Mais perto da natureza. Conheça o Solaris em Monte Carmelo, MG.",
     locale: "pt_BR", type: "website",
-    images: [{ url: "https://enterprise.terraragroup.com.br/forms/solaris/nature/paisagem.webp", width: 1536, height: 1024, alt: "Vegetação e água ao entardecer, no acervo fotográfico da campanha Solaris." }],
+    images: [{ url: "https://enterprise.terraragroup.com.br/forms/solaris/editorial/paisagem-aerea.webp", width: 1672, height: 941, alt: "Paisagem, lagos e vegetação no acervo da campanha Seus próximos vizinhos, Solaris." }],
   },
   twitter: { card: "summary_large_image" },
 };
 export default async function SolarisRegistration({ params }: { params: Promise<{ slug: string }> }) {
   if ((await params).slug !== "solaris") notFound();
-  return <SolarisNature />;
+  return <SolarisMagazine />;
 }

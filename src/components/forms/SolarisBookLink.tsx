@@ -9,7 +9,7 @@ export const SOLARIS_EDITORIAL_BOOK_URL = "/forms/solaris/downloads/solaris-seus
 export function SolarisBookLink({ className, children, edition = "institutional" }: { className?: string; children: ReactNode; edition?: "institutional" | "editorial" }) {
   const editorial = edition === "editorial";
   return (
-    <a className={className} href={editorial ? SOLARIS_EDITORIAL_BOOK_URL : SOLARIS_BOOK_DOWNLOAD_URL} download={editorial ? "Solaris_Seus_Proximos_Vizinhos_2026.pdf" : "Solaris_Book_2026_V6.pdf"} target="_blank" rel="noopener noreferrer" data-solaris-book-download={editorial ? "editorial-v3" : "v6"} title={editorial ? "Seus próximos vizinhos · Edição editorial 2026 · 19 páginas · 16 MB" : "Book comercial Solaris 2026 V6 · PDF completo · 23 páginas · 32 MB"}>
+    <a className={className} href={editorial ? SOLARIS_EDITORIAL_BOOK_URL : SOLARIS_BOOK_DOWNLOAD_URL} download={editorial ? "Solaris_Seus_Proximos_Vizinhos_2026.pdf" : "Solaris_Book_2026_V6.pdf"} target="_blank" rel="noopener noreferrer" data-solaris-book-download={editorial ? "editorial-v3" : "v6"} title={editorial ? "Seus próximos vizinhos · Edição editorial 2026 · 23 páginas · 19 MB" : "Book comercial Solaris 2026 V6 · PDF completo · 23 páginas · 32 MB"}>
       {children} <span aria-hidden="true">↓</span>
     </a>
   );

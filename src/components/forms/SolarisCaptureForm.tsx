@@ -70,7 +70,7 @@ export function SolarisCaptureForm({ onRegistered }: { onRegistered?: () => void
 
   return (
     <section className={styles.panel} id="formulario" aria-label="Cadastro de interesse no Solaris">
-      <div className={styles.formTop}><span>ATENDIMENTO FUTURA CASA</span><span>{page < 3 ? `${page} de 2` : "CONCLUÍDO"}</span></div>
+      <div className={styles.formTop}><span>CONHEÇA O SOLARIS</span><span>{page < 3 ? `${page} de 2` : "CONCLUÍDO"}</span></div>
       <progress max={2} value={Math.min(page, 2)} aria-label={page < 3 ? `Etapa ${page} de 2` : "Cadastro registrado"} />
       <form onSubmit={next} noValidate aria-busy={busy}>
         {page === 3 && <div className={styles.successMark} aria-hidden="true">✓</div>}

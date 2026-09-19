@@ -4,7 +4,7 @@ import { SolarisMagazine } from "@/components/forms/SolarisMagazine";
 
 export const metadata: Metadata = {
   title: "Solaris | Uma vida mais simples, perto da natureza",
-  description: "Seus próximos vizinhos: natureza, lazer e uma vida mais simples em Monte Carmelo. Conheça os lotes a partir de 360 m². Atendimento Futura Casa.",
+  description: "Seus próximos vizinhos: natureza, lazer e uma vida mais simples em Monte Carmelo. Conheça os lotes, os espaços de lazer e o Centro Hípico anexo ao Solaris.",
   robots: { index: false, follow: false },
   openGraph: {
     title: "Solaris | Seus próximos vizinhos",

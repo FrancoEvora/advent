@@ -16,7 +16,8 @@ try{
   await page.locator('[data-solaris-version="revista-v2"]').waitFor();
   assert.equal(await page.locator('#formulario').count(),1,'One form retains a single request and state');
   const suppliedImages=['trilha','lago','arara','paisagem-aerea','amanhecer','cavalgada-familia','cavalgada-campo','entardecer','arvore','garca'];
-  for(const name of suppliedImages)assert.equal(await page.locator(`img[src="/forms/solaris/editorial/${name}.webp"]`).count(),1);
+  const imagePaths=await page.locator('main img').evaluateAll(images=>images.map(image=>new URL(image.getAttribute('src'),location.href).pathname));
+  for(const name of suppliedImages)assert.equal(imagePaths.filter(path=>path===`/forms/solaris/editorial/${name}.webp`).length,1);
   for(const width of [320,390,768,1440]){
     await page.setViewportSize({width,height:900});
     await page.evaluate(()=>window.scrollTo(0,0));
@@ -56,3 +57,4 @@ try{
   assert.equal(submitted.requestId,firstId);assert.deepEqual(errors,[]);
   console.log(JSON.stringify({viewports:[320,390,768,1440],overflow:false,suppliedImages:10,formInOpening:true,singleForm:true,logoUncropped:true,formValidation:true,retry:true,attribution:true,consoleErrors:errors,productionLeadsCreated:0}));
 }finally{await browser.close()}
+

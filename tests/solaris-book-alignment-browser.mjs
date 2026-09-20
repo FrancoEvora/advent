@@ -18,7 +18,7 @@ await fs.mkdir('qa-output/book-alignment',{recursive:true});
 try{
   const response=await page.goto(`${base}/atendimento/solaris/cadastro?utm_source=qa_local&utm_campaign=book_v6`,{waitUntil:'networkidle'});
   assert.equal(response.status(),200);
-  await page.locator('[data-solaris-version="revista-book-v7"]').waitFor();
+  await page.locator('[data-solaris-version="revista-book-v7-deck"]').waitFor();
   assert.equal(await page.locator('#formulario').count(),1);
   assert.equal(await page.locator('header img[alt="Solaris Residencial Resort"]').count(),1);
   assert.equal(await page.getByAltText('Futura Casa — Inteligência Imobiliária, Marketing e Vendas').count(),1);
@@ -50,7 +50,7 @@ try{
     viewports.push({width,formTop:Math.round(formTop)});
     await page.screenshot({path:`qa-output/book-alignment/cover-${width}.png`});
     if(width===390||width===1440){
-      for(const id of ['vizinhos','parque-linear','implantacao','caderno-natureza','autor']){
+      for(const id of ['deck-represa','lazer-em-imagens','vizinhos','parque-linear','implantacao','caderno-natureza','autor']){
         await page.locator(`#${id}`).scrollIntoViewIfNeeded();
         await page.screenshot({path:`qa-output/book-alignment/${id}-${width}.png`});
       }

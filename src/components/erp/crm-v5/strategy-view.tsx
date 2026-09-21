@@ -27,10 +27,9 @@ export function StrategyView({
   openActivity: (lead: CrmRecord) => void;
   reload: () => Promise<void>;
 }) {
-  const generatedAt = useMemo(() => new Date(), [crm]);
   const insights = useMemo(
-    () => buildLeadStrategies(data, crm, generatedAt),
-    [crm, data, generatedAt],
+    () => buildLeadStrategies(data, crm, new Date()),
+    [crm, data],
   );
   const daily = useMemo(() => buildDailyStrategy(insights), [insights]);
   const objections = useMemo(

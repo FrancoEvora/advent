@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFileSync } from 'node:fs';
 import { managerInstructions, managerTools, MANAGER_TOOLS, runManager } from '../supabase/functions/_shared/arisa-manager.ts';
-import { biaManagerOutreach, biaManagerRecipient, runBiaManagerWhatsApp } from '../supabase/functions/_shared/bia-manager-whatsapp.ts';
+import { biaManagerOutreach, biaManagerPhoneKey, biaManagerRecipient, runBiaManagerWhatsApp } from '../supabase/functions/_shared/bia-manager-whatsapp.ts';
 import { biaChatOperationId } from '../supabase/functions/enterprise-bia-agent-gateway/whatsapp-operator.ts';
 const root=new URL('../',import.meta.url),read=(path:string)=>readFileSync(new URL(path,root),'utf8');
 const org='11111111-1111-4111-8111-111111111111',actor='22222222-2222-4222-8222-222222222222',threadId='33333333-3333-4333-8333-333333333333',messageId='44444444-4444-4444-8444-444444444444';
@@ -259,4 +259,109 @@ test('admin simulations retain canonical WhatsApp PRICE kernel and cannot create
   assert.equal(kernel(migration),kernel(publicSql));assert.match(migration,/private\.arisa_is_admin\(p_organization_id\)/);
   assert.doesNotMatch(migration,/insert into crm_private\.public_agent_sessions/);
   assert.match(migration,/assistant_id\|\|'_chat'/);
+});
+
+
+test('Brazilian ninth-digit variants identify the same Bia WhatsApp recipient',()=> {
+  assert.equal(biaManagerPhoneKey('+55 34 99932-1768'),'553499321768');
+  assert.equal(biaManagerPhoneKey('+55 34 9932-1768'),'553499321768');
+  const records=[{id:'analis',person_name:'Analis',phone:'+5534999321768'}];
+  assert.equal(
+    biaManagerRecipient(
+      'Bia. Em relação ao atendimento da Analis, envie uma mensagem pelo WhatsApp.',
+      {phone:'553499321768'},
+      records,
+    ),
+    '5534999321768',
+  );
+});
+
+test('the real Analis clarification keeps the original order instead of demanding new authorization',()=> {
+  const records=[{id:'analis',person_name:'Analis',phone:'+5534999321768'}];
+  const original='Bia. Em relação ao atendimento da Analis, peça licença e envie o book. Depois informe que entrará em contato para saber o que ela achou.';
+  const history=[
+    {id:messageId,role:'user',content:original},
+    {id:'assistant-ambiguity',role:'assistant',content:'Qual é o número correto?'},
+  ];
+  const order=biaManagerOutreach(
+    clarificationId,
+    'O da conversa iniciada, isto é, o 1768.',
+    records,
+    history,
+  );
+  assert.equal(order.messageId,messageId);
+  assert.equal(order.message,original);
+  assert.equal(
+    biaManagerRecipient(order.message,{phone:'553499321768'},records,order.clarifications),
+    '5534999321768',
+  );
+});
+
+test('Bia manager sends free text into the existing active thread without a template or second authorization',async()=> {
+  const records=[{id:'analis',person_name:'Analis',phone:'+5534999321768'}];
+  const calls:string[]=[];
+  let graphBody:Record<string,unknown>|null=null;
+  const result=await runBiaManagerWhatsApp(
+    {
+      action:'send',
+      contact_id:'analis',
+      phone:'553499321768',
+      content:'Analis, tudo bem? Posso te enviar o book do Solaris por aqui? Depois eu volto a falar com você para saber o que achou.',
+    },
+    {
+      organizationId:org,
+      actor,
+      threadId,
+      messageId,
+      message:'Bia. Em relação ao atendimento da Analis, peça licença e envie o book. Depois informe que entrará em contato para saber o que ela achou.',
+      records,
+      history:[],
+      callerRpc:async(name:string,args:Record<string,unknown>)=>{
+        calls.push(name);
+        assert.equal(name,'arisa_admin_query');
+        assert.equal(args.p_entity,'crm_records');
+        return {total:1,rows:records};
+      },
+      adminRpc:async(name:string,args:Record<string,unknown>)=>{
+        calls.push(name);
+        if(name==='bia_whatsapp_credentials') return {
+          enabled:true,waba_id:'123',phone_number_id:'456',
+          graph_api_version:'v23.0',access_token:'mock-only',
+        };
+        assert.equal(name,'bia_whatsapp_outbound_admin');
+        if(args.p_action==='start_text') {
+          const data=args.p_args as Record<string,unknown>;
+          assert.equal(data.phone,'5534999321768');
+          assert.equal(data.body,'Analis, tudo bem? Posso te enviar o book do Solaris por aqui? Depois eu volto a falar com você para saber o que achou.');
+          return {proceed:true,status:'sending',phone:'553499321768',threadId:'active-thread'};
+        }
+        if(args.p_action==='finish') return {status:'accepted',phone:'553499321768',threadId:'active-thread'};
+        throw new Error('Unexpected admin call');
+      },
+      http:async(_url:unknown,init?:RequestInit)=>{
+        assert.equal(init?.method,'POST');
+        graphBody=JSON.parse(String(init?.body));
+        return Response.json({messages:[{id:'wamid.mock'}],contacts:[{wa_id:'553499321768'}]});
+      },
+    },
+  );
+  assert.equal(result.status,'accepted');
+  assert.equal((graphBody as any)?.type,'text');
+  assert.equal((graphBody as any)?.to,'553499321768');
+  assert.equal((graphBody as any)?.text?.body,'Analis, tudo bem? Posso te enviar o book do Solaris por aqui? Depois eu volto a falar com você para saber o que achou.');
+  assert.ok(calls.includes('bia_whatsapp_credentials'));
+  assert.ok(calls.includes('bia_whatsapp_outbound_admin'));
+  assert.match(String(result.reply),/conversa já existente/i);
+});
+
+test('active-thread migration and customer runtime preserve the permission-to-send-book flow',()=> {
+  const migration=read('supabase/migrations/20260921205500_bia_manager_active_whatsapp_continuation.sql');
+  assert.match(migration,/p_action='start_text'/);
+  assert.match(migration,/bia_phone_key\(t\.peer_phone\)=crm_private\.bia_phone_key\(v_phone\)/);
+  assert.match(migration,/23 hours 55 minutes/);
+  assert.match(migration,/'bia_manager_text'/);
+  assert.match(migration,/'whatsapp_manager_text'/);
+  const customerRuntime=read('supabase/functions/enterprise-bia-agent-gateway/index.ts');
+  assert.match(customerRuntime,/Se a última mensagem da própria Bia perguntou se pode enviar um material específico/);
+  assert.match(customerRuntime,/Use buscar_materiais imediatamente/);
 });

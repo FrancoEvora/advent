@@ -5,7 +5,8 @@ import type {CrmSection} from "./types";
 import {useCrmV5} from "./use-data";
 import {LeadModal} from "./lead-modal";
 import {ActivityModal} from "./activity-modal";
-import {OverviewView,ReportsView,AlertsView} from "./views-intelligence";\nimport {StrategyView} from "./strategy-view";
+import {OverviewView,ReportsView,AlertsView} from "./views-intelligence";
+import {StrategyView} from "./strategy-view";
 import {LeadsView} from "./leads-view";
 import {PipelineView,OpportunitiesView,AgendaView} from "./views-sales";
 import {SdrWorkbench} from "./sdr-workbench";
@@ -159,7 +160,7 @@ export function CrmEnterprise({
             sales={sales}
             openLead={openLead}
             openActivity={openActivity}
-            reload={reload}
+            reload={async () => { await Promise.all([reload(), reloadSales()]); }}
           />
         )}
         {section === "leads" && (

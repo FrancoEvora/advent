@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { CrmRecord, ErpData } from "../types";
 import { money } from "../utils";
 import type { CrmEnterpriseData } from "./types";
+import type { SalesData } from "./sales/types";
 import { CrmKpi, CrmSectionHeader, EmptyState, Status } from "./shared";
 import {
   buildCampaignStrategy,
@@ -17,19 +18,21 @@ import styles from "./strategy-view.module.css";
 export function StrategyView({
   data,
   crm,
+  sales,
   openLead,
   openActivity,
   reload,
 }: {
   data: ErpData;
   crm: CrmEnterpriseData;
+  sales: SalesData;
   openLead: (lead: CrmRecord) => void;
   openActivity: (lead: CrmRecord) => void;
   reload: () => Promise<void>;
 }) {
   const insights = useMemo(
-    () => buildLeadStrategies(data, crm, new Date()),
-    [crm, data],
+    () => buildLeadStrategies(data, crm, sales, new Date()),
+    [crm, data, sales],
   );
   const daily = useMemo(() => buildDailyStrategy(insights), [insights]);
   const objections = useMemo(

@@ -1,0 +1,200 @@
+.dispatchBox {
+  display: grid;
+  grid-template-columns: minmax(240px, .8fr) minmax(320px, 1.3fr) minmax(210px, .7fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.dispatchBox > label {
+  display: grid;
+  gap: 7px;
+  align-content: start;
+  color: var(--text, #0f172a);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.dispatchBox select,
+.toolbar input,
+.toolbar select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid #dbe3ec;
+  border-radius: 10px;
+  background: #fff;
+  padding: 0 11px;
+  color: #0f172a;
+  font: inherit;
+  font-size: 12px;
+}
+
+.messagePreview {
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  padding: 13px 14px;
+  border: 1px solid #dbe3ec;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.messagePreview small {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.messagePreview strong {
+  color: #0f172a;
+}
+
+.messagePreview span {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.messagePreview code {
+  width: fit-content;
+  margin-top: 3px;
+  padding: 4px 7px;
+  border-radius: 7px;
+  background: #e2e8f0;
+  color: #334155;
+  font-size: 10px;
+}
+
+.dispatchActions {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.dispatchActions button {
+  min-height: 44px;
+  font-weight: 800;
+}
+
+.dispatchActions small {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 1.45;
+}
+
+.toolbar {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 190px auto auto;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.table {
+  display: grid;
+  gap: 7px;
+  overflow-x: auto;
+}
+
+.headerRow,
+.row {
+  min-width: 980px;
+  display: grid;
+  grid-template-columns: 34px minmax(230px, 1.4fr) minmax(160px, .9fr) minmax(150px, .9fr) 60px minmax(130px, .75fr) 72px;
+  gap: 12px;
+  align-items: center;
+}
+
+.headerRow {
+  padding: 0 10px 5px;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.row {
+  padding: 11px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  background: #fff;
+}
+
+.row > div {
+  min-width: 0;
+}
+
+.row strong,
+.row small,
+.row em {
+  display: block;
+}
+
+.row strong {
+  color: #0f172a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row small {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 10px;
+}
+
+.row em {
+  margin-top: 5px;
+  color: #b45309;
+  font-size: 9px;
+  font-style: normal;
+  line-height: 1.35;
+}
+
+.row > span {
+  color: #475569;
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row > b {
+  color: #1d4ed8;
+  font-size: 17px;
+}
+
+.checkbox {
+  display: grid;
+  place-items: center;
+}
+
+.checkbox input {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 1100px) {
+  .dispatchBox {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dispatchActions {
+    grid-column: 1 / -1;
+  }
+
+  .toolbar {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .dispatchBox,
+  .toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .dispatchActions {
+    grid-column: auto;
+  }
+}

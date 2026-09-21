@@ -15,7 +15,7 @@ export default function AssistantWhatsAppPanel({ organizationId, userId, assista
   const mode = (item: WhatsAppThread) => item.opted_out_at ? "Contato pediu interrupção" : item.human_requested ? "Atendimento humano" : `${channel.name} automática`;
   const [snapshot, setSnapshot] = useState<{ organizationId: string; assistant: string; inbox: WhatsAppInbox } | null>(null);
   const [thread, setThread] = useState<string | null>(() => { const id = typeof window === 'undefined' ? null : new URLSearchParams(window.location.search).get('atendimento'); return id && UUID.test(id) ? id : null; });
-  const [opening, setOpening] = useState(false), [error, setError] = useState(''), [revision, setRevision] = useState(0), [busy, setBusy] = useState(false);
+  const [opening, setOpening] = useState(false), [openingPhone, setOpeningPhone] = useState(''), [error, setError] = useState(''), [revision, setRevision] = useState(0), [busy, setBusy] = useState(false);
   const [query, setQuery] = useState(''), [search, setSearch] = useState(''), [filter, setFilter] = useState('all'), [offset, setOffset] = useState(0), [messageOffset, setMessageOffset] = useState(0);
   const data = snapshot?.organizationId === organizationId && snapshot.assistant === assistant ? snapshot.inbox : null;
   const active = data?.selected?.id === thread ? data.selected : null;
@@ -76,12 +76,36 @@ export default function AssistantWhatsAppPanel({ organizationId, userId, assista
     if (!active) return;
     setBusy(true);
     try {
-      const result = await client().rpc(channel.control, { p_organization_id: organizationId, p_thread_id: active.id, p_action: active.human_requested ? 'resume' : 'pause' });
+      const resuming = active.human_requested;
+      const result = await client().rpc(channel.control, {
+        p_organization_id: organizationId,
+        p_thread_id: active.id,
+        p_action: resuming ? 'resume' : 'pause',
+      });
       if (result.error) throw result.error;
-      refresh();
+      if (resuming && active.service_window_open === false) {
+        setOpeningPhone(active.peer_phone);
+        setOpening(true);
+      } else {
+        refresh();
+      }
     } catch (failure) { setError(errorText(failure)); } finally { setBusy(false); }
   }
-  if (opening) return <div className={monitor.start}><AssistantStartConversation assistant={assistant} organizationId={organizationId} userId={userId} initialPhone="" onClose={id => { setOpening(false); if (id) selectThread(id); refresh(); }} /></div>;
+  async function reopenWithApprovedMessage() {
+    if (!active || active.opted_out_at) return;
+    setBusy(true);
+    try {
+      const result = await client().rpc(channel.control, {
+        p_organization_id: organizationId,
+        p_thread_id: active.id,
+        p_action: 'reactivate',
+      });
+      if (result.error) throw result.error;
+      setOpeningPhone(active.peer_phone);
+      setOpening(true);
+    } catch (failure) { setError(errorText(failure)); } finally { setBusy(false); }
+  }
+  if (opening) return <div className={monitor.start}><AssistantStartConversation assistant={assistant} organizationId={organizationId} userId={userId} initialPhone={openingPhone} onClose={id => { setOpening(false); setOpeningPhone(''); if (id) selectThread(id); refresh(); }} /></div>;
 
   return <section className={monitor.panel} aria-label={assistant === "arisa" ? "Conversas da Arisa via WhatsApp" : `Conversas da ${channel.name}`}>
     <div className={monitor.toolbar}><div><strong>{data ? data.enabled && data.verified ? `WhatsApp da ${channel.name} ativo` : `WhatsApp da ${channel.name} em preparação` : 'Carregando atendimentos…'}</strong><small>{data?.phone}</small></div><button onClick={() => setOpening(true)} disabled={!data?.enabled || !data.verified}>Iniciar conversa</button><button onClick={refresh} aria-label="Atualizar atendimentos">↻</button></div>
@@ -94,7 +118,7 @@ export default function AssistantWhatsAppPanel({ organizationId, userId, assista
     </aside>
       <section className={monitor.history} aria-label="Histórico do atendimento selecionado">{thread ? <>
         <header className={monitor.historyHeader}><button onClick={() => selectThread(null)}>← Conversas</button><div><h3 ref={heading} tabIndex={-1}>{active?.customer_name || (active ? '+' + active.peer_phone : 'Abrindo atendimento…')}</h3>{active && <small>+{active.peer_phone} · {mode(active)}</small>}</div></header>
-        {active && <><details className={monitor.actions}><summary>Opções de atendimento</summary><div className={styles.row}><button disabled={busy || !!active.opted_out_at} onClick={() => void control()}>{active.human_requested ? 'Retomar atendimento automático' : 'Pausar para atendimento humano'}</button>{active.crm_record_id && <Link href={getActivityRelatedLink('crm_records', active.crm_record_id)?.href || '/?view=crm'}>Cadastro no CRM</Link>}</div></details>
+        {active && <><details className={monitor.actions}><summary>Opções de atendimento</summary><div className={styles.row}><button disabled={busy || !!active.opted_out_at} onClick={() => void control()}>{active.human_requested ? active.service_window_open === false ? 'Retomar com mensagem aprovada' : 'Retomar Bia agora' : 'Pausar para atendimento humano'}</button>{!active.human_requested && active.service_window_open === false && !active.opted_out_at && <button disabled={busy} onClick={() => void reopenWithApprovedMessage()}>Reabrir conversa</button>}{active.crm_record_id && <Link href={getActivityRelatedLink('crm_records', active.crm_record_id)?.href || '/?view=crm'}>Cadastro no CRM</Link>}</div>{active.service_window_open === false && !active.opted_out_at && <small>A janela de atendimento livre terminou. A reabertura usa uma mensagem aprovada pela Meta; quando o contato responder, a Bia continua a conversa com o histórico preservado.</small>}</details>
           <div className={monitor.historyStatus}><small>{data?.message_total} mensagens · {data && displayDate(data.updated_at)}</small><button onClick={latest}>Últimas mensagens ↓</button></div></>}
         <div ref={pane} className={monitor.messages} role="log" aria-label={`Mensagens do WhatsApp da ${channel.name}`} tabIndex={0} onScroll={() => { const element = pane.current; if (element) scrollState.current.pinned = element.scrollHeight - element.scrollTop - element.clientHeight < 80; }}>
           {!active ? <p role="status">{error ? 'Não foi possível carregar o histórico. Use Atualizar para tentar novamente.' : 'Carregando histórico…'}</p> : <>{data?.messages.map(message => <article className={`${monitor.message} ${message.direction === 'inbound' ? monitor.inbound : monitor.outbound}`} key={message.id}><strong>{message.direction === 'inbound' ? active.customer_name || 'Contato' : channel.name}</strong><MessageText content={message.content || "Mensagem sem conteúdo de texto."} /><small>{displayDate(message.occurred_at)} · {message.direction === 'inbound' ? 'Recebida' : deliveryLabel[message.delivery_status] || message.delivery_status}</small>{message.error_code && <p className={styles.error}>{outboundError(assistant, message.error_code)}</p>}</article>)}{!data?.messages.length && <p>Ainda não há mensagens neste atendimento.</p>}</>}

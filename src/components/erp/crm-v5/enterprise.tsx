@@ -161,6 +161,7 @@ export function CrmEnterprise({
             openLead={openLead}
             openActivity={openActivity}
             reload={async () => { await Promise.all([reload(), reloadSales()]); }}
+            setSection={setSection}
           />
         )}
         {section === "leads" && (

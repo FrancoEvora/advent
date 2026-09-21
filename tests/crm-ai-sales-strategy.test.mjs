@@ -26,6 +26,9 @@ test("strategy engine only prioritizes open CRM opportunities", () => {
 test("next best offer stays grounded in canonical CRM data", () => {
   assert.match(engine, /record\.product_id/);
   assert.match(engine, /record\.project_id/);
+  assert.match(engine, /unit\.status !== "disponivel"/);
+  assert.match(engine, /unit\.list_price/);
+  assert.match(engine, /Revisar filtros da oferta/);
   assert.match(engine, /Não recomendar produto ainda/);
   assert.match(engine, /Qualifique empreendimento, orçamento e metragem/);
 });

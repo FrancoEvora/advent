@@ -30,6 +30,10 @@ const resumeMigration = readFileSync(
   new URL("../supabase/migrations/20260921201820_bia_whatsapp_resume_automation.sql", import.meta.url),
   "utf8",
 );
+const stagingAcceptanceMigration = readFileSync(
+  new URL("../supabase/migrations/20260921202930_bia_queue_staging_acceptance.sql", import.meta.url),
+  "utf8",
+);
 
 test("strategy action stages a lead instead of dispatching WhatsApp immediately", () => {
   assert.match(queueMigration, /create table if not exists crm_private\.bia_strategy_queue/);
@@ -107,5 +111,20 @@ test("Bia panel reopens expired conversations only through approved-message flow
   assert.match(
     panel,
     /A janela de atendimento livre terminou[\s\S]*mensagem aprovada pela Meta/,
+  );
+});
+
+
+test("staging accepts open leads even when dispatch guardrails currently warn", () => {
+  assert.match(stagingAcceptanceMigration, /crm_private\.bia_bulk_candidate_reason/);
+  assert.match(stagingAcceptanceMigration, /insert into crm_private\.bia_strategy_queue/);
+  assert.match(stagingAcceptanceMigration, /'warning',queued\.last_error/);
+  assert.doesNotMatch(
+    stagingAcceptanceMigration,
+    /if v_reason is not null then[\s\S]*return jsonb_build_object\('ok',false/,
+  );
+  assert.match(
+    stagingAcceptanceMigration,
+    /lead\.record_status<>'aberta'[\s\S]*BIA_CAMPAIGN_LEAD_INACTIVE/,
   );
 });

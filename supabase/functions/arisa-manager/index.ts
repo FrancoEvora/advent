@@ -208,7 +208,7 @@ export async function handleRequest(request: Request): Promise<Response> {
         const file=mail.data?.attachments?.[Number(args.attachment_index)];
         if(mail.error||!isObject(file)||file.bucket!=="arisa-mail"||typeof file.path!=="string"||!file.path.startsWith(org+"/"))throw new ManagerError("NOT_FOUND",404);
         const stored=await caller.storage.from("arisa-mail").download(file.path);
-        if(stored.error||!stored.data||stored.data.size>8388608)throw new ManagerError("FILE_INVALID",422);
+        if(stored.error||!stored.data||stored.data.size>31457280)throw new ManagerError("FILE_INVALID",422);
         const bytes=new Uint8Array(await stored.data.arrayBuffer()),mime=String(file.mime),hash=await sha256(bytes);
         if(!validMagic(bytes,mime)||file.hash!==hash)throw new ManagerError("FILE_INVALID",422);
         const extensions:Record<string,string>={"application/pdf":"pdf","image/png":"png","image/jpeg":"jpg","image/webp":"webp","application/xml":"xml","text/xml":"xml","text/csv":"csv","text/plain":"txt","application/x-ofx":"ofx","audio/webm":"webm","audio/mp4":"m4a","audio/mpeg":"mp3","audio/wav":"wav"};

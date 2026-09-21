@@ -277,7 +277,7 @@ export function StrategyView({
           "O lead não está elegível para entrar na fila da Bia.",
       );
     }
-    setNotice(`${lead.person_name} foi enviado para a fila controlada da Bia.`);
+    setNotice(`${lead.person_name} foi colocado na Fila da Bia. Nenhuma mensagem foi enviada ainda.`);
     await reload();
   }
 
@@ -291,6 +291,10 @@ export function StrategyView({
     }
     if (action === "activity") {
       openActivity(lead);
+      return;
+    }
+    if (action === "bia_queue") {
+      setSection("bia_queue");
       return;
     }
     if (action === "campaigns") {
@@ -569,6 +573,7 @@ export function StrategyView({
                       <option value="bia" disabled={!canQueueBia}>
                         Enviar para fila da Bia
                       </option>
+                      <option value="bia_queue">Abrir Fila da Bia</option>
                       <option value="material">Enviar material</option>
                       <option value="remarketing_7">Remarketing · 7 dias</option>
                       <option value="remarketing_30">Remarketing · 30 dias</option>

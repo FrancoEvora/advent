@@ -1,4 +1,4 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -31,9 +31,12 @@ type DependencyCounts = {
   reservations: number;
 };
 
-type CommercialBlockers = {
-  allowed: boolean;
-  reasons: string[];
+type ArchivePreviewResult = {
+  recordStatus?: unknown;
+  contactLinked?: unknown;
+  dependencies?: unknown;
+  archiveAllowed?: unknown;
+  blockingReasons?: unknown;
 };
 
 type ArchiveResult = {
@@ -106,27 +109,7 @@ function publicConfig() {
   return { url, key };
 }
 
-function serviceConfig() {
-  const url =
-    process.env.SUPABASE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key =
-    process.env.SUPABASE_SECRET_KEY?.trim() ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  if (!url || !key) {
-    throw new ApiError(
-      "O serviço administrativo do CRM está indisponível.",
-      503,
-      "SUPABASE_SERVICE_UNAVAILABLE",
-    );
-  }
-  return { url, key };
-}
-
-async function authorizeAdmin(
-  request: NextRequest,
-  organizationId: string,
-): Promise<{ user: SupabaseClient; service: SupabaseClient }> {
+async function authorizedUserClient(request: NextRequest) {
   const token = bearerToken(request);
   if (!token) {
     throw new ApiError("Sessão necessária.", 401, "SESSION_REQUIRED");
@@ -146,227 +129,65 @@ async function authorizeAdmin(
     throw new ApiError("Sessão expirada.", 401, "SESSION_EXPIRED");
   }
 
-  const svc = serviceConfig();
-  const service = createClient(svc.url, svc.key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  });
-  const membership = await service
-    .from("organization_members")
-    .select("role,active")
-    .eq("organization_id", organizationId)
-    .eq("user_id", session.data.user.id)
-    .eq("active", true)
-    .maybeSingle();
-  if (membership.error) {
-    throw new ApiError(
-      "Não foi possível validar a permissão administrativa.",
-      503,
-      "ADMIN_PERMISSION_UNAVAILABLE",
-    );
+  return user;
+}
+
+function rpcApiError(
+  message: string,
+  fallbackMessage: string,
+  fallbackCode: string,
+) {
+  if (message.includes("CRM_LEAD_ARCHIVE_SESSION_REQUIRED")) {
+    return new ApiError("Sessão necessária.", 401, "SESSION_REQUIRED");
   }
-  if (membership.data?.role !== "admin") {
-    throw new ApiError(
+  if (message.includes("CRM_LEAD_ARCHIVE_ADMIN_REQUIRED")) {
+    return new ApiError(
       "Somente administradores podem excluir leads da operação.",
       403,
       "ADMIN_PERMISSION_REQUIRED",
     );
   }
-
-  return { user, service };
+  if (message.includes("CRM_LEAD_NOT_FOUND")) {
+    return new ApiError("Lead não localizado.", 404, "LEAD_NOT_FOUND");
+  }
+  if (message.includes("CRM_LEAD_COMMERCIAL_LINKS_ACTIVE")) {
+    return new ApiError(
+      "O lead ganhou um vínculo comercial ativo durante a confirmação. Atualize a verificação e encerre esse vínculo antes de excluir.",
+      409,
+      "LEAD_HAS_ACTIVE_COMMERCIAL_LINKS",
+    );
+  }
+  return new ApiError(fallbackMessage, 503, fallbackCode);
 }
 
-async function countByRecord(
-  service: SupabaseClient,
-  table: string,
-  organizationId: string,
-  crmRecordId: string,
-) {
-  const result = await service
-    .from(table)
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId)
-    .eq("crm_record_id", crmRecordId);
-  if (result.error) {
-    throw new ApiError(
-      "Não foi possível verificar todos os vínculos do lead.",
-      503,
-      "LEAD_DEPENDENCY_CHECK_FAILED",
-    );
-  }
-  return result.count || 0;
-}
-
-async function countActiveByRecord(
-  service: SupabaseClient,
-  table: string,
-  organizationId: string,
-  crmRecordId: string,
-  terminalStatuses: string[],
-) {
-  const result = await service
-    .from(table)
-    .select("id", { count: "exact", head: true })
-    .eq("organization_id", organizationId)
-    .eq("crm_record_id", crmRecordId)
-    .not("status", "in", `(${terminalStatuses.join(",")})`);
-  if (result.error) {
-    throw new ApiError(
-      "Não foi possível verificar os vínculos comerciais ativos do lead.",
-      503,
-      "LEAD_COMMERCIAL_DEPENDENCY_CHECK_FAILED",
-    );
-  }
-  return result.count || 0;
-}
-
-async function countContractsByRecord(
-  service: SupabaseClient,
-  organizationId: string,
-  crmRecordId: string,
-  activeOnly: boolean,
-) {
-  let query = service
-    .from("crm_contracts")
-    .select("id,crm_proposals!inner(crm_record_id)", {
-      count: "exact",
-      head: true,
-    })
-    .eq("organization_id", organizationId)
-    .eq("crm_proposals.crm_record_id", crmRecordId);
-  if (activeOnly) query = query.neq("status", "cancelado");
-  const result = await query;
-  if (result.error) {
-    throw new ApiError(
-      "Não foi possível verificar os contratos vinculados ao lead.",
-      503,
-      "LEAD_CONTRACT_DEPENDENCY_CHECK_FAILED",
-    );
-  }
-  return result.count || 0;
-}
-
-function commercialBlockers(
-  dependencies: DependencyCounts,
-): CommercialBlockers {
-  const reasons: string[] = [];
-  if (dependencies.activeReservations > 0) {
-    reasons.push(
-      dependencies.activeReservations === 1
-        ? "Existe uma reserva ativa. Cancele ou converta a reserva antes de excluir o lead."
-        : `Existem ${dependencies.activeReservations} reservas ativas. Cancele ou converta as reservas antes de excluir o lead.`,
-    );
-  }
-  if (dependencies.activeProposals > 0) {
-    reasons.push(
-      dependencies.activeProposals === 1
-        ? "Existe uma proposta ou negociação em andamento. Encerre-a antes de excluir o lead."
-        : `Existem ${dependencies.activeProposals} propostas ou negociações em andamento. Encerre-as antes de excluir o lead.`,
-    );
-  }
-  if (dependencies.activeContracts > 0) {
-    reasons.push(
-      dependencies.activeContracts === 1
-        ? "Existe um contrato não cancelado. O lead não pode ser excluído enquanto esse vínculo comercial estiver ativo."
-        : `Existem ${dependencies.activeContracts} contratos não cancelados. O lead não pode ser excluído enquanto esses vínculos estiverem ativos.`,
-    );
-  }
-  return { allowed: reasons.length === 0, reasons };
-}
-
-async function dependencyCounts(
-  service: SupabaseClient,
-  organizationId: string,
-  crmRecordId: string,
-): Promise<DependencyCounts> {
-  const [
-    activities,
-    activeContracts,
-    activeProposals,
-    activeReservations,
-    aiJobs,
-    alerts,
-    assignments,
-    attributions,
-    contracts,
-    conversations,
-    messages,
-    opportunityEvents,
-    proposals,
-    reservations,
-  ] = await Promise.all([
-    countByRecord(service, "crm_actions", organizationId, crmRecordId),
-    countContractsByRecord(service, organizationId, crmRecordId, true),
-    countActiveByRecord(
-      service,
-      "crm_proposals",
-      organizationId,
-      crmRecordId,
-      ["rejeitada", "recusada", "expirada", "cancelada"],
-    ),
-    countActiveByRecord(
-      service,
-      "crm_unit_reservations",
-      organizationId,
-      crmRecordId,
-      ["expirada", "cancelada", "convertida"],
-    ),
-    countByRecord(service, "crm_ai_jobs", organizationId, crmRecordId),
-    countByRecord(service, "crm_alerts", organizationId, crmRecordId),
-    countByRecord(
-      service,
-      "crm_lead_assignments",
-      organizationId,
-      crmRecordId,
-    ),
-    countByRecord(
-      service,
-      "crm_opportunity_attributions",
-      organizationId,
-      crmRecordId,
-    ),
-    countContractsByRecord(service, organizationId, crmRecordId, false),
-    countByRecord(
-      service,
-      "crm_conversations",
-      organizationId,
-      crmRecordId,
-    ),
-    countByRecord(service, "crm_messages", organizationId, crmRecordId),
-    countByRecord(
-      service,
-      "crm_opportunity_events",
-      organizationId,
-      crmRecordId,
-    ),
-    countByRecord(service, "crm_proposals", organizationId, crmRecordId),
-    countByRecord(
-      service,
-      "crm_unit_reservations",
-      organizationId,
-      crmRecordId,
-    ),
-  ]);
+function dependencyCounts(value: unknown): DependencyCounts {
+  const raw = isObject(value) ? value : {};
+  const count = (key: keyof DependencyCounts) => {
+    const n = Number(raw[key]);
+    return Number.isFinite(n) && n >= 0 ? n : 0;
+  };
 
   return {
-    activities,
-    activeContracts,
-    activeProposals,
-    activeReservations,
-    aiJobs,
-    alerts,
-    assignments,
-    attributions,
-    contracts,
-    conversations,
-    messages,
-    opportunityEvents,
-    proposals,
-    reservations,
+    activities: count("activities"),
+    activeContracts: count("activeContracts"),
+    activeProposals: count("activeProposals"),
+    activeReservations: count("activeReservations"),
+    aiJobs: count("aiJobs"),
+    alerts: count("alerts"),
+    assignments: count("assignments"),
+    attributions: count("attributions"),
+    contracts: count("contracts"),
+    conversations: count("conversations"),
+    messages: count("messages"),
+    opportunityEvents: count("opportunityEvents"),
+    proposals: count("proposals"),
+    reservations: count("reservations"),
   };
+}
+
+function blockingReasons(value: unknown) {
+  if (!Array.isArray(value)) return [] as string[];
+  return value.filter((item): item is string => typeof item === "string");
 }
 
 export async function POST(request: NextRequest) {
@@ -385,14 +206,13 @@ export async function POST(request: NextRequest) {
     const action = raw.action as ArchiveAction;
     const confirmation =
       typeof raw.confirmation === "string" ? raw.confirmation : "";
+
     if (!UUID.test(organizationId) || !UUID.test(crmRecordId)) {
       throw new ApiError("Lead inválido.", 400, "INVALID_LEAD");
     }
     if (action !== "preview" && action !== "archive") {
       throw new ApiError("Operação inválida.", 400, "INVALID_ACTION");
     }
-
-    const auth = await authorizeAdmin(request, organizationId);
     if (action === "archive" && confirmation !== "EXCLUIR") {
       throw new ApiError(
         "Confirmação administrativa inválida.",
@@ -400,70 +220,72 @@ export async function POST(request: NextRequest) {
         "ARCHIVE_CONFIRMATION_REQUIRED",
       );
     }
-    const record = await auth.service
-      .from("crm_records")
-      .select("id,contact_id,record_status")
-      .eq("organization_id", organizationId)
-      .eq("id", crmRecordId)
-      .maybeSingle();
-    if (record.error) {
-      throw new ApiError(
-        "Não foi possível localizar o lead.",
-        503,
-        "LEAD_LOOKUP_FAILED",
+
+    const user = await authorizedUserClient(request);
+    const preview = await user.rpc("preview_archive_crm_lead_v1", {
+      p_organization_id: organizationId,
+      p_crm_record_id: crmRecordId,
+    });
+    if (preview.error) {
+      throw rpcApiError(
+        preview.error.message,
+        "Não foi possível verificar todos os vínculos do lead.",
+        "LEAD_DEPENDENCY_CHECK_FAILED",
       );
     }
-    if (!record.data) {
-      throw new ApiError("Lead não localizado.", 404, "LEAD_NOT_FOUND");
+    if (!isObject(preview.data)) {
+      throw new ApiError(
+        "A verificação administrativa do lead retornou dados inválidos.",
+        503,
+        "LEAD_DEPENDENCY_CHECK_FAILED",
+      );
     }
 
-    const dependencies = await dependencyCounts(
-      auth.service,
-      organizationId,
-      crmRecordId,
-    );
-    const blockers = commercialBlockers(dependencies);
+    const previewResult = preview.data as ArchivePreviewResult;
+    const dependencies = dependencyCounts(previewResult.dependencies);
+    const reasons = blockingReasons(previewResult.blockingReasons);
+    const archiveAllowed = previewResult.archiveAllowed === true;
+    const contactLinked = previewResult.contactLinked === true;
+    const recordStatus =
+      typeof previewResult.recordStatus === "string"
+        ? previewResult.recordStatus
+        : null;
+
     if (action === "preview") {
       return NextResponse.json(
         {
           ok: true,
           action,
-          recordStatus: record.data.record_status,
-          contactLinked: Boolean(record.data.contact_id),
+          recordStatus,
+          contactLinked,
           dependencies,
-          archiveAllowed: blockers.allowed,
-          blockingReasons: blockers.reasons,
+          archiveAllowed,
+          blockingReasons: reasons,
         },
         { status: 200, headers: HEADERS },
       );
     }
 
-    if (!blockers.allowed) {
+    if (!archiveAllowed) {
       throw new ApiError(
-        `O lead não pode ser excluído agora. ${blockers.reasons.join(" ")}`,
+        `O lead não pode ser excluído agora. ${reasons.join(" ")}`,
         409,
         "LEAD_HAS_ACTIVE_COMMERCIAL_LINKS",
       );
     }
 
-    const archived = await auth.user.rpc("archive_crm_lead_v1", {
+    const archived = await user.rpc("archive_crm_lead_v1", {
       p_organization_id: organizationId,
       p_crm_record_id: crmRecordId,
     });
     if (archived.error) {
-      const integrityBlocked = archived.error.message.includes(
-        "CRM_LEAD_COMMERCIAL_LINKS_ACTIVE",
-      );
-      throw new ApiError(
-        integrityBlocked
-          ? "O lead ganhou um vínculo comercial ativo durante a confirmação. Atualize a verificação e encerre esse vínculo antes de excluir."
-          : "O lead não pôde ser arquivado. Nenhuma exclusão física foi realizada.",
-        409,
-        integrityBlocked
-          ? "LEAD_HAS_ACTIVE_COMMERCIAL_LINKS"
-          : "LEAD_ARCHIVE_FAILED",
+      throw rpcApiError(
+        archived.error.message,
+        "O lead não pôde ser arquivado. Nenhuma exclusão física foi realizada.",
+        "LEAD_ARCHIVE_FAILED",
       );
     }
+
     const archiveResult = isObject(archived.data)
       ? (archived.data as ArchiveResult)
       : {};
@@ -486,7 +308,7 @@ export async function POST(request: NextRequest) {
           archiveResult.closedConversations || 0,
         ),
         closedSessions: Number(archiveResult.closedSessions || 0),
-        contactLinked: Boolean(record.data.contact_id),
+        contactLinked,
         dependencies,
         message: alreadyArchived
           ? "O lead já estava arquivado."

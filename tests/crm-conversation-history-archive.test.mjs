@@ -52,7 +52,8 @@ test("histórico do CRM exige sessão, crm.view e escopo do lead", () => {
 });
 
 test("exclusão administrativa arquiva sem apagar o histórico", () => {
-  assert.match(archiveRoute, /membership\.data\?\.role !== "admin"/);
+  assert.match(archiveRoute, /auth[.]getUser[(]token[)]/);
+  assert.match(archiveRoute, /preview_archive_crm_lead_v1/);
   assert.match(archiveRoute, /archive_crm_lead_v1/);
   assert.match(archiveGuard, /set record_status = 'arquivada'/);
   assert.doesNotMatch(archiveRoute, /\.delete\s*\(/);

@@ -121,7 +121,7 @@ export function MaterialsView({ data, crm, reload }: { data: ErpData; crm: CrmEn
     if (asset.external_url) { window.open(asset.external_url, "_blank"); return; }
     if (!asset.storage_path) return;
     const client = getSupabase(); if (!client) return;
-    const result = await client.storage.from("erp-documents").createSignedUrl(asset.storage_path, 120);
+    const result = await client.storage.from("marketing-assets").createSignedUrl(asset.storage_path, 120);
     if (result.data?.signedUrl) window.open(result.data.signedUrl, "_blank");
   }
   return (
@@ -138,12 +138,106 @@ export function MaterialsView({ data, crm, reload }: { data: ErpData; crm: CrmEn
 }
 
 function AssetModal({ data, crm, close, reload }: { data: ErpData; crm: CrmEnterpriseData; close: () => void; reload: () => Promise<void> }) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); const form = new FormData(event.currentTarget); const client = getSupabase(); if (!client) return;
-    const file = form.get("file") as File; let storagePath: string | null = null;
-    if (file?.size) { storagePath = `${data.organization.id}/marketing/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`; const upload = await client.storage.from("erp-documents").upload(storagePath, file); if (upload.error) throw upload.error; }
-    const result = await client.from("crm_marketing_assets").insert({ organization_id: data.organization.id, folder_id: String(form.get("folder_id") || "") || null, project_id: String(form.get("project_id") || "") || null, name: String(form.get("name")), asset_type: String(form.get("asset_type")), description: String(form.get("description") || "") || null, storage_path: storagePath, external_url: String(form.get("external_url") || "") || null, mime_type: file?.type || null, size_bytes: file?.size || null, tags: String(form.get("tags") || "").split(",").map((value) => value.trim()).filter(Boolean), audience: String(form.get("audience") || "") || null, created_by: data.session.user.id });
-    if (result.error) throw result.error; await reload(); close();
+    event.preventDefault();
+    if (busy) return;
+
+    setBusy(true);
+    setError("");
+    let storagePath: string | null = null;
+
+    try {
+      const form = new FormData(event.currentTarget);
+      const client = getSupabase();
+      if (!client) throw new Error("A conexão com o CRM está indisponível.");
+
+      const file = form.get("file") as File;
+      const externalUrl = String(form.get("external_url") || "").trim();
+      if ((!file || !file.size) && !externalUrl) {
+        throw new Error("Selecione um arquivo ou informe uma URL externa.");
+      }
+      if (file?.size > 50 * 1024 * 1024) {
+        throw new Error("O arquivo deve ter no máximo 50 MB.");
+      }
+
+      if (file?.size) {
+        const safeName = file.name
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-zA-Z0-9._-]+/g, "-")
+          .replace(/-+/g, "-")
+          .toLowerCase();
+
+        storagePath = `${data.organization.id}/materials/${crypto.randomUUID()}-${safeName}`;
+        const upload = await client.storage
+          .from("marketing-assets")
+          .upload(storagePath, file, {
+            contentType: file.type || "application/octet-stream",
+            upsert: false,
+          });
+        if (upload.error) throw new Error(upload.error.message);
+      }
+
+      const result = await client.from("crm_marketing_assets").insert({
+        organization_id: data.organization.id,
+        folder_id: String(form.get("folder_id") || "") || null,
+        project_id: String(form.get("project_id") || "") || null,
+        name: String(form.get("name") || "").trim(),
+        asset_type: String(form.get("asset_type") || "arquivo"),
+        description: String(form.get("description") || "") || null,
+        storage_path: storagePath,
+        external_url: externalUrl || null,
+        mime_type: file?.size ? file.type || null : null,
+        size_bytes: file?.size || null,
+        tags: String(form.get("tags") || "")
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean),
+        audience: String(form.get("audience") || "") || null,
+        created_by: data.session.user.id,
+      });
+
+      if (result.error) {
+        if (storagePath) {
+          await client.storage.from("marketing-assets").remove([storagePath]);
+        }
+        throw new Error(result.error.message);
+      }
+
+      await reload();
+      close();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível salvar o material.");
+    } finally {
+      setBusy(false);
+    }
   }
-  return <div className="modal-backdrop" onMouseDown={close}><form className="modal crm5-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}><button type="button" className="modal-close" onClick={close}>×</button><header><small>BIBLIOTECA</small><h2>Novo material de marketing</h2></header><div className="form-grid"><label className="span-2">Nome<input name="name" required /></label><label>Tipo<select name="asset_type"><option value="arquivo">Arquivo</option><option value="imagem">Imagem</option><option value="video">Vídeo</option><option value="apresentacao">Apresentação</option><option value="link">Link externo</option><option value="planta">Planta / mapa</option><option value="tabela">Tabela comercial</option></select></label><label>Diretório<select name="folder_id"><option value="">Geral</option>{crm.folders.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label><label>Empreendimento<select name="project_id"><option value="">Corporativo</option>{data.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label><label>Público<input name="audience" /></label><label className="span-2">Arquivo<input name="file" type="file" /></label><label className="span-2">URL externa<input name="external_url" type="url" /></label><label className="span-2">Tags<input name="tags" /></label><label className="span-2">Descrição<textarea name="description" rows={3} /></label></div><footer><button type="button" onClick={close}>Cancelar</button><button className="primary">Salvar material</button></footer></form></div>;
+
+  return (
+    <div className="modal-backdrop" onMouseDown={close}>
+      <form className="modal crm5-modal" onSubmit={submit} onMouseDown={(event) => event.stopPropagation()}>
+        <button type="button" className="modal-close" onClick={close}>×</button>
+        <header><small>BIBLIOTECA</small><h2>Novo material de marketing</h2></header>
+        {error && <div className="feedback error">{error}</div>}
+        <div className="form-grid">
+          <label className="span-2">Nome<input name="name" required /></label>
+          <label>Tipo<select name="asset_type"><option value="arquivo">Arquivo</option><option value="imagem">Imagem</option><option value="video">Vídeo</option><option value="apresentacao">Apresentação</option><option value="link">Link externo</option><option value="planta">Planta / mapa</option><option value="tabela">Tabela comercial</option></select></label>
+          <label>Diretório<select name="folder_id"><option value="">Geral</option>{crm.folders.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label>Empreendimento<select name="project_id"><option value="">Corporativo</option>{data.projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select></label>
+          <label>Público<input name="audience" /></label>
+          <label className="span-2">Arquivo<input name="file" type="file" accept="image/*,video/mp4,video/quicktime,.pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.csv,.zip" /><small>PDF, imagens, vídeos, documentos, apresentações e planilhas · até 50 MB</small></label>
+          <label className="span-2">URL externa<input name="external_url" type="url" /></label>
+          <label className="span-2">Tags<input name="tags" /></label>
+          <label className="span-2">Descrição<textarea name="description" rows={3} /></label>
+        </div>
+        <footer>
+          <button type="button" onClick={close} disabled={busy}>Cancelar</button>
+          <button type="submit" className="primary" disabled={busy}>{busy ? "Salvando..." : "Salvar material"}</button>
+        </footer>
+      </form>
+    </div>
+  );
 }

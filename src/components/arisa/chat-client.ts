@@ -27,7 +27,7 @@ export function fileMime(file: File) {
   const map: Record<string, string> = { pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", webp: "image/webp", xml: "application/xml", csv: "text/csv", ofx: "application/x-ofx", txt: "text/plain", webm: "audio/webm", m4a: "audio/mp4", mp4: "audio/mp4", mp3: "audio/mpeg", wav: "audio/wav" };
   const mime = map[file.name.split(".").pop()?.toLowerCase() || ""];
   if (!mime) throw new Error("Envie PDF, imagem, XML, CSV, OFX, texto ou áudio.");
-  if (!file.size || file.size > 8388608) throw new Error("Cada arquivo precisa ter conteúdo e no máximo 8 MB.");
+  if (!file.size || file.size > 31457280) throw new Error("Cada arquivo precisa ter conteúdo e no máximo 30 MB.");
   return mime;
 }
 export async function uploadFile(file: File, organizationId: string, userId: string, threadId: string): Promise<ChatFile> {

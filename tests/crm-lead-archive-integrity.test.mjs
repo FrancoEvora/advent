@@ -28,7 +28,8 @@ test("arquivamento falha fechado diante de vínculos comerciais ativos", () => {
   assert.match(archiveRoute, /activeReservations/);
   assert.match(archiveRoute, /activeProposals/);
   assert.match(archiveRoute, /activeContracts/);
-  assert.match(archiveRoute, /archiveAllowed:\s*blockers\.allowed/);
+  assert.match(archiveRoute, /const archiveAllowed = previewResult\\.archiveAllowed === true/);
+  assert.match(archiveRoute, /blockingReasons: reasons/);
   assert.match(archiveRoute, /LEAD_HAS_ACTIVE_COMMERCIAL_LINKS/);
   assert.match(leadsView, /archivePreview\.archiveAllowed !== true/);
   assert.match(leadsView, /Exclusão bloqueada por segurança comercial/);

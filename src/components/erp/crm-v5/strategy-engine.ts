@@ -1,5 +1,6 @@
 import type { CrmAction, CrmRecord, ErpData } from "../types";
-import type { CrmEnterpriseData } from "./types";\nimport type { InventoryUnit, SalesData } from "./sales/types";
+import type { CrmEnterpriseData } from "./types";
+import type { InventoryUnit, SalesData } from "./sales/types";
 
 export type StrategyUrgency = "critical" | "high" | "normal";
 export type StrategyLevel = "alta" | "media" | "baixa";

@@ -69,7 +69,7 @@ async function readFile(caller: SupabaseClient, fileId: unknown, org: string, us
   const file = record.data as ChatFile;
   if (!file.storage_path.startsWith(`${org}/${userId}/${file.thread_id}/`) || file.storage_path.includes("..")) throw new ManagerError("FILE_INVALID", 422);
   const stored = await caller.storage.from("arisa-chat").download(file.storage_path);
-  if (stored.error || !stored.data || stored.data.size !== file.size_bytes || stored.data.size > 8388608) throw new ManagerError("FILE_INVALID", 422);
+  if (stored.error || !stored.data || stored.data.size !== file.size_bytes || stored.data.size > 31457280) throw new ManagerError("FILE_INVALID", 422);
   const bytes = new Uint8Array(await stored.data.arrayBuffer());
   if (await sha256(bytes) !== file.file_hash || !validMagic(bytes, file.mime_type)) throw new ManagerError("FILE_INVALID", 422);
   return { file, bytes, blob: stored.data };
@@ -208,7 +208,7 @@ export async function handleRequest(request: Request): Promise<Response> {
         const file=mail.data?.attachments?.[Number(args.attachment_index)];
         if(mail.error||!isObject(file)||file.bucket!=="arisa-mail"||typeof file.path!=="string"||!file.path.startsWith(org+"/"))throw new ManagerError("NOT_FOUND",404);
         const stored=await caller.storage.from("arisa-mail").download(file.path);
-        if(stored.error||!stored.data||stored.data.size>8388608)throw new ManagerError("FILE_INVALID",422);
+        if(stored.error||!stored.data||stored.data.size>31457280)throw new ManagerError("FILE_INVALID",422);
         const bytes=new Uint8Array(await stored.data.arrayBuffer()),mime=String(file.mime),hash=await sha256(bytes);
         if(!validMagic(bytes,mime)||file.hash!==hash)throw new ManagerError("FILE_INVALID",422);
         const extensions:Record<string,string>={"application/pdf":"pdf","image/png":"png","image/jpeg":"jpg","image/webp":"webp","application/xml":"xml","text/xml":"xml","text/csv":"csv","text/plain":"txt","application/x-ofx":"ofx","audio/webm":"webm","audio/mp4":"m4a","audio/mpeg":"mp3","audio/wav":"wav"};

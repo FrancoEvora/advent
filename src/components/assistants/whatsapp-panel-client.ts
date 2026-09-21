@@ -1,6 +1,6 @@
 import { biaDeliveryLabel, biaOutboundError } from '../bia/outbound-display';
 
-export type WhatsAppThread = { id: string; peer_phone: string; customer_name: string | null; human_requested: boolean; opted_out_at: string | null; crm_record_id: string | null; last_activity_at?: string; last_message?: string; delivery_status?: string };
+export type WhatsAppThread = { id: string; peer_phone: string; customer_name: string | null; human_requested: boolean; opted_out_at: string | null; crm_record_id: string | null; last_inbound_at?: string | null; service_window_open?: boolean; session_status?: string; last_activity_at?: string; last_message?: string; delivery_status?: string };
 export type WhatsAppInbox = { enabled: boolean; verified: boolean; phone: string; threads: WhatsAppThread[]; selected: WhatsAppThread | null; total: number; message_total: number; updated_at: string; messages: { id: string; direction: string; content: string; delivery_status: string; error_code: string | null; occurred_at: string }[] };
 
 // The UI is shared, but all data and operations remain bound to the selected assistant.

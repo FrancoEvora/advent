@@ -5,6 +5,16 @@ type Rpc = (name: string, args: Obj) => Promise<unknown>;
 const object = (v: unknown): v is Obj => !!v && typeof v === 'object' && !Array.isArray(v);
 const normalized = (value: string) => value.normalize('NFD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 const phonePattern = /\+?\d[\d\s().-]{8,28}\d/g;
+export function biaManagerPhoneKey(value: unknown): string {
+  const phone = biaInitialPhone(value);
+  return /^55[1-9][0-9]9[6-9][0-9]{7}$/.test(phone)
+    ? phone.slice(0,4) + phone.slice(5)
+    : phone;
+}
+const samePhone = (a: unknown, b: unknown) => {
+  try { return biaManagerPhoneKey(a) === biaManagerPhoneKey(b); }
+  catch { return false; }
+};
 const suffixPattern = /\b(?:final(?: do (?:telefone|numero))?|(?:telefone|numero) final|terminad[oa] em|termina em)(?: e)?(?: o)? (\d{4,8})\b/g;
 type Selection = {kind:'ack'|'invalid_phone'|'discussion'} | {kind:'phone'|'suffix'|'name';value:string};
 const nameWords = (value: string) => normalized(value).split(' ').filter(word => !['a','o','de','da','do','das','dos','e'].includes(word));
@@ -78,6 +88,8 @@ function recipientClarification(message: string, records: Obj[]): Selection | un
   const text = clean(message);
   const suffix = suppliedSuffix(text);
   if (suffix && /^(?:(?:o |a )?(?:telefone|numero|contato) (?:com )?)?(?:o |a )?(?:final(?: do (?:telefone|numero))?|(?:telefone|numero) final|terminad[oa] em|termina em)(?: e)?(?: o)? \d{4,8}$/.test(text)) return {kind:'suffix',value:suffix};
+  const activeConversation = text.match(/^(?:o |a )?(?:da )?conversa (?:iniciada|ativa)(?: isto e)?(?: o)?(?: numero| telefone)? ?(\d{4,8})$/);
+  if (activeConversation) return {kind:'suffix',value:activeConversation[1]};
   if (/^(?:(?:sim|isso|certo) )?(?:voce tem (?:a |minha )?autorizacao|(?:eu )?autorizo(?: (?:o envio|voce a enviar))?|pode (?:enviar|mandar|iniciar)|(?:continue|retome|prossiga)(?: com)?(?: o)?(?: envio| contato| atendimento)?|(?:tente|tenta|repita|reenvie)(?: (?:agora|novamente|de novo)){0,2}|sim|isso|certo)$/.test(text)) return {kind:'ack'};
   // Discussing a send failure neither grants new permission nor cancels the
   // administrator's existing order. Negative instructions remain barriers.
@@ -124,7 +136,7 @@ export function biaManagerRecipient(message: string, args: Obj, records: Obj[], 
   const suffix = suppliedSuffix(message);
   const phones = suppliedPhones(message);
   if (phones.length > 1) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
-  let matches = phones.length ? records.filter(row => { try { return biaInitialPhone(row.phone) === phones[0]; } catch { return false; } }) :
+  let matches = phones.length ? records.filter(row => samePhone(row.phone,phones[0])) :
     records.filter(row => typeof row.person_name === 'string' && namesRecipient(message,row.person_name));
   if (!phones.length && !matches.length && /\b(?:com|para|a|ao) (?:ele|ela|ess[ea] (?:lead|cliente|contato)|est[ea] (?:lead|cliente|contato))\b/.test(normalized(message))) {
     matches = referencedRecipients(recipientContext,records);
@@ -141,7 +153,7 @@ export function biaManagerRecipient(message: string, args: Obj, records: Obj[], 
     if (!selection) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
     if (selection.kind === 'invalid_phone') continue;
     if (selection.kind === 'suffix') matches = matches.filter(row => typeof row.phone === 'string' && row.phone.replace(/\D/g,'').endsWith(selection.value));
-    else if (selection.kind === 'phone') matches = matches.filter(row => { try { return biaInitialPhone(row.phone) === selection.value; } catch { return false; } });
+    else if (selection.kind === 'phone') matches = matches.filter(row => samePhone(row.phone,selection.value));
     else if (selection.kind === 'name') matches = matches.filter(row => typeof row.person_name === 'string' && nameStartsWith(row.person_name,selection.value));
   }
   // An administrator-supplied full phone identifies the messaging destination.
@@ -149,8 +161,90 @@ export function biaManagerRecipient(message: string, args: Obj, records: Obj[], 
   // name-only orders still require one unambiguous live record.
   if (!matches.length || (!phones.length && (matches.length !== 1 || (args.contact_id && args.contact_id !== matches[0].id && records.some(row => row.id === args.contact_id))))) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
   const phone = biaInitialPhone(matches[0].phone);
-  if (args.phone && biaInitialPhone(args.phone) !== phone) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
+  if (args.phone && !samePhone(args.phone,phone)) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
   return phone;
+}
+
+async function sha256(value: string) {
+  const bytes = new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)));
+  return [...bytes].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+
+function managerTextReply(result: Obj): string {
+  const phone = String(result.phone||'');
+  const target = /^55\d{10,11}$/.test(phone) ? `+${phone}` : 'o contato';
+  if (result.status==='delivered'||result.status==='read') return `A mensagem foi entregue para ${target} na conversa já existente da Bia.`;
+  if (result.status==='accepted'||result.status==='sent') return `Enviei a mensagem para ${target} na conversa já existente da Bia. A Meta aceitou o envio; a confirmação de entrega ainda está pendente.`;
+  if (result.error==='BIA_TEXT_WINDOW_CLOSED') return 'A janela de atendimento livre deste WhatsApp já terminou. Para reabrir a conversa, use um modelo aprovado pela Meta; não é necessária uma nova autorização administrativa para a mesma ordem.';
+  if (result.error==='BIA_TEXT_THREAD_REQUIRED') return 'Não há uma conversa WhatsApp anterior compatível para receber texto livre. A abertura deve usar um modelo aprovado da Meta.';
+  if (result.error==='BIA_CONTACT_PAUSED') return `Não enviei para ${target}: esse atendimento está pausado ou o contato pediu para não receber mensagens.`;
+  if (result.status==='unknown'||result.status==='sending') return `O envio para ${target} ainda não foi confirmado. Não repeti a tentativa para evitar duplicidade.`;
+  if (result.status==='failed') return `A Meta não concluiu o envio para ${target}. A falha ficou registrada na central de atendimentos.`;
+  return `Não consegui concluir o envio para ${target}. Nenhuma mensagem foi confirmada.`;
+}
+
+async function executeBiaManagerText(input: {
+  organizationId: string;
+  actor: string;
+  id: string;
+  phone: string;
+  content: string;
+  adminRpc: Rpc;
+  http?: typeof fetch;
+}): Promise<Obj> {
+  const content = input.content.trim();
+  if (!content || content.length>4096) throw new Error('BIA_REPLY_INVALID');
+  const credentials = await input.adminRpc('bia_whatsapp_credentials',{p_organization_id:input.organizationId});
+  if (!object(credentials) || credentials.enabled!==true || typeof credentials.access_token!=='string' ||
+      !/^v\d+\.\d+$/.test(String(credentials.graph_api_version||'')) ||
+      !/^\d+$/.test(String(credentials.phone_number_id||''))) throw new Error('BIA_CHANNEL_DISABLED');
+  const hash = await sha256(content);
+  const started = await input.adminRpc('bia_whatsapp_outbound_admin',{
+    p_organization_id:input.organizationId,
+    p_actor:input.actor,
+    p_action:'start_text',
+    p_args:{id:input.id,phone:input.phone,body:content,hash},
+  });
+  if (!object(started)) throw new Error('BIA_OUTBOUND_UNAVAILABLE');
+  if (started.proceed!==true) return started;
+  const destination = typeof started.phone==='string' ? started.phone : input.phone;
+  const http = input.http || fetch;
+  let outcome: Obj = {status:'unknown',errorCode:'SEND_UNCONFIRMED'};
+  try {
+    const response = await http(`https://graph.facebook.com/${credentials.graph_api_version}/${credentials.phone_number_id}/messages`,{
+      method:'POST',
+      headers:{Authorization:`Bearer ${credentials.access_token}`,'content-type':'application/json'},
+      body:JSON.stringify({
+        messaging_product:'whatsapp',
+        recipient_type:'individual',
+        to:destination,
+        type:'text',
+        text:{body:content,preview_url:true},
+        biz_opaque_callback_data:input.id,
+      }),
+      redirect:'error',
+      signal:AbortSignal.timeout(20000),
+    });
+    const payload: unknown = await response.json();
+    const message = object(payload) && Array.isArray(payload.messages) && object(payload.messages[0]) ? payload.messages[0] : null;
+    const contact = object(payload) && Array.isArray(payload.contacts) && object(payload.contacts[0]) ? payload.contacts[0] : null;
+    if (response.ok && object(message) && typeof message.id==='string' && message.id) {
+      outcome={status:'accepted',providerMessageId:message.id,recipientPhone:object(contact)&&typeof contact.wa_id==='string'?contact.wa_id:destination};
+    } else if (response.status>=400 && response.status<500 && object(payload) && object(payload.error)) {
+      outcome={status:'failed',errorCode:'META_'+String(payload.error.code||response.status).replace(/[^0-9]/g,'').slice(0,12)};
+    }
+  } catch { /* uncertain send: do not retry automatically */ }
+  try {
+    const finished = await input.adminRpc('bia_whatsapp_outbound_admin',{
+      p_organization_id:input.organizationId,
+      p_actor:input.actor,
+      p_action:'finish',
+      p_args:{id:input.id,...outcome},
+    });
+    return object(finished) ? finished : {...started,status:'unknown',errorCode:'SEND_UNCONFIRMED'};
+  } catch {
+    return {...started,status:'unknown',errorCode:'SEND_UNCONFIRMED'};
+  }
 }
 
 export async function runBiaManagerWhatsApp(args: Obj, context: {
@@ -166,7 +260,7 @@ export async function runBiaManagerWhatsApp(args: Obj, context: {
     if (action === 'status') return {enabled:inbox.enabled,verified:inbox.verified,phone:inbox.phone,channel:'Bia',initial_template:'bia_indicacao_investimento',inbound_template:'bia_boas_vindas'};
     let thread = args.thread_id;
     const threads = Array.isArray(inbox.threads) ? inbox.threads.filter(object) : [];
-    if (!thread && args.phone) thread = threads.find(t=>t.peer_phone===biaInitialPhone(args.phone))?.id;
+    if (!thread && args.phone) thread = threads.find(t=>samePhone(t.peer_phone,args.phone))?.id;
     if (!thread) return {threads,limit:100,has_more:threads.length===100};
     const result = await callerRpc('bia_whatsapp_inbox',{p_organization_id:organizationId,p_thread_id:thread,p_action:'read'});
     return object(result) ? {...result,limit:100} : {ok:false};
@@ -179,8 +273,6 @@ export async function runBiaManagerWhatsApp(args: Obj, context: {
   }
   if (action !== 'send') throw new Error('BIA_REQUEST_INVALID');
   if (args.template_name && args.template_name !== 'bia_indicacao_investimento') throw new Error('BIA_TEMPLATE_NOT_ENABLED');
-  // Initiation uses the actual approved text. Never silently substitute a custom message.
-  if (args.content && !args.template_name) return {ok:false,message:'Para abrir a conversa, use o modelo bia_indicacao_investimento aprovado. O conteúdo livre não foi enviado. Após a resposta, a Bia atende automaticamente o cliente pelo WhatsApp.'};
   let records = context.records;
   // A retry may skip the model's CRM query. Recover live candidates with the caller's
   // access; tool arguments select a lookup only and never establish authorization.
@@ -193,16 +285,28 @@ export async function runBiaManagerWhatsApp(args: Obj, context: {
   }
   const order = biaManagerOutreach(context.messageId,context.message,records,context.history);
   const phone = biaManagerRecipient(order.message,args,records,order.clarifications,order.recipientContext);
-  const selected = records.filter(row => { try { return biaInitialPhone(row.phone) === phone; } catch { return false; } });
+  const selected = records.filter(row => samePhone(row.phone,phone));
   if (selected.length === 1 && typeof selected[0].id === 'string' && typeof selected[0].person_name === 'string') {
     // Recheck all homonyms too: a model-selected subset cannot establish uniqueness.
     const lookup = await callerRpc('arisa_admin_query',{p_organization_id:organizationId,p_entity:'crm_records',p_filters:[{column:'person_name',operator:'contains',value:selected[0].person_name.trim().split(/\s+/)[0]}],p_limit:200});
     if (!object(lookup) || !Array.isArray(lookup.rows) || lookup.total !== lookup.rows.length || !lookup.rows.length) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
     records = lookup.rows.filter(object);
     const refreshed = biaManagerRecipient(order.message,{...args,contact_id:selected[0].id},records,order.clarifications,order.recipientContext);
-    if (refreshed !== phone) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
+    if (!samePhone(refreshed,phone)) throw new Error('BIA_RECIPIENT_AMBIGUOUS');
   }
   const id = await biaChatOperationId(context.threadId,order.messageId);
+  const freeText = typeof args.content==='string' ? args.content.trim() : '';
+  if (freeText && !args.template_name) {
+    try {
+      const sent = await executeBiaManagerText({organizationId,actor,id,phone,content:freeText,adminRpc,http:context.http});
+      const result = object(sent) ? {...sent,operation_id:id} : {ok:false,phone,operation_id:id};
+      return {...result,reply:managerTextReply(result)};
+    } catch (error) {
+      const code = error instanceof Error && /^BIA_[A-Z_]+$/.test(error.message) ? error.message : 'BIA_OUTBOUND_UNAVAILABLE';
+      const result = {ok:false,error:code,phone,operation_id:id};
+      return {...result,reply:managerTextReply(result)};
+    }
+  }
   try {
     const sent = await executeBiaOutbound({organizationId,action:'send',id,phone,consent:true},actor,runtime,true);
     const result = object(sent) ? {...sent,phone,operation_id:id} : {ok:false,phone};

@@ -33,6 +33,7 @@ import "./styles/v6-26-crm-broker-bia.css";
 import "./styles/v6-27-bia-whatsapp.css";
 import "./styles/v6-29-arisa-chat.css";
 import "./styles/v6-30-bia-commercial.css";
+import "./styles/v6-31-crm-strategy-actions.css";
 import {ServiceWorkerRegister} from "@/components/ServiceWorkerRegister";
 import {GlobalModuleNav} from "@/components/GlobalModuleNav";
 import {GlobalLogoutButton} from "@/components/GlobalLogoutButton";

@@ -69,7 +69,7 @@ async function readFile(caller: SupabaseClient, fileId: unknown, org: string, us
   const file = record.data as ChatFile;
   if (!file.storage_path.startsWith(`${org}/${userId}/${file.thread_id}/`) || file.storage_path.includes("..")) throw new ManagerError("FILE_INVALID", 422);
   const stored = await caller.storage.from("arisa-chat").download(file.storage_path);
-  if (stored.error || !stored.data || stored.data.size !== file.size_bytes || stored.data.size > 8388608) throw new ManagerError("FILE_INVALID", 422);
+  if (stored.error || !stored.data || stored.data.size !== file.size_bytes || stored.data.size > 31457280) throw new ManagerError("FILE_INVALID", 422);
   const bytes = new Uint8Array(await stored.data.arrayBuffer());
   if (await sha256(bytes) !== file.file_hash || !validMagic(bytes, file.mime_type)) throw new ManagerError("FILE_INVALID", 422);
   return { file, bytes, blob: stored.data };

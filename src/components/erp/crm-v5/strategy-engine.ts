@@ -1,5 +1,5 @@
 import type { CrmAction, CrmRecord, ErpData } from "../types";
-import type { CrmEnterpriseData } from "./types";
+import type { CrmEnterpriseData } from "./types";\nimport type { InventoryUnit, SalesData } from "./sales/types";
 
 export type StrategyUrgency = "critical" | "high" | "normal";
 export type StrategyLevel = "alta" | "media" | "baixa";
@@ -336,10 +336,68 @@ function nextBestAction(
   };
 }
 
+const brl = new Intl.NumberFormat("pt-BR", {
+  style: "currency",
+  currency: "BRL",
+  maximumFractionDigits: 0,
+});
+
+function availableUnitsFor(record: CrmRecord, sales: SalesData) {
+  return sales.units.filter((unit) => {
+    if (!unit.active || unit.status !== "disponivel") return false;
+    if (record.project_id && unit.project_id !== record.project_id) return false;
+    if (record.product_id && unit.product_id !== record.product_id) return false;
+    return Boolean(record.project_id || record.product_id);
+  });
+}
+
+function pickInventoryUnit(record: CrmRecord, units: InventoryUnit[]) {
+  const areaMin = finite(record.preferred_area_min);
+  const areaMax = finite(record.preferred_area_max);
+  const budgetMax = finite(record.budget_max);
+  const exact = units.filter((unit) => {
+    if (areaMin > 0 && finite(unit.area) < areaMin) return false;
+    if (areaMax > 0 && finite(unit.area) > areaMax) return false;
+    if (budgetMax > 0 && finite(unit.list_price) > budgetMax) return false;
+    return true;
+  });
+  if (!exact.length) return null;
+
+  const targetArea =
+    areaMin > 0 && areaMax > 0
+      ? (areaMin + areaMax) / 2
+      : areaMin || areaMax;
+  return exact
+    .slice()
+    .sort((a, b) => {
+      const areaA = targetArea
+        ? Math.abs(finite(a.area) - targetArea) / targetArea
+        : 0;
+      const areaB = targetArea
+        ? Math.abs(finite(b.area) - targetArea) / targetArea
+        : 0;
+      const priceA = budgetMax
+        ? Math.abs(budgetMax - finite(a.list_price)) / budgetMax
+        : 0;
+      const priceB = budgetMax
+        ? Math.abs(budgetMax - finite(b.list_price)) / budgetMax
+        : 0;
+      return areaA * 2 + priceA - (areaB * 2 + priceB);
+    })[0];
+}
+
+function unitLabel(unit: InventoryUnit) {
+  if (unit.lot_number) {
+    return `Lote ${unit.lot_number}${unit.block_code ? ` · Quadra ${unit.block_code}` : ""}`;
+  }
+  return unit.unit_code || "Unidade disponível";
+}
+
 function nextBestOffer(
   record: CrmRecord,
   data: ErpData,
   crm: CrmEnterpriseData,
+  sales: SalesData,
 ) {
   const product = record.product_id
     ? crm.products.find((item) => item.id === record.product_id)
@@ -348,7 +406,27 @@ function nextBestOffer(
     ? data.projects.find((item) => item.id === record.project_id)
     : null;
   const q = qualification(record);
+  const available = availableUnitsFor(record, sales);
+  const unit = pickInventoryUnit(record, available);
 
+  if (unit) {
+    const details = [
+      finite(unit.area) > 0 ? `${finite(unit.area).toLocaleString("pt-BR")} m²` : "",
+      finite(unit.list_price) > 0 ? `${brl.format(finite(unit.list_price))} de tabela` : "",
+      "disponível no estoque",
+    ].filter(Boolean);
+    return {
+      title: unitLabel(unit),
+      reason: details.join(" · "),
+    };
+  }
+  if (available.length && (q.hasBudget || q.hasArea)) {
+    return {
+      title: "Revisar filtros da oferta",
+      reason:
+        "Há unidades disponíveis no empreendimento, mas nenhuma coincide com orçamento e metragem informados.",
+    };
+  }
   if (product) {
     return {
       title: `Priorizar ${product.name}`,
@@ -391,6 +469,7 @@ export function buildLeadStrategy(
   record: CrmRecord,
   data: ErpData,
   crm: CrmEnterpriseData,
+  sales: SalesData,
   now = new Date(),
 ): LeadStrategyInsight {
   const leadActions = actionsFor(record.id, crm.actions);
@@ -421,7 +500,7 @@ export function buildLeadStrategy(
     level:
       scored.score >= 75 ? "alta" : scored.score >= 55 ? "media" : "baixa",
     action,
-    offer: nextBestOffer(record, data, crm),
+    offer: nextBestOffer(record, data, crm, sales),
     objections,
     drivers: scored.drivers,
     qualified: q.complete,
@@ -436,11 +515,12 @@ export function buildLeadStrategy(
 export function buildLeadStrategies(
   data: ErpData,
   crm: CrmEnterpriseData,
+  sales: SalesData,
   now = new Date(),
 ) {
   return crm.records
     .filter((record) => record.record_status === "aberta")
-    .map((record) => buildLeadStrategy(record, data, crm, now))
+    .map((record) => buildLeadStrategy(record, data, crm, sales, now))
     .sort((a, b) => b.score - a.score || a.record.person_name.localeCompare(b.record.person_name));
 }
 

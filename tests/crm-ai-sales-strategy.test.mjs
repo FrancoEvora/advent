@@ -14,6 +14,14 @@ const enterprise = readFileSync(
   new URL("../src/components/erp/crm-v5/enterprise.tsx", import.meta.url),
   "utf8",
 );
+const app = readFileSync(
+  new URL("../src/components/erp/erp-app-v55.tsx", import.meta.url),
+  "utf8",
+);
+const queueMigration = readFileSync(
+  new URL("../supabase/migrations/20260921183823_crm_strategy_bia_queue.sql", import.meta.url),
+  "utf8",
+);
 
 test("strategy engine only prioritizes open CRM opportunities", () => {
   assert.match(engine, /record_status === "aberta"/);
@@ -47,9 +55,33 @@ test("objection analysis covers the main commercial barriers", () => {
   }
 });
 
-test("CRM exposes the AI strategy command center without autonomous dispatch", () => {
+test("CRM exposes guarded operational actions from the strategy queue", () => {
   assert.match(enterprise, /id:"strategy",label:"Estratégia IA"/);
   assert.match(enterprise, /<StrategyView/);
   assert.match(view, /não uma\s+probabilidade estatística de compra/i);
-  assert.match(view, /não dispara contato/i);
+  assert.match(view, /Enviar para fila da Bia/);
+  assert.match(view, /Enviar material/);
+  assert.match(view, /Remarketing · 7 dias/);
+  assert.match(view, /Remarketing · 30 dias/);
+  assert.match(view, /window\.confirm/);
+  assert.match(queueMigration, /bia_bulk_candidate_reason/);
+  assert.match(queueMigration, /bia_bulk_consent_for_record/);
+  assert.match(queueMigration, /BIA_ALREADY_QUEUED/);
+  assert.match(queueMigration, /revoke all on function public\.bia_strategy_enqueue_lead/);
+});
+
+test("strategy queue supports search filters sorting and pagination", () => {
+  assert.match(view, /Buscar lead/);
+  assert.match(view, /Ação recomendada/);
+  assert.match(view, /Score · maior primeiro/);
+  assert.match(view, /Mais tempo sem contato/);
+  assert.match(view, /PAGE_SIZE = 25/);
+});
+
+test("Enterprise sidebar has a live menu search", () => {
+  assert.match(app, /Buscar no menu/);
+  assert.match(app, /normalizeMenuSearch/);
+  assert.match(app, /filteredCrmSections/);
+  assert.match(app, /filteredPostSaleSections/);
+  assert.match(app, /filteredPermitted/);
 });

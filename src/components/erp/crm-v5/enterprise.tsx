@@ -10,6 +10,7 @@ import {LeadsView} from "./leads-view";
 import {PipelineView,OpportunitiesView,AgendaView} from "./views-sales";
 import {SdrWorkbench} from "./sdr-workbench";
 import {CampaignsView,MaterialsView} from "./views-marketing";
+import {WhatsAppCampaignsView} from "./whatsapp-campaigns-view";
 import {AutomationsView,TeamsView,SettingsView} from "./views-admin";
 import {useSalesData} from "./sales/use-sales-data";
 import {SalesMapView} from "./sales/sales-map-view";
@@ -22,7 +23,7 @@ import type {ActivityDeepLinkTarget} from "../activities/activity-links";
 export const crmSections:Array<{id:CrmSection;label:string;icon:string;group:string}>=[
 {id:"overview",label:"Visão geral",icon:"⌂",group:"Operação"},{id:"leads",label:"Leads",icon:"◎",group:"Operação"},{id:"sdr",label:"SDR / Pré-vendas",icon:"◉",group:"Operação"},{id:"pipelines",label:"Funis",icon:"▥",group:"Operação"},{id:"opportunities",label:"Oportunidades",icon:"◇",group:"Operação"},
 {id:"salesmap",label:"Mapa de vendas",icon:"▦",group:"Comercialização"},{id:"inventory",label:"Unidades e estoque",icon:"▧",group:"Comercialização"},{id:"negotiation",label:"Negociação",icon:"%",group:"Comercialização"},{id:"proposals",label:"Propostas",icon:"▤",group:"Comercialização"},{id:"contracts",label:"Contratos",icon:"✦",group:"Comercialização"},
-{id:"agenda",label:"Agenda",icon:"◫",group:"Operação"},{id:"campaigns",label:"Campanhas",icon:"◈",group:"Marketing"},{id:"materials",label:"Materiais",icon:"▨",group:"Marketing"},{id:"automations",label:"Automações",icon:"⚡",group:"Inteligência"},{id:"alerts",label:"Alertas e SLAs",icon:"!",group:"Inteligência"},{id:"reports",label:"Relatórios",icon:"▥",group:"Inteligência"},{id:"teams",label:"Equipes e acessos",icon:"♙",group:"Administração"},{id:"settings",label:"Configurações",icon:"⚙",group:"Administração"}
+{id:"agenda",label:"Agenda",icon:"◫",group:"Operação"},{id:"campaigns",label:"Campanhas",icon:"◈",group:"Marketing"},{id:"whatsapp_campaigns",label:"Campanhas WhatsApp",icon:"◉",group:"Marketing"},{id:"materials",label:"Materiais",icon:"▨",group:"Marketing"},{id:"automations",label:"Automações",icon:"⚡",group:"Inteligência"},{id:"alerts",label:"Alertas e SLAs",icon:"!",group:"Inteligência"},{id:"reports",label:"Relatórios",icon:"▥",group:"Inteligência"},{id:"teams",label:"Equipes e acessos",icon:"♙",group:"Administração"},{id:"settings",label:"Configurações",icon:"⚙",group:"Administração"}
 ];
 
 export function CrmEnterprise({
@@ -232,6 +233,9 @@ export function CrmEnterprise({
         )}
         {section === "campaigns" && (
           <CampaignsView data={activeData} crm={activeCrm} reload={reload} />
+        )}
+        {section === "whatsapp_campaigns" && (
+          <WhatsAppCampaignsView data={activeData} can={can} />
         )}
         {section === "materials" && (
           <MaterialsView data={activeData} crm={activeCrm} reload={reload} />

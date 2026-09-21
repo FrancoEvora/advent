@@ -156,6 +156,7 @@ export function CrmEnterprise({
           <StrategyView
             data={activeData}
             crm={activeCrm}
+            sales={sales}
             openLead={openLead}
             openActivity={openActivity}
             reload={reload}

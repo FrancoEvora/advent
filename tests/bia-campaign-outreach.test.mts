@@ -50,3 +50,35 @@ for(const mode of ["timeout","server","payment","finish-fails"])test("uncertain 
  assert.equal(s.calls.find(c=>c.action==="finish")?.args.status,mode==="payment"?"failed":mode==="finish-fails"?"accepted":"unknown");
 });
 
+
+
+test("campaign can send an approved static template without body parameters", async()=>{
+  const staticJob={...job,template_name:"bia_boas_vindas"};
+  let claimed=false;
+  const posts: Obj[]=[];
+  const rpc=async(name:string,args:Obj)=>{
+    if(name==="bia_whatsapp_credentials") return {enabled:true,waba_id:"200",phone_number_id:"300",graph_api_version:"v25.0",access_token:"secret"};
+    const action=String(args.p_action);
+    if(action==="claim"){ if(claimed)return {}; claimed=true; return staticJob; }
+    if(action==="start") return {proceed:true};
+    return {ok:true};
+  };
+  const http=(async(_url:unknown,init?:RequestInit)=>{
+    if(!init?.body) return Response.json({data:[{
+      name:"bia_boas_vindas",
+      language:"pt_BR",
+      status:"APPROVED",
+      category:"UTILITY",
+      components:[{type:"BODY",text:"Olá! Eu sou a Bia. Como posso ajudar?"}],
+    }]});
+    posts.push(JSON.parse(String(init.body)));
+    return Response.json({messages:[{id:"wamid.static"}],contacts:[{wa_id:staticJob.phone}]});
+  }) as typeof fetch;
+
+  assert.deepEqual(await processBiaCampaignOutreach(rpc,http),{processed:1,deferred:0});
+  assert.equal(posts.length,1);
+  assert.deepEqual((posts[0].template as Obj),{
+    name:"bia_boas_vindas",
+    language:{code:"pt_BR"},
+  });
+});

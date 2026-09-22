@@ -99,7 +99,7 @@
 .row {
   min-width: 980px;
   display: grid;
-  grid-template-columns: 34px minmax(230px, 1.4fr) minmax(160px, .9fr) minmax(150px, .9fr) 60px minmax(130px, .75fr) 72px;
+  grid-template-columns: 34px minmax(230px, 1.4fr) minmax(160px, .9fr) minmax(150px, .9fr) 60px minmax(130px, .75fr) minmax(120px, auto);
   gap: 12px;
   align-items: center;
 }
@@ -197,4 +197,124 @@
   .dispatchActions {
     grid-column: auto;
   }
+}
+
+
+.rowActions {
+  display: grid;
+  gap: 6px;
+  justify-items: stretch;
+}
+
+.rowActions button {
+  min-height: 34px;
+  white-space: nowrap;
+}
+
+.modalBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, .48);
+  backdrop-filter: blur(3px);
+}
+
+.consentModal {
+  width: min(620px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  border: 1px solid #dbe3ec;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, .28);
+  padding: 20px;
+}
+
+.consentModal > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.consentModal > header small {
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+
+.consentModal > header h3 {
+  margin: 4px 0 0;
+  color: #0f172a;
+}
+
+.consentModal > header > button {
+  width: 34px;
+  min-width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 9px;
+}
+
+.consentModal > p {
+  margin: 0 0 16px;
+  color: #475569;
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.consentModal > label:not(.confirmConsent) {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.consentModal select,
+.consentModal input[type="datetime-local"],
+.consentModal textarea {
+  width: 100%;
+  border: 1px solid #dbe3ec;
+  border-radius: 10px;
+  background: #fff;
+  padding: 10px 11px;
+  color: #0f172a;
+  font: inherit;
+  font-size: 12px;
+}
+
+.consentModal textarea {
+  resize: vertical;
+  min-height: 92px;
+}
+
+.confirmConsent {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 10px;
+  background: #f8fafc;
+  color: #334155;
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.confirmConsent input {
+  margin-top: 2px;
+}
+
+.modalActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
 }

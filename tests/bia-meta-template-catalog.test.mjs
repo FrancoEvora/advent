@@ -56,3 +56,9 @@ test("Postgres template validation uses length plus safe character regex", () =>
   assert.match(regexFix, /char_length\(v_template_name\) not between 1 and 512/);
   assert.doesNotMatch(regexFix, /\{1,512\}/);
 });
+
+
+test("dispatch failures are surfaced beside the button", () => {
+  assert.match(queueView, /dispatchError/);
+  assert.match(queueView, /Falha ao disparar:/);
+});

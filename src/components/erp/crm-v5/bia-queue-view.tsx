@@ -49,15 +49,44 @@ type QueueOverview = {
   items: QueueItem[];
 };
 
+type QueuePreviewItem = {
+  queueId: string;
+  crmRecordId: string;
+  name: string;
+  ready: boolean;
+  reason: string | null;
+};
+
+type QueuePreview = {
+  selected: number;
+  eligible: number;
+  blocked: number;
+  items: QueuePreviewItem[];
+};
+
+type QueueDelivery = {
+  queueId: string;
+  queueStatus: QueueStatus;
+  campaignId: string | null;
+  campaignStatus: string | null;
+  templateName: string | null;
+  jobStatus: string | null;
+  deliveryStatus: string | null;
+  errorCode: string | null;
+  providerMessageId: string | null;
+  dispatchedAt: string | null;
+  outboundAt: string | null;
+};
+
 const reasonLabels: Record<string, string> = {
   BIA_TEMPLATE_PROJECT_MISMATCH:
     "A mensagem escolhida não pertence ao empreendimento deste lead.",
   BIA_BULK_CONSENT_REQUIRED:
     "Não há opt-in de WhatsApp documentado para esta abordagem.",
   BIA_CAMPAIGN_ALREADY_CONTACTED:
-    "A Bia já possui conversa anterior com este contato.",
+    "Já houve contato anterior com este número. Use retomada/remarketing, não a mensagem inicial.",
   BIA_CONTACT_PAUSED:
-    "O contato está pausado, bloqueado ou pediu atendimento humano.",
+    "O contato possui opt-out, bloqueio real ou atendimento humano ativo.",
   BIA_PHONE_INVALID: "Telefone inválido para WhatsApp.",
   BIA_CAMPAIGN_DISABLED:
     "Não há configuração ativa para este empreendimento.",
@@ -81,6 +110,33 @@ function formatDate(value: string | null) {
     : "—";
 }
 
+function deliveryLabel(delivery: QueueDelivery | undefined) {
+  const status = delivery?.deliveryStatus || delivery?.jobStatus || "";
+  const labels: Record<string, string> = {
+    pending: "Aguardando",
+    processing: "Processando",
+    sending: "Enviando",
+    awaiting_template: "Validando Meta",
+    awaiting_consent: "Validando consentimento",
+    accepted: "Aceito pela Meta",
+    sent: "Enviado",
+    delivered: "Entregue",
+    read: "Lido",
+    failed: "Falhou",
+    unknown: "Resultado incerto",
+    skipped: "Ignorado",
+  };
+  return labels[status] || (delivery?.campaignStatus === "scheduled" ? "Agendado" : "Disparado");
+}
+
+function deliveryTone(delivery: QueueDelivery | undefined) {
+  const status = delivery?.deliveryStatus || delivery?.jobStatus || "";
+  if (["accepted", "sent", "delivered", "read"].includes(status)) return "success" as const;
+  if (["failed", "unknown"].includes(status)) return "danger" as const;
+  if (["pending", "processing", "sending", "awaiting_template", "awaiting_consent"].includes(status)) return "warning" as const;
+  return "info" as const;
+}
+
 export function BiaQueueView({
   data,
   crm,
@@ -98,6 +154,8 @@ export function BiaQueueView({
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [preview, setPreview] = useState<QueuePreview | null>(null);
+  const [deliveries, setDeliveries] = useState<Record<string, QueueDelivery>>({});
 
   const rpc = useCallback(
     async (action: string, args: Record<string, unknown> = {}) => {
@@ -116,8 +174,20 @@ export function BiaQueueView({
 
   const load = useCallback(async () => {
     try {
-      const value = (await rpc("overview")) as QueueOverview;
+      const client = getSupabase();
+      if (!client) throw new Error("Supabase indisponível.");
+      const [value, deliveryResult] = await Promise.all([
+        rpc("overview") as Promise<QueueOverview>,
+        client.rpc("bia_strategy_queue_delivery", {
+          p_organization_id: data.organization.id,
+        }),
+      ]);
+      if (deliveryResult.error) throw new Error(deliveryResult.error.message);
       setOverview(value);
+      const deliveryRows = (deliveryResult.data || []) as QueueDelivery[];
+      setDeliveries(
+        Object.fromEntries(deliveryRows.map((item) => [item.queueId, item])),
+      );
       setSettingsId((current) => {
         if (current && value.settings.some((item) => item.id === current))
           return current;
@@ -139,7 +209,7 @@ export function BiaQueueView({
           : "Não foi possível carregar a fila da Bia.",
       );
     }
-  }, [rpc]);
+  }, [data.organization.id, rpc]);
 
   useEffect(() => {
     void load();
@@ -168,10 +238,61 @@ export function BiaQueueView({
     stagedVisible.length > 0 &&
     stagedVisible.every((item) => selected.has(item.id));
   const selectedCount = selected.size;
+  const selectedKey = [...selected].sort().join(",");
   const selectedSetting =
     overview?.settings.find((item) => item.id === settingsId) || null;
   const channelReady =
     overview?.channel.enabled === true && overview?.channel.verified === true;
+  const readyCount = preview?.eligible || 0;
+  const blockedCount = preview?.blocked || 0;
+  const previewByQueueId = useMemo(
+    () =>
+      Object.fromEntries(
+        (preview?.items || []).map((item) => [item.queueId, item]),
+      ),
+    [preview],
+  );
+  const hasPendingDelivery = Object.values(deliveries).some((delivery) =>
+    ["pending", "processing", "sending", "awaiting_template", "awaiting_consent"].includes(
+      delivery.deliveryStatus || delivery.jobStatus || "",
+    ),
+  );
+
+  useEffect(() => {
+    if (!settingsId || !selectedKey) {
+      setPreview(null);
+      return;
+    }
+    let active = true;
+    const client = getSupabase();
+    if (!client) return;
+    void client
+      .rpc("bia_strategy_queue_preview", {
+        p_organization_id: data.organization.id,
+        p_settings_id: settingsId,
+        p_queue_ids: selectedKey.split(","),
+      })
+      .then(({ data: value, error: previewError }) => {
+        if (!active) return;
+        if (previewError) {
+          setPreview(null);
+          setError(previewError.message);
+          return;
+        }
+        setPreview(value as QueuePreview);
+      });
+    return () => {
+      active = false;
+    };
+  }, [data.organization.id, selectedKey, settingsId]);
+
+  useEffect(() => {
+    if (!hasPendingDelivery) return;
+    const timer = window.setInterval(() => {
+      void load();
+    }, 4000);
+    return () => window.clearInterval(timer);
+  }, [hasPendingDelivery, load]);
 
   function toggle(id: string) {
     setSelected((current) => {
@@ -195,10 +316,10 @@ export function BiaQueueView({
   }
 
   async function fire() {
-    if (!selectedCount || !settingsId || !selectedSetting) return;
+    if (!selectedCount || !settingsId || !selectedSetting || readyCount < 1) return;
     if (
       !window.confirm(
-        `Disparar a mensagem inicial “${selectedSetting.name}” para ${selectedCount} lead${selectedCount === 1 ? "" : "s"} selecionado${selectedCount === 1 ? "" : "s"}?`,
+        `Disparar o template Meta “${selectedSetting.name}” para ${readyCount} lead${readyCount === 1 ? "" : "s"} elegível${readyCount === 1 ? "" : "is"}? ${blockedCount} selecionado(s) permanecerão na fila.`,
       )
     )
       return;
@@ -225,9 +346,11 @@ export function BiaQueueView({
         );
       }
       setNotice(
-        `Disparo iniciado para ${Number(result.eligible || 0)} lead${Number(result.eligible || 0) === 1 ? "" : "s"}. ${Number(result.blocked || 0)} ficaram fora do envio por guardrails do WhatsApp.`,
+        `Campanha criada. ${Number(result.eligible || 0)} lead${Number(result.eligible || 0) === 1 ? "" : "s"} enviado${Number(result.eligible || 0) === 1 ? "" : "s"} ao worker; ${Number(result.blocked || 0)} permaneceram na fila. Acompanhe abaixo: Aguardando → Validando Meta → Aceito → Entregue/Lido.`,
       );
       setSelected(new Set());
+      setPreview(null);
+      setStatus("all");
       await load();
     } catch (caught) {
       setError(
@@ -294,7 +417,7 @@ export function BiaQueueView({
         <CrmKpi
           label="Selecionados"
           value={selectedCount}
-          detail="Serão avaliados no disparo"
+          detail={selectedCount ? `${readyCount} apto(s) · ${blockedCount} bloqueado(s)` : "Selecione leads para validar"}
           tone="green"
         />
         <CrmKpi
@@ -338,12 +461,16 @@ export function BiaQueueView({
             </select>
           </label>
           <div className={styles.messagePreview}>
-            <small>MODELO META</small>
+            <small>TEMPLATE META · MENSAGEM INICIAL</small>
             <strong>{selectedSetting?.name || "Nenhuma mensagem selecionada"}</strong>
             <span>
-              {selectedSetting?.openingIntent ||
-                "Selecione um modelo aprovado para ver a finalidade da abertura."}
+              {selectedSetting
+                ? "A primeira mensagem não usa texto livre. No disparo, o worker consulta a Meta e envia exatamente o template APPROVED cadastrado abaixo."
+                : "Selecione o template que será usado como mensagem inicial."}
             </span>
+            {selectedSetting?.openingIntent && (
+              <span>{selectedSetting.openingIntent}</span>
+            )}
             {selectedSetting && (
               <code>{selectedSetting.templateName}</code>
             )}
@@ -351,18 +478,27 @@ export function BiaQueueView({
           <div className={styles.dispatchActions}>
             <button
               className="primary"
-              disabled={busy || !channelReady || !settingsId || !selectedCount}
+              disabled={
+                busy ||
+                !channelReady ||
+                !settingsId ||
+                !selectedCount ||
+                readyCount < 1
+              }
               onClick={() => void fire()}
             >
               {busy
                 ? "Processando..."
                 : selectedCount
-                  ? `Disparar · ${selectedCount}`
+                  ? `Disparar · ${readyCount}/${selectedCount}`
                   : "Disparar"}
             </button>
             <small>
-              O backend revalida consentimento, telefone, opt-out, duplicidade,
-              empreendimento e template antes de cada inclusão na campanha.
+              {selectedCount
+                ? readyCount
+                  ? `${readyCount} selecionado(s) estão prontos. O template é validado novamente na Meta no momento do envio.`
+                  : "Nenhum selecionado está apto para esta mensagem inicial. Veja o motivo em cada lead abaixo."
+                : "Selecione os leads. O backend validará consentimento, histórico, telefone, opt-out e empreendimento antes de liberar o disparo."}
             </small>
           </div>
         </div>
@@ -424,6 +560,12 @@ export function BiaQueueView({
               const lead = crm.records.find(
                 (record) => record.id === item.crmRecordId,
               );
+              const livePreview = previewByQueueId[item.id];
+              const displayReason =
+                item.status === "staged"
+                  ? livePreview?.reason ?? item.lastError
+                  : item.lastError;
+              const delivery = deliveries[item.id];
               return (
                 <div className={styles.row} key={item.id}>
                   <label className={styles.checkbox}>
@@ -441,11 +583,13 @@ export function BiaQueueView({
                       {item.phone || "Sem telefone"} ·{" "}
                       {item.temperature || "sem temperatura"}
                     </small>
-                    {item.lastError && (
+                    {displayReason ? (
                       <em>
-                        {reasonLabels[item.lastError] || item.lastError}
+                        {reasonLabels[displayReason] || displayReason}
                       </em>
-                    )}
+                    ) : livePreview?.ready ? (
+                      <em>Pronto para receber o template inicial selecionado.</em>
+                    ) : null}
                   </div>
                   <span>{item.projectName || "—"}</span>
                   <span>{item.source}</span>
@@ -454,23 +598,31 @@ export function BiaQueueView({
                     <Status
                       tone={
                         item.status === "staged"
-                          ? item.lastError
+                          ? displayReason
                             ? "warning"
-                            : "info"
+                            : livePreview?.ready
+                              ? "success"
+                              : "info"
                           : item.status === "dispatched"
-                            ? "success"
+                            ? deliveryTone(delivery)
                             : "neutral"
                       }
                     >
                       {item.status === "staged"
-                        ? "Em fila"
+                        ? displayReason
+                          ? "Bloqueado"
+                          : livePreview?.ready
+                            ? "Pronto"
+                            : "Em fila"
                         : item.status === "dispatched"
-                          ? "Disparado"
+                          ? deliveryLabel(delivery)
                           : "Removido"}
                     </Status>
                     <small>
                       {item.status === "dispatched"
-                        ? formatDate(item.dispatchedAt)
+                        ? delivery?.errorCode
+                          ? `${delivery.errorCode} · ${formatDate(item.dispatchedAt)}`
+                          : `${delivery?.templateName || "template Meta"} · ${formatDate(item.dispatchedAt)}`
                         : formatDate(item.queuedAt)}
                     </small>
                   </div>

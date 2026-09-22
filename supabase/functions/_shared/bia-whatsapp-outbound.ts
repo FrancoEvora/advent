@@ -200,6 +200,12 @@ export async function biaApprovedTemplate(credentials: Obj, name: string, http: 
 
   if (!template) throw new Error('BIA_TEMPLATE_NOT_APPROVED');
   if (!template.sendable) throw new Error('BIA_TEMPLATE_CHANGED');
+  if (name === BIA_OUTBOUND_TEMPLATE && template.parameterCount !== 1) {
+    throw new Error('BIA_TEMPLATE_CHANGED');
+  }
+  if (name === BIA_INBOUND_TEMPLATE && template.parameterCount !== 0) {
+    throw new Error('BIA_TEMPLATE_CHANGED');
+  }
 
   const canonical = {
     name: template.name,

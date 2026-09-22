@@ -41,5 +41,5 @@ test("initial outbound remains a live-approved Meta template, never free text", 
   assert.match(worker, /biaApprovedTemplate\(credentials, string\(job\.template_name\), http\)/);
   assert.match(worker, /type: "template"/);
   assert.match(worker, /template: \{ name: template\.name/);
-  assert.match(queueView, /envia exatamente o template APPROVED/);
+  assert.match(queueView, /worker consulta novamente a Meta/);
 });

@@ -129,6 +129,19 @@ function deliveryLabel(delivery: QueueDelivery | undefined) {
   return labels[status] || (delivery?.campaignStatus === "scheduled" ? "Agendado" : "Disparado");
 }
 
+function localDateTimeNow() {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+  return now.toISOString().slice(0, 16);
+}
+
+function queueStatusLabel(reason: string | null | undefined) {
+  if (reason === "BIA_BULK_CONSENT_REQUIRED") return "Requer opt-in";
+  if (reason === "BIA_CAMPAIGN_ALREADY_CONTACTED") return "Retomar";
+  if (reason) return "Bloqueado";
+  return "Em fila";
+}
+
 function deliveryTone(delivery: QueueDelivery | undefined) {
   const status = delivery?.deliveryStatus || delivery?.jobStatus || "";
   if (["accepted", "sent", "delivered", "read"].includes(status)) return "success" as const;
@@ -156,6 +169,11 @@ export function BiaQueueView({
   const [error, setError] = useState("");
   const [preview, setPreview] = useState<QueuePreview | null>(null);
   const [deliveries, setDeliveries] = useState<Record<string, QueueDelivery>>({});
+  const [consentLead, setConsentLead] = useState<QueueItem | null>(null);
+  const [consentSource, setConsentSource] = useState("whatsapp");
+  const [consentAt, setConsentAt] = useState(localDateTimeNow());
+  const [consentNote, setConsentNote] = useState("");
+  const [consentConfirmed, setConsentConfirmed] = useState(false);
 
   const rpc = useCallback(
     async (action: string, args: Record<string, unknown> = {}) => {
@@ -359,6 +377,80 @@ export function BiaQueueView({
           : "Não foi possível iniciar o disparo.",
       );
       await load();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function recordOptin() {
+    if (!consentLead || !consentConfirmed || consentNote.trim().length < 5) return;
+    const client = getSupabase();
+    if (!client) {
+      setError("Supabase indisponível.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    setNotice("");
+    try {
+      const result = await client.rpc("bia_strategy_queue_record_optin", {
+        p_organization_id: data.organization.id,
+        p_crm_record_id: consentLead.crmRecordId,
+        p_source: consentSource,
+        p_consent_at: new Date(consentAt).toISOString(),
+        p_note: consentNote.trim(),
+      });
+      if (result.error) throw new Error(result.error.message);
+      setNotice(
+        `Opt-in de WhatsApp registrado para ${consentLead.name}. O lead será revalidado antes de qualquer disparo.`,
+      );
+      setConsentLead(null);
+      setConsentNote("");
+      setConsentConfirmed(false);
+      setConsentAt(localDateTimeNow());
+      await load();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível registrar o opt-in.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function openExistingConversation(item: QueueItem) {
+    const tab = window.open("about:blank", "_blank");
+    if (tab) tab.opener = null;
+    const client = getSupabase();
+    if (!client) {
+      tab?.close();
+      setError("Supabase indisponível.");
+      return;
+    }
+    setBusy(true);
+    setError("");
+    try {
+      const result = await client.rpc("bia_strategy_queue_find_thread", {
+        p_organization_id: data.organization.id,
+        p_queue_id: item.id,
+      });
+      if (result.error) throw new Error(result.error.message);
+      const payload = result.data as { found?: boolean; threadId?: string | null };
+      if (!payload?.found || !payload.threadId) {
+        throw new Error("Não encontrei uma conversa WhatsApp existente para este lead.");
+      }
+      const url = `/bia?painel=whatsapp&conversa=${encodeURIComponent(payload.threadId)}`;
+      if (tab) tab.location.replace(url);
+      else window.location.assign(url);
+    } catch (caught) {
+      tab?.close();
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível abrir a conversa.",
+      );
     } finally {
       setBusy(false);
     }
@@ -609,11 +701,10 @@ export function BiaQueueView({
                       }
                     >
                       {item.status === "staged"
-                        ? displayReason
-                          ? "Bloqueado"
-                          : livePreview?.ready
-                            ? "Pronto"
-                            : "Em fila"
+                        ? livePreview?.ready
+                          ? "Pronto"
+                          : queueStatusLabel(displayReason)
+
                         : item.status === "dispatched"
                           ? deliveryLabel(delivery)
                           : "Removido"}
@@ -626,13 +717,43 @@ export function BiaQueueView({
                         : formatDate(item.queuedAt)}
                     </small>
                   </div>
-                  <button
-                    type="button"
-                    disabled={!lead}
-                    onClick={() => lead && openLead(lead)}
-                  >
-                    Abrir
-                  </button>
+                  <div className={styles.rowActions}>
+                    {item.status === "staged" &&
+                      displayReason === "BIA_BULK_CONSENT_REQUIRED" && (
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={busy}
+                          onClick={() => {
+                            setConsentLead(item);
+                            setConsentSource("whatsapp");
+                            setConsentAt(localDateTimeNow());
+                            setConsentNote("");
+                            setConsentConfirmed(false);
+                          }}
+                        >
+                          Registrar opt-in
+                        </button>
+                      )}
+                    {item.status === "staged" &&
+                      displayReason === "BIA_CAMPAIGN_ALREADY_CONTACTED" && (
+                        <button
+                          type="button"
+                          className="primary"
+                          disabled={busy}
+                          onClick={() => void openExistingConversation(item)}
+                        >
+                          Retomar
+                        </button>
+                      )}
+                    <button
+                      type="button"
+                      disabled={!lead}
+                      onClick={() => lead && openLead(lead)}
+                    >
+                      Abrir
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -648,6 +769,104 @@ export function BiaQueueView({
           />
         )}
       </section>
+
+      {consentLead && (
+        <div className={styles.modalBackdrop} role="presentation">
+          <section
+            className={styles.consentModal}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="bia-optin-title"
+          >
+            <header>
+              <div>
+                <small>WHATSAPP · EVIDÊNCIA DE CONSENTIMENTO</small>
+                <h3 id="bia-optin-title">Registrar opt-in de {consentLead.name}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConsentLead(null)}
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </header>
+
+            <p>
+              Registre somente quando houver evidência real de que o lead
+              autorizou receber mensagens da <strong>Évora Urbanismo</strong>{" "}
+              pelo WhatsApp. Este registro ficará vinculado ao número e será
+              auditável.
+            </p>
+
+            <label>
+              Como o consentimento foi dado?
+              <select
+                value={consentSource}
+                onChange={(event) => setConsentSource(event.target.value)}
+              >
+                <option value="whatsapp">WhatsApp anterior</option>
+                <option value="telefone">Ligação telefônica</option>
+                <option value="presencial">Presencial</option>
+                <option value="formulario">Formulário externo</option>
+                <option value="email">E-mail</option>
+                <option value="outro">Outro meio documentado</option>
+              </select>
+            </label>
+
+            <label>
+              Data e hora do consentimento
+              <input
+                type="datetime-local"
+                value={consentAt}
+                onChange={(event) => setConsentAt(event.target.value)}
+              />
+            </label>
+
+            <label>
+              Evidência / observação
+              <textarea
+                value={consentNote}
+                onChange={(event) => setConsentNote(event.target.value)}
+                placeholder="Ex.: lead respondeu no WhatsApp autorizando receber informações do Solaris pela Évora."
+                maxLength={500}
+                rows={4}
+              />
+            </label>
+
+            <label className={styles.confirmConsent}>
+              <input
+                type="checkbox"
+                checked={consentConfirmed}
+                onChange={(event) => setConsentConfirmed(event.target.checked)}
+              />
+              <span>
+                Confirmo que o lead autorizou receber mensagens da Évora
+                Urbanismo pelo WhatsApp.
+              </span>
+            </label>
+
+            <div className={styles.modalActions}>
+              <button type="button" onClick={() => setConsentLead(null)}>
+                Cancelar
+              </button>
+              <button
+                type="button"
+                className="primary"
+                disabled={
+                  busy ||
+                  !consentConfirmed ||
+                  consentNote.trim().length < 5 ||
+                  !consentAt
+                }
+                onClick={() => void recordOptin()}
+              >
+                {busy ? "Registrando..." : "Registrar opt-in"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

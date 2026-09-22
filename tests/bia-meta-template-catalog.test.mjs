@@ -9,6 +9,7 @@ const queueView = read("src/components/erp/crm-v5/bia-queue-view.tsx");
 const outbound = read("supabase/functions/_shared/bia-whatsapp-outbound.ts");
 const campaign = read("supabase/functions/_shared/bia-campaign-outreach.ts");
 const migration = read("supabase/migrations/20260922151500_bia_meta_template_catalog.sql");
+const regexFix = read("supabase/migrations/20260922160500_bia_template_regex_dispatch.sql");
 
 test("queue loads all approved Meta templates from the authenticated WhatsApp function", () => {
   assert.match(queueView, /functions\.invoke\("bia-whatsapp-outbound"/);
@@ -46,4 +47,12 @@ test("catalog lists approved pt_BR templates and marks unsupported structures in
 test("assignment tasks do not block the final campaign worker", () => {
   assert.doesNotMatch(migration, /requires_human_review/);
   assert.doesNotMatch(migration, /no_external_delivery/);
+});
+
+
+test("Postgres template validation uses length plus safe character regex", () => {
+  assert.match(regexFix, /char_length\(template_name\) between 1 and 512/);
+  assert.match(regexFix, /template_name ~ '\^\[a-z0-9_\]\+\$'/);
+  assert.match(regexFix, /char_length\(v_template_name\) not between 1 and 512/);
+  assert.doesNotMatch(regexFix, /\{1,512\}/);
 });

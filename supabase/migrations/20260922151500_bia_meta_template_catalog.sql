@@ -43,6 +43,9 @@ declare
 begin
   select pg_get_functiondef('crm_private.bia_campaign_block_reason(uuid)'::regprocedure)
   into ddl;
+  if position('requires_human_review' in ddl)=0 then
+    return;
+  end if;
   before := ddl;
   ddl := replace(
     ddl,
@@ -61,6 +64,9 @@ declare
 begin
   select pg_get_functiondef('public.bia_campaign_outreach_worker(text,jsonb)'::regprocedure)
   into ddl;
+  if position('coalesce(j.template_name,cfg.template_name)' in ddl)>0 then
+    return;
+  end if;
   before := ddl;
 
   ddl := replace(
@@ -86,6 +92,9 @@ declare
 begin
   select pg_get_functiondef('public.bia_strategy_queue_admin(uuid,text,jsonb)'::regprocedure)
   into ddl;
+  if position('v_template_name text;' in ddl)>0 then
+    return;
+  end if;
   before := ddl;
 
   ddl := replace(

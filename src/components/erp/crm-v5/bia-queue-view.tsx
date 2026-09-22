@@ -37,6 +37,21 @@ type QueueSetting = {
   enabled: boolean;
 };
 
+type MetaTemplate = {
+  name: string;
+  language: string;
+  category: string;
+  status: "APPROVED";
+  header: string;
+  body: string;
+  footer: string;
+  buttons: string[];
+  plainText: string;
+  parameterCount: number;
+  sendable: boolean;
+  compatibilityReason: string | null;
+};
+
 type QueueOverview = {
   channel: { enabled?: boolean; verified?: boolean; phone?: string | null };
   settings: QueueSetting[];
@@ -174,6 +189,10 @@ export function BiaQueueView({
   const [consentAt, setConsentAt] = useState(localDateTimeNow());
   const [consentNote, setConsentNote] = useState("");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
+  const [templates, setTemplates] = useState<MetaTemplate[]>([]);
+  const [templateName, setTemplateName] = useState("");
+  const [templateBusy, setTemplateBusy] = useState(false);
+  const [templateError, setTemplateError] = useState("");
 
   const rpc = useCallback(
     async (action: string, args: Record<string, unknown> = {}) => {
@@ -189,6 +208,54 @@ export function BiaQueueView({
     },
     [data.organization.id],
   );
+
+  const loadTemplates = useCallback(async () => {
+    const client = getSupabase();
+    if (!client) {
+      setTemplateError("Supabase indisponível.");
+      return;
+    }
+    setTemplateBusy(true);
+    setTemplateError("");
+    try {
+      const response = await client.functions.invoke("bia-whatsapp-outbound", {
+        body: {
+          organizationId: data.organization.id,
+          action: "templates",
+        },
+      });
+      if (response.error) {
+        let code = "";
+        try {
+          code = (await response.error.context?.json())?.error || "";
+        } catch {
+          // Transport errors may not have a JSON body.
+        }
+        throw new Error(code || response.error.message || "BIA_TEMPLATE_UNAVAILABLE");
+      }
+      if (!response.data?.ok || !Array.isArray(response.data?.data)) {
+        throw new Error(response.data?.error || "BIA_TEMPLATE_UNAVAILABLE");
+      }
+      const liveTemplates = response.data.data as MetaTemplate[];
+      setTemplates(liveTemplates);
+      setTemplateName((current) => {
+        if (current && liveTemplates.some((item) => item.name === current)) {
+          return current;
+        }
+        return liveTemplates.find((item) => item.sendable)?.name || "";
+      });
+    } catch (caught) {
+      setTemplates([]);
+      setTemplateName("");
+      setTemplateError(
+        caught instanceof Error
+          ? caught.message
+          : "Não foi possível consultar os templates aprovados na Meta.",
+      );
+    } finally {
+      setTemplateBusy(false);
+    }
+  }, [data.organization.id]);
 
   const load = useCallback(async () => {
     try {
@@ -231,7 +298,8 @@ export function BiaQueueView({
 
   useEffect(() => {
     void load();
-  }, [load]);
+    void loadTemplates();
+  }, [load, loadTemplates]);
 
   const visible = useMemo(() => {
     const needle = normalize(query);
@@ -259,6 +327,8 @@ export function BiaQueueView({
   const selectedKey = [...selected].sort().join(",");
   const selectedSetting =
     overview?.settings.find((item) => item.id === settingsId) || null;
+  const selectedTemplate =
+    templates.find((item) => item.name === templateName) || null;
   const channelReady =
     overview?.channel.enabled === true && overview?.channel.verified === true;
   const readyCount = preview?.eligible || 0;
@@ -334,10 +404,17 @@ export function BiaQueueView({
   }
 
   async function fire() {
-    if (!selectedCount || !settingsId || !selectedSetting || readyCount < 1) return;
+    if (
+      !selectedCount ||
+      !settingsId ||
+      !selectedSetting ||
+      !selectedTemplate ||
+      !selectedTemplate.sendable ||
+      readyCount < 1
+    ) return;
     if (
       !window.confirm(
-        `Disparar o template Meta “${selectedSetting.name}” para ${readyCount} lead${readyCount === 1 ? "" : "s"} elegível${readyCount === 1 ? "" : "is"}? ${blockedCount} selecionado(s) permanecerão na fila.`,
+        `Disparar o template Meta “${selectedTemplate.name}” para ${readyCount} lead${readyCount === 1 ? "" : "s"} elegível${readyCount === 1 ? "" : "is"}? ${blockedCount} selecionado(s) permanecerão na fila.`,
       )
     )
       return;
@@ -348,6 +425,7 @@ export function BiaQueueView({
     try {
       const result = (await rpc("fire", {
         settingsId,
+        templateName: selectedTemplate.name,
         queueIds: [...selected],
       })) as {
         ok?: boolean;
@@ -537,62 +615,129 @@ export function BiaQueueView({
           </Status>
         </header>
 
-        <div className={styles.dispatchBox}>
-          <label>
-            Mensagem / modelo inicial
-            <select
-              value={settingsId}
-              onChange={(event) => setSettingsId(event.target.value)}
-            >
-              <option value="">Selecione</option>
-              {(overview?.settings || []).map((item) => (
-                <option key={item.id} value={item.id}>
-                  {item.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className={styles.messagePreview}>
-            <small>TEMPLATE META · MENSAGEM INICIAL</small>
-            <strong>{selectedSetting?.name || "Nenhuma mensagem selecionada"}</strong>
+        <div className={styles.templateToolbar}>
+          <div>
+            <strong>Templates aprovados na Meta</strong>
             <span>
-              {selectedSetting
-                ? "A primeira mensagem não usa texto livre. No disparo, o worker consulta a Meta e envia exatamente o template APPROVED cadastrado abaixo."
-                : "Selecione o template que será usado como mensagem inicial."}
+              {templates.length
+                ? `${templates.length} opção(ões) APPROVED em pt_BR`
+                : "Consultando a conta WhatsApp da Évora"}
             </span>
-            {selectedSetting?.openingIntent && (
-              <span>{selectedSetting.openingIntent}</span>
-            )}
-            {selectedSetting && (
-              <code>{selectedSetting.templateName}</code>
-            )}
           </div>
-          <div className={styles.dispatchActions}>
-            <button
-              className="primary"
-              disabled={
-                busy ||
-                !channelReady ||
-                !settingsId ||
-                !selectedCount ||
-                readyCount < 1
-              }
-              onClick={() => void fire()}
-            >
-              {busy
-                ? "Processando..."
-                : selectedCount
-                  ? `Disparar · ${readyCount}/${selectedCount}`
-                  : "Disparar"}
-            </button>
-            <small>
-              {selectedCount
-                ? readyCount
-                  ? `${readyCount} selecionado(s) estão prontos. O template é validado novamente na Meta no momento do envio.`
-                  : "Nenhum selecionado está apto para esta mensagem inicial. Veja o motivo em cada lead abaixo."
-                : "Selecione os leads. O backend validará consentimento, histórico, telefone, opt-out e empreendimento antes de liberar o disparo."}
-            </small>
+          <button
+            type="button"
+            disabled={templateBusy}
+            onClick={() => void loadTemplates()}
+          >
+            {templateBusy ? "Consultando..." : "↻ Atualizar templates"}
+          </button>
+        </div>
+
+        {templateError && (
+          <div className="feedback error">
+            Não foi possível consultar o catálogo da Meta: {templateError}
           </div>
+        )}
+
+        {templates.length ? (
+          <div className={styles.templateCatalog}>
+            {templates.map((template) => (
+              <label
+                className={[
+                  styles.templateCard,
+                  templateName === template.name ? styles.templateSelected : "",
+                  !template.sendable ? styles.templateUnavailable : "",
+                ].filter(Boolean).join(" ")}
+                key={template.name}
+              >
+                <div className={styles.templateChoice}>
+                  <input
+                    type="radio"
+                    name="bia-meta-template"
+                    value={template.name}
+                    checked={templateName === template.name}
+                    disabled={!template.sendable || busy}
+                    onChange={() => setTemplateName(template.name)}
+                  />
+                  <div>
+                    <strong>{template.name}</strong>
+                    <small>
+                      {template.category || "Categoria não informada"} · {template.language} · APPROVED
+                    </small>
+                  </div>
+                  <Status tone={template.sendable ? "success" : "warning"}>
+                    {template.sendable ? "Apto" : "Requer ajuste"}
+                  </Status>
+                </div>
+
+                <div className={styles.templateText}>
+                  {template.header && (
+                    <strong className={styles.templateHeaderText}>
+                      {template.header}
+                    </strong>
+                  )}
+                  <p>{template.body}</p>
+                  {template.footer && (
+                    <small className={styles.templateFooter}>
+                      {template.footer}
+                    </small>
+                  )}
+                  {Boolean(template.buttons?.length) && (
+                    <div className={styles.templateButtons}>
+                      {template.buttons.map((button) => (
+                        <span key={button}>{button}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {template.compatibilityReason && (
+                  <em className={styles.templateWarning}>
+                    {template.compatibilityReason}
+                  </em>
+                )}
+              </label>
+            ))}
+          </div>
+        ) : !templateBusy && !templateError ? (
+          <EmptyState
+            title="Nenhum template aprovado encontrado"
+            text="A conta WhatsApp não retornou templates APPROVED em pt_BR."
+          />
+        ) : null}
+
+        <div className={styles.dispatchActions}>
+          <button
+            className="primary"
+            disabled={
+              busy ||
+              templateBusy ||
+              !channelReady ||
+              !settingsId ||
+              !selectedTemplate?.sendable ||
+              !selectedCount ||
+              readyCount < 1
+            }
+            onClick={() => void fire()}
+          >
+            {busy
+              ? "Processando..."
+              : selectedCount
+                ? `Disparar · ${readyCount}/${selectedCount}`
+                : "Disparar"}
+          </button>
+          <small>
+            {selectedTemplate
+              ? `Selecionado: ${selectedTemplate.name}. O worker consulta novamente a Meta antes do envio e usa exatamente este template APPROVED.`
+              : "Escolha acima uma das mensagens aprovadas pela Meta."}
+          </small>
+          <small>
+            {selectedCount
+              ? readyCount
+                ? `${readyCount} selecionado(s) estão prontos; ${blockedCount} permanecem bloqueados pelos guardrails.`
+                : "Nenhum selecionado está apto para a mensagem inicial. Veja o motivo em cada lead abaixo."
+              : "Selecione os leads. O backend validará consentimento, histórico, telefone, opt-out e empreendimento antes de liberar o disparo."}
+          </small>
         </div>
       </section>
 

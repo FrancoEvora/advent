@@ -318,3 +318,158 @@
   gap: 8px;
   margin-top: 18px;
 }
+
+
+.templateToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.templateToolbar > div {
+  display: grid;
+  gap: 3px;
+}
+
+.templateToolbar strong {
+  color: #0f172a;
+  font-size: 13px;
+}
+
+.templateToolbar span {
+  color: #64748b;
+  font-size: 10px;
+}
+
+.templateCatalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.templateCard {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #dbe3ec;
+  border-radius: 14px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease;
+}
+
+.templateCard:hover {
+  border-color: #b8c8d6;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, .06);
+  transform: translateY(-1px);
+}
+
+.templateSelected {
+  border-color: #4f8d65;
+  box-shadow: 0 0 0 3px rgba(79, 141, 101, .11);
+}
+
+.templateUnavailable {
+  cursor: not-allowed;
+  background: #f8fafc;
+  opacity: .78;
+}
+
+.templateChoice {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.templateChoice input {
+  margin-top: 3px;
+}
+
+.templateChoice > div {
+  min-width: 0;
+}
+
+.templateChoice strong,
+.templateChoice small {
+  display: block;
+}
+
+.templateChoice strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #0f172a;
+  font-size: 12px;
+}
+
+.templateChoice small {
+  margin-top: 3px;
+  color: #64748b;
+  font-size: 9px;
+}
+
+.templateText {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid #e2e8f0;
+  border-radius: 11px;
+  background: #f8fafc;
+}
+
+.templateText p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #1e293b;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.templateHeaderText {
+  color: #0f172a;
+  font-size: 11px;
+}
+
+.templateFooter {
+  color: #64748b;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.templateButtons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.templateButtons span {
+  padding: 5px 8px;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #fff;
+  color: #334155;
+  font-size: 9px;
+  font-weight: 700;
+}
+
+.templateWarning {
+  color: #b45309;
+  font-size: 9px;
+  font-style: normal;
+  line-height: 1.4;
+}
+
+@media (max-width: 720px) {
+  .templateToolbar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .templateCatalog {
+    grid-template-columns: 1fr;
+  }
+}

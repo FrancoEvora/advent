@@ -40,7 +40,7 @@ export async function processBiaCampaignOutreach(rpc: Rpc, http: typeof fetch = 
             method: "POST", redirect: "error", signal: AbortSignal.timeout(20000),
             headers: { Authorization: "Bearer " + credentials.access_token, "content-type": "application/json" },
             body: JSON.stringify({ messaging_product: "whatsapp", recipient_type: "individual", to: phone, type: "template",
-              template: { name: template.name, language: { code: "pt_BR" }, components: opening.components },
+              template: { name: template.name, language: { code: "pt_BR" }, ...(opening.components.length ? { components: opening.components } : {}) },
               biz_opaque_callback_data: job.id }),
           },
         );

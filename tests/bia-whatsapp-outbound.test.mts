@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { biaInitialPhone, biaApprovedOpening, handleBiaOutbound } from '../supabase/functions/_shared/bia-whatsapp-outbound.ts';
+import { biaInitialPhone, biaApprovedOpening, biaApprovedTemplates, handleBiaOutbound } from '../supabase/functions/_shared/bia-whatsapp-outbound.ts';
 import { biaWhatsAppOpeningLink } from '../supabase/functions/enterprise-bia-agent-gateway/whatsapp-opening.ts';
 import { biaAuthenticatedOperator, biaSendFromChat, biaChatOperationId, biaChatOpeningReply, biaExplicitOutreach } from '../supabase/functions/enterprise-bia-agent-gateway/whatsapp-operator.ts';
 const org = '11111111-1111-4111-8111-111111111111', actor = '22222222-2222-4222-8222-222222222222', id = '33333333-3333-4333-8333-333333333333';
@@ -41,11 +41,35 @@ test('Brazil phone normalization preserves the supplied ninth digit and rejects 
   assert.equal(biaInitialPhone('+55 34 9919-1975'), '553499191975');
   for (const bad of ['3499340115x', '00000000000', '123', '555349993401159', '34\nfoo']) assert.throws(() => biaInitialPhone(bad));
 });
-test('only current approved referral with exactly one name parameter can be previewed', async () => {
-  for (const data of [{ ...approved, status: 'PENDING' }, { ...approved, name: 'bia_boas_vindas' }, { ...approved, components: [{ type: 'BODY', text: 'Olá {{2}}' }] },
-    { ...approved, components: [...approved.components, { type: 'HEADER', text: 'New content' }] }]) {
-    await assert.rejects(biaApprovedOpening(credentials, (async () => Response.json({ data: [data] })) as typeof fetch));
+test('current referral still requires approval and a compatible body parameter', async () => {
+  for (const data of [
+    { ...approved, status: 'PENDING' },
+    { ...approved, name: 'bia_boas_vindas' },
+    { ...approved, components: [{ type: 'BODY', text: 'Olá {{2}}' }] },
+  ]) {
+    await assert.rejects(
+      biaApprovedOpening(
+        credentials,
+        (async () => Response.json({ data: [data] })) as typeof fetch,
+      ),
+    );
   }
+  const withStaticHeader = await biaApprovedOpening(
+    credentials,
+    (async () =>
+      Response.json({
+        data: [
+          {
+            ...approved,
+            components: [
+              { type: 'HEADER', format: 'TEXT', text: 'Solaris' },
+              ...approved.components,
+            ],
+          },
+        ],
+      })) as typeof fetch,
+  );
+  assert.equal(withStaticHeader.header, 'Solaris');
 });
 test('authentication and current organization membership precede Meta access', async () => {
   for (const options of [{ authorized: false }, { member: false }]) {
@@ -53,14 +77,30 @@ test('authentication and current organization membership precede Meta access', a
     assert.equal(s.calls.some(c => c.action === 'start'), false);
   }
 });
-test('static approved footer and quick replies participate in preview and hash; URL buttons remain blocked', async () => {
-  const components = [...approved.components, { type: 'FOOTER', text: 'Para não receber mensagens, toque em Cancelar mensagens.' },
-    { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Cancelar mensagens' }] }];
-  const template = await biaApprovedOpening(credentials, (async () => Response.json({ data: [{ ...approved, components }] })) as typeof fetch);
-  assert.deepEqual(template.buttons, ['Cancelar mensagens']); assert.match(template.plainText, /Opções: Cancelar mensagens/);
+test('static approved footer and buttons participate in preview and hash; dynamic button parameters remain blocked', async () => {
+  const components = [
+    ...approved.components,
+    { type: 'FOOTER', text: 'Para não receber mensagens, toque em Cancelar mensagens.' },
+    { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Cancelar mensagens' }] },
+  ];
+  const template = await biaApprovedOpening(
+    credentials,
+    (async () => Response.json({ data: [{ ...approved, components }] })) as typeof fetch,
+  );
+  assert.deepEqual(template.buttons, ['Cancelar mensagens']);
+  assert.match(template.plainText, /Opções: Cancelar mensagens/);
   assert.notEqual(template.hash, (await biaApprovedOpening(credentials, scenario().http)).hash);
-  components[2] = { type: 'BUTTONS', buttons: [{ type: 'URL', text: 'Link' }] };
-  await assert.rejects(biaApprovedOpening(credentials, (async () => Response.json({ data: [{ ...approved, components }] })) as typeof fetch));
+
+  components[2] = {
+    type: 'BUTTONS',
+    buttons: [{ type: 'URL', text: 'Abrir', url: 'https://example.com/{{1}}' }],
+  };
+  await assert.rejects(
+    biaApprovedOpening(
+      credentials,
+      (async () => Response.json({ data: [{ ...approved, components }] })) as typeof fetch,
+    ),
+  );
 });
 test('requires consent and matching preview; never dispatches a changed template', async () => {
   for (const extra of [{ consent: false }, { hash: 'wrong' }, { phone: 'bad' }]) {
@@ -88,6 +128,44 @@ test('timeouts and server failures are unknown; explicit payment rejection is ac
 });
 test('status lookup does not access Meta or send', async () => {
   const s = scenario(); await request(s, {}, 'status'); assert.deepEqual(s.calls.map(c => c.action), ['access', 'status']); assert.equal(s.posts.length, 0);
+});
+test('template catalog lists every approved pt_BR message with its real text and compatibility', async () => {
+  const boas = {
+    name: 'bia_boas_vindas',
+    language: 'pt_BR',
+    status: 'APPROVED',
+    category: 'UTILITY',
+    components: [
+      { type: 'BODY', text: 'Olá! Eu sou a Bia. Como posso ajudar?' },
+      { type: 'FOOTER', text: 'Évora Urbanismo' },
+      { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'Conhecer o Solaris' }] },
+    ],
+  };
+  const pending = { ...approved, name: 'bia_pendente', status: 'PENDING' };
+  const otherLanguage = { ...approved, name: 'bia_english', language: 'en_US' };
+  const unsupported = {
+    ...approved,
+    name: 'bia_multivariavel',
+    components: [{ type: 'BODY', text: 'Olá {{1}}, escolha {{2}}.' }],
+  };
+  const catalog = await biaApprovedTemplates(
+    credentials,
+    (async () =>
+      Response.json({
+        data: [approved, boas, pending, otherLanguage, unsupported],
+      })) as typeof fetch,
+  );
+  assert.deepEqual(
+    catalog.map(item => item.name),
+    ['bia_boas_vindas', 'bia_indicacao_investimento', 'bia_multivariavel'],
+  );
+  assert.equal(catalog.find(item => item.name === 'bia_boas_vindas')?.body, boas.components[0].text);
+  assert.equal(catalog.find(item => item.name === 'bia_boas_vindas')?.sendable, true);
+  assert.equal(catalog.find(item => item.name === 'bia_multivariavel')?.sendable, false);
+  assert.match(
+    catalog.find(item => item.name === 'bia_multivariavel')?.compatibilityReason || '',
+    /parâmetros/,
+  );
 });
 test('public chat prepares only an admin review link, and requires evidence for a recipient', () => {
   const result = biaWhatsAppOpeningLink('34993401159', ['Entre em contato com o lead no (34) 99340-1159.']);

@@ -193,6 +193,7 @@ export function BiaQueueView({
   const [templateName, setTemplateName] = useState("");
   const [templateBusy, setTemplateBusy] = useState(false);
   const [templateError, setTemplateError] = useState("");
+  const [dispatchError, setDispatchError] = useState("");
 
   const rpc = useCallback(
     async (action: string, args: Record<string, unknown> = {}) => {
@@ -421,6 +422,7 @@ export function BiaQueueView({
 
     setBusy(true);
     setError("");
+    setDispatchError("");
     setNotice("");
     try {
       const result = (await rpc("fire", {
@@ -449,11 +451,12 @@ export function BiaQueueView({
       setStatus("all");
       await load();
     } catch (caught) {
-      setError(
+      const message =
         caught instanceof Error
           ? caught.message
-          : "Não foi possível iniciar o disparo.",
-      );
+          : "Não foi possível iniciar o disparo.";
+      setDispatchError(message);
+      setError(message);
       await load();
     } finally {
       setBusy(false);
@@ -738,6 +741,11 @@ export function BiaQueueView({
                 : "Nenhum selecionado está apto para a mensagem inicial. Veja o motivo em cada lead abaixo."
               : "Selecione os leads. O backend validará consentimento, histórico, telefone, opt-out e empreendimento antes de liberar o disparo."}
           </small>
+          {dispatchError && (
+            <div className="feedback error" role="alert">
+              Falha ao disparar: {dispatchError}
+            </div>
+          )}
         </div>
       </section>
 

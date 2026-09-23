@@ -9,6 +9,7 @@ import {OverviewView,ReportsView,AlertsView} from "./views-intelligence";
 import {StrategyView} from "./strategy-view";
 import {BiaQueueView} from "./bia-queue-view";
 import {LeadsView} from "./leads-view";
+import {LeadRegistrationReport} from "./lead-registration-report";
 import {PipelineView,OpportunitiesView,AgendaView} from "./views-sales";
 import {SdrWorkbench} from "./sdr-workbench";
 import {CampaignsView,MaterialsView} from "./views-marketing";
@@ -145,6 +146,9 @@ export function CrmEnterprise({
         </div>
       )}
       <main className="crm5-content">
+        {(section === "leads" || section === "reports") && can("crm.view") && (
+          <LeadRegistrationReport data={data} />
+        )}
         {section === "overview" && (
           <OverviewView
             data={activeData}

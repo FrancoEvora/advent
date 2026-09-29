@@ -1,0 +1,33 @@
+name: Agent API read-only contracts
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/agent-api/**"
+      - "src/app/api/agent/**"
+      - "tests/agent-api.test.mts"
+      - ".github/workflows/agent-api-readonly.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/lib/agent-api/**"
+      - "src/app/api/agent/**"
+      - "tests/agent-api.test.mts"
+      - ".github/workflows/agent-api-readonly.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  read-only-contracts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: Verify read-only API with synthetic fixtures and no credentials
+        run: node --experimental-strip-types --test tests/agent-api.test.mts

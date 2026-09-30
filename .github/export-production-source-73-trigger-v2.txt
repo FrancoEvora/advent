@@ -1,0 +1,1 @@
+Trigger authenticated bundle collection after enabling temporary permissions and project configuration.

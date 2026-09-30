@@ -17,7 +17,7 @@ test("OAuth is bound to the stable ChatGPT client, callback, resource and PKCE",
   assert.match(oauth, /https:\/\/chatgpt\.com\/oauth\/client\.json/);
   assert.match(oauth, /https:\/\/chatgpt\.com\/connector_platform_oauth_redirect/);
   assert.match(oauth, /MCP_ORIGIN = "https:\/\/enterprise\.terraragroup\.com\.br"/);
-  assert.match(oauth, /MCP_RESOURCE = `\\$\\{MCP_ORIGIN\\}\\/mcp`/);
+  assert.ok(oauth.includes('export const MCP_RESOURCE = `${MCP_ORIGIN}/mcp`;'));
   assert.match(oauth, /code_challenge_method/);
   assert.match(oauth, /S256/);
   assert.match(oauth, /client_id_metadata_document_supported:\s*true/);

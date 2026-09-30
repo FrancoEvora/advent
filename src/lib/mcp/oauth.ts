@@ -405,7 +405,7 @@ export function protectedResourceMetadata() {
     resource: MCP_RESOURCE,
     authorization_servers: [MCP_ISSUER],
     scopes_supported: [MCP_SCOPE],
-    resource_documentation: `${MCP_ORIGIN}/docs/evora-agent-api`,
+    resource_documentation: `${MCP_ORIGIN}/bia`,
   };
 }
 
@@ -415,6 +415,7 @@ export function authorizationServerMetadata() {
     authorization_response_iss_parameter_supported: true,
     authorization_endpoint: `${MCP_ORIGIN}/oauth/authorize`,
     token_endpoint: `${MCP_ORIGIN}/api/oauth/token`,
+    revocation_endpoint: `${MCP_ORIGIN}/api/oauth/revoke`,
     client_id_metadata_document_supported: true,
     token_endpoint_auth_methods_supported: ["none"],
     response_types_supported: ["code"],
@@ -422,6 +423,23 @@ export function authorizationServerMetadata() {
     code_challenge_methods_supported: ["S256"],
     scopes_supported: [MCP_SCOPE],
   };
+}
+
+export async function revokeDelegatedToken(form: URLSearchParams): Promise<void> {
+  const token = form.get("token") || "";
+  const clientId = form.get("client_id") || "";
+  if (clientId !== CHATGPT_CLIENT_ID || token.length > 512 || !/^evmcp_(?:at|rt)_[A-Za-z0-9_-]{32,256}$/.test(token)) {
+    return;
+  }
+  const tokenHash = sha256(token);
+  const column = token.startsWith("evmcp_at_") ? "access_token_hash" : "refresh_token_hash";
+  await database()
+    .from("mcp_oauth_tokens")
+    .update({ revoked_at: nowIso(), updated_at: nowIso() })
+    .eq(column, tokenHash)
+    .eq("client_id", CHATGPT_CLIENT_ID)
+    .eq("resource", MCP_RESOURCE)
+    .is("revoked_at", null);
 }
 
 export function oauthErrorResponse(error: unknown): Response {

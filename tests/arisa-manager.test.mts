@@ -47,9 +47,48 @@ test("deadline stops work before provider invocation and instructions distinguis
 });
 
 test("quota exhaustion is not called temporary and safe telemetry excludes provider secrets", async () => {
-  const events: unknown[] = []; let attempts = 0;
-  await assert.rejects(runManager({ apiKey: "test", model: "test", context: {}, input: [], record: async event => { events.push(event); }, request: async () => { attempts++; return Response.json({ error: { code: "insufficient_quota", message: "private account details" } }, { status: 429 }); }, execute: async () => ({ data: null }) }), { code: "ARISA_PROVIDER_QUOTA" });
-  assert.equal(attempts, 1); assert.match(JSON.stringify(events), /insufficient_quota/); assert.doesNotMatch(JSON.stringify(events), /private account details/);
+  for (const error of [
+    { code: "insufficient_quota" },
+    { code: "billing_hard_limit_reached" },
+    { code: "credit_balance_exhausted" },
+    { code: "organization_usage_limit_exceeded" },
+    { code: "organization_spend_limit_exceeded" },
+    { code: "project_spend_limit_exceeded" },
+    { code: "credit_balance_exhausted", type: "insufficient_quota" },
+  ]) {
+    const events: unknown[] = []; let attempts = 0;
+    await assert.rejects(runManager({
+      apiKey: "test", model: "test", context: {}, input: [],
+      record: async event => { events.push(event); },
+      request: async () => {
+        attempts++;
+        return Response.json(
+          { error: { ...error, message: "private account details" } },
+          { status: 429, headers: { "x-request-id": "req_safe", "x-ratelimit-remaining-tokens": "0" } },
+        );
+      },
+      execute: async () => ({ data: null }),
+    }), { code: "ARISA_PROVIDER_QUOTA" });
+    assert.equal(attempts, 1);
+    assert.doesNotMatch(JSON.stringify(events), /private account details/);
+    assert.match(JSON.stringify(events), /req_safe/);
+    assert.match(JSON.stringify(events), /remaining_tokens/);
+  }
+});
+test("current OpenAI rate_limit_error type gets one bounded retry and a precise error", async () => {
+  let attempts = 0;
+  await assert.rejects(runManager({
+    apiKey: "test", model: "test", context: {}, input: [],
+    request: async () => {
+      attempts++;
+      return Response.json(
+        { error: { type: "rate_limit_error", code: "requests", message: "private" } },
+        { status: 429, headers: { "retry-after": "0" } },
+      );
+    },
+    execute: async () => ({ data: null }),
+  }), { code: "ARISA_PROVIDER_RATE_LIMIT" });
+  assert.equal(attempts, 2);
 });
 test("a short explicit rate limit retries the same continuation without repeating its tool", async () => {
   let requests = 0, mutations = 0; const bodies: string[] = [];

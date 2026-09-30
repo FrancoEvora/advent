@@ -1,0 +1,23 @@
+name: Export source v7.4
+on:
+  push:
+    branches:
+      - agent/export-source-74
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pack repository
+        run: tar --exclude=.git --exclude=.next --exclude=node_modules -czf /tmp/advent-source.tar.gz .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: advent-source-v74
+          path: /tmp/advent-source.tar.gz
+          retention-days: 1

@@ -1,0 +1,43 @@
+name: Bia Dot MCP contracts
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/mcp/**"
+      - "src/app/mcp/**"
+      - "src/app/oauth/**"
+      - "src/app/api/oauth/**"
+      - "src/app/.well-known/**"
+      - "supabase/migrations/*bia_dot_mcp*"
+      - "tests/bia-dot-mcp-contract.test.mjs"
+      - ".github/workflows/bia-dot-mcp.yml"
+  push:
+    branches: [main]
+    paths:
+      - "src/lib/mcp/**"
+      - "src/app/mcp/**"
+      - "src/app/oauth/**"
+      - "src/app/api/oauth/**"
+      - "src/app/.well-known/**"
+      - "supabase/migrations/*bia_dot_mcp*"
+      - "tests/bia-dot-mcp-contract.test.mjs"
+      - ".github/workflows/bia-dot-mcp.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - run: node --test tests/bia-dot-mcp-contract.test.mjs
+      - run: npm run typecheck

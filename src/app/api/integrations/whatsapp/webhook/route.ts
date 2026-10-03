@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { routeCoexistenceAccountEvent } from "@/lib/integrations/whatsapp/connect-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -77,6 +78,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await readBody(request);
+    const coexistence = await routeCoexistenceAccountEvent(request, body);
+    if (coexistence) return coexistence;
     return await proxy(request, body);
   } catch (error) {
     const code = error instanceof Error ? error.message : "WHATSAPP_WEBHOOK_PROXY_FAILED";

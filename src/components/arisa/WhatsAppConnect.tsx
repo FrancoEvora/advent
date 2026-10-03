@@ -1,172 +1,184 @@
 "use client";
-
 import Image from "next/image";
 import Link from "next/link";
 import Script from "next/script";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { client } from "./chat-client";
-import { CONNECT_POLICY, type ConnectResponse } from "@/lib/integrations/whatsapp/connect-policy";
+import { coexistenceLoginOptions, CONNECT_POLICY, parseMetaEvent, type ConnectResponse, type MetaFinish, type OnboardingSession } from "@/lib/integrations/whatsapp/connect-policy";
 import styles from "./whatsapp-connect.module.css";
-
 type Membership = { organization_id: string; organizations: { name: string; trade_name: string | null; active: boolean } | null };
-type SDK = "idle" | "loading" | "loaded" | "error";
-const labels: Record<string, string> = { not_started: "Não iniciado", checking: "Verificando pré-requisitos", blocked: "Aguardando definição do fluxo seguro", error: "Erro no diagnóstico" };
-
+type Facebook = { init: (options: Record<string, unknown>) => void; login: (callback: (response: { authResponse?: { code?: string } }) => void, options: ReturnType<typeof coexistenceLoginOptions>) => void };
+type Attempt = { session: OnboardingSession; organization: string; user: string; finish?: MetaFinish; exchanged?: boolean; finalizing?: boolean };
+const labels: Record<string, string> = { not_started: "Pronto para iniciar", checking: "Aguardando a Meta", blocked: "Pronto para nova tentativa", error: "Etapa não concluída", authorized: "Autorizado · finalização pendente", connected: "Conectado por coexistência", cancelled: "Tentativa cancelada", disconnected: "Desconectado na Meta" };
+const events: Record<string, string> = { preflight_started: "Diagnóstico inicial", onboarding_blocked: "Bloqueio da versão anterior", onboarding_started: "Onboarding iniciado", token_received: "Autorização recebida", coexistence_verified: "Coexistência confirmada pela API", onboarding_connected: "Conexão e sincronização solicitadas", onboarding_cancelled: "Tentativa cancelada", onboarding_error: "Etapa não concluída" };
 export default function WhatsAppConnect() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [loading, setLoading] = useState(true), [busy, setBusy] = useState(false), [error, setError] = useState("");
+  const [session, setSession] = useState<Session | null>(null), [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false), [error, setError] = useState(""), [notice, setNotice] = useState("");
   const [memberships, setMemberships] = useState<Membership[]>([]), [organization, setOrganization] = useState("");
-  const [snapshot, setSnapshot] = useState<ConnectResponse | null>(null), [sdk, setSdk] = useState<SDK>("idle");
-  const [notice, setNotice] = useState("");
-  const pendingRequest = useRef<string | null>(null);
-  const activeUser = useRef<string | null>(null);
-
+  const [snapshot, setSnapshot] = useState<ConnectResponse | null>(null), [sdk, setSdk] = useState<"loading" | "loaded" | "error">("loading");
+  const [prepared, setPrepared] = useState(false), [canResume, setCanResume] = useState(false);
+  const [authorizationReceived, setAuthorizationReceived] = useState(false);
+  const activeUser = useRef<string | null>(null), attempt = useRef<Attempt | null>(null), listener = useRef<((event: MessageEvent) => void) | null>(null);
+  const userId = session?.user.id;
+  const storageKey = (user: string, org: string) => `arisa.coexistence.${user}.${org}`;
+  const persist = (value: Attempt) => { try { sessionStorage.setItem(storageKey(value.user, value.organization), JSON.stringify({ ...value, finalizing: false })); } catch { /* Storage may be disabled. */ } };
+  const forget = (value: Attempt | null) => { if (value) { try { sessionStorage.removeItem(storageKey(value.user, value.organization)); } catch { /* No storage. */ } } };
+  const cleanupListener = () => { if (listener.current) window.removeEventListener("message", listener.current); listener.current = null; };
   useEffect(() => {
     let alive = true;
     const auth = client().auth;
     const applySession = (value: Session | null) => {
       if (!alive) return;
       if (activeUser.current !== (value?.user.id || null)) {
-        activeUser.current = value?.user.id || null;
-        setOrganization(""); setMemberships([]); setSnapshot(null); setSdk("idle"); setNotice(""); setError("");
-        pendingRequest.current = null;
+        activeUser.current = value?.user.id || null; cleanupListener(); attempt.current = null;
+        setOrganization(""); setMemberships([]); setSnapshot(null); setNotice(""); setError(""); setPrepared(false); setBusy(false); setAuthorizationReceived(false);
       }
       setSession(value); setLoading(false);
     };
     void auth.getSession().then(({ data }) => applySession(data.session));
     const { data } = auth.onAuthStateChange((_event, value) => applySession(value));
-    return () => { alive = false; data.subscription.unsubscribe(); };
+    return () => { alive = false; data.subscription.unsubscribe(); cleanupListener(); };
   }, []);
-  const userId = session?.user.id;
   useEffect(() => {
-    let alive = true;
-    if (!userId) return;
-    void client().from("organization_members").select("organization_id,organizations(name,trade_name,active)")
-      .eq("user_id", userId).eq("active", true).eq("role", "admin").then(({ data, error }) => {
-        if (!alive) return;
-        const items = (data as unknown as Membership[] || []).filter(m => m.organizations?.active);
-        setMemberships(items); setOrganization(items.length === 1 ? items[0].organization_id : "");
-        if (error || !items.length) setError("Este acesso exige um administrador ativo da organização.");
-      });
+    let alive = true; if (!userId) return;
+    void client().from("organization_members").select("organization_id,organizations(name,trade_name,active)").eq("user_id", userId).eq("active", true).eq("role", "admin").then(({ data, error }) => {
+      if (!alive) return;
+      const items = (data as unknown as Membership[] || []).filter(m => m.organizations?.active);
+      setMemberships(items); setOrganization(items.length === 1 ? items[0].organization_id : "");
+      if (error || !items.length) setError("Este acesso exige um administrador ativo da organização.");
+    });
     return () => { alive = false; };
   }, [userId]);
-
   useEffect(() => {
     if (!organization || !userId) return;
     const controller = new AbortController();
     void (async () => {
       try {
         const { data } = await client().auth.getSession();
-        if (!data.session) throw new Error("Entre novamente para consultar o diagnóstico.");
-        const response = await fetch(`/api/arisa/whatsapp-connect?organizationId=${encodeURIComponent(organization)}`, {
-          headers: { authorization: `Bearer ${data.session.access_token}` }, cache: "no-store", signal: controller.signal,
-        });
-        const result = await response.json();
-        if (!response.ok || !result.ok) throw new Error(result.message || "O diagnóstico está indisponível.");
-        if (!controller.signal.aborted) setSnapshot(result);
-      } catch (failure) {
-        if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "O diagnóstico está indisponível.");
-      }
+        if (!data.session) throw new Error("Entre novamente para continuar.");
+        const response = await fetch(`/api/arisa/whatsapp-connect?organizationId=${organization}`, { headers: { authorization: `Bearer ${data.session.access_token}` }, cache: "no-store", signal: controller.signal });
+        const result = await response.json(); if (!response.ok || !result.ok) throw new Error(result.message || "Não foi possível consultar a conexão.");
+        if (controller.signal.aborted) return;
+        setSnapshot(result);
+        try {
+          const saved = JSON.parse(sessionStorage.getItem(storageKey(userId, organization)) || "null") as Attempt | null;
+          if (saved && saved.user === userId && saved.organization === organization && Date.parse(saved.session.expiresAt) > Date.now()) {
+            attempt.current = saved; setCanResume(Boolean(saved.exchanged && saved.finish)); setAuthorizationReceived(Boolean(saved.exchanged));
+            if (saved.exchanged) setNotice("A autorização foi recebida. Retome a finalização desta tentativa.");
+          }
+        } catch { /* Ignore an unavailable or expired browser session. */ }
+      } catch (failure) { if (!controller.signal.aborted) setError(failure instanceof Error ? failure.message : "Não foi possível consultar a conexão."); }
     })();
     return () => controller.abort();
   }, [organization, userId]);
-
+  const appId = snapshot?.configuration.appId;
   useEffect(() => {
-    if (sdk !== "loading") return;
+    if (sdk !== "loaded" || !appId) return;
+    (window as Window & { FB?: Facebook }).FB?.init({ appId, version: CONNECT_POLICY.graphVersion, autoLogAppEvents: false, xfbml: false });
+  }, [sdk, appId]);
+  useEffect(() => {
+    if (!appId || sdk !== "loading") return;
     const timer = setTimeout(() => setSdk(current => current === "loading" ? "error" : current), 15000);
     return () => clearTimeout(timer);
-  }, [sdk]);
-
+  }, [appId, sdk]);
+  async function api(path: string, body?: Record<string, unknown>, expectedUser = userId) {
+    const { data } = await client().auth.getSession();
+    if (!data.session || data.session.user.id !== expectedUser || activeUser.current !== expectedUser) throw new Error("Entre novamente para continuar.");
+    const response = await fetch(path, { method: body ? "POST" : "GET", headers: { authorization: `Bearer ${data.session.access_token}`, ...(body ? { "content-type": "application/json" } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), cache: "no-store", signal: AbortSignal.timeout(120000) });
+    const result = await response.json(); if (!response.ok || !result.ok) throw new Error(result.message || "Não foi possível concluir esta etapa.");
+    if (activeUser.current !== expectedUser) throw new Error("A sessão foi alterada.");
+    return result;
+  }
+  const callbackBody = (a: Attempt) => ({ organizationId: a.organization, sessionId: a.session.sessionId, nonce: a.session.nonce });
+  async function refresh() {
+    setError(""); try { setSnapshot(await api(`/api/arisa/whatsapp-connect?organizationId=${organization}`)); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : "Consulta indisponível."); }
+  }
+  async function finish(a: Attempt) {
+    if (!a.exchanged || !a.finish || a.finalizing || attempt.current !== a || activeUser.current !== a.user) return;
+    a.finalizing = true; setBusy(true); setNotice("Confirmando a coexistência e preparando a recepção de mensagens…");
+    try {
+      const result = await api("/api/arisa/whatsapp-connect/callback", { ...callbackBody(a), action: "finalize", ...a.finish }, a.user);
+      setSnapshot(result); setCanResume(false); setPrepared(false); cleanupListener(); forget(a); attempt.current = null;
+      setNotice("Coexistência confirmada. A recepção está preparada e a sincronização foi solicitada. As respostas automáticas continuam desativadas.");
+    } catch (failure) {
+      if (activeUser.current === a.user) { setError(failure instanceof Error ? failure.message : "Não foi possível finalizar."); setCanResume(true); persist(a); }
+    } finally { a.finalizing = false; if (activeUser.current === a.user) setBusy(false); }
+  }
+  async function prepare() {
+    if (!userId) return; setBusy(true); setError(""); setNotice(""); cleanupListener();
+    try {
+      const result = await api("/api/arisa/whatsapp-connect", { organizationId: organization });
+      const a: Attempt = { session: result, organization, user: userId }; attempt.current = a; persist(a); setPrepared(true); setCanResume(false); setAuthorizationReceived(false);
+      setNotice("Tudo preparado. Clique em Continuar na Meta para abrir a janela oficial.");
+    } catch (failure) { setError(failure instanceof Error ? failure.message : "Não foi possível preparar."); }
+    finally { setBusy(false); }
+  }
+  function launch() {
+    const a = attempt.current, fb = (window as Window & { FB?: Facebook }).FB;
+    if (!a || !fb || sdk !== "loaded") return;
+    if (Date.parse(a.session.expiresAt) <= Date.now()) { setPrepared(false); setError("A tentativa expirou. Prepare uma nova conexão."); return; }
+    setError(""); setBusy(true); setNotice("Continue na janela da Meta. Selecione a opção para conectar o WhatsApp Business que já está no seu iPhone.");
+    cleanupListener();
+    listener.current = (event: MessageEvent) => {
+      if (attempt.current !== a || activeUser.current !== a.user) return;
+      const parsed = parseMetaEvent(event.origin, event.data); if (!parsed) return;
+      if (parsed.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING") { a.finish = parsed; persist(a); void finish(a); }
+      else if (parsed.event === "ERROR") { setError("A Meta informou que esta etapa não foi concluída. Confira a mensagem na janela oficial."); setBusy(false); }
+      else if (!a.exchanged) { setNotice("A janela informou cancelamento. Aguarde o retorno do login ou encerre esta tentativa abaixo."); setBusy(false); }
+    };
+    window.addEventListener("message", listener.current);
+    // Synchronous call from the actual user click prevents popup blocking.
+    try { fb.login(response => {
+      if (attempt.current !== a || activeUser.current !== a.user) return;
+      const code = response.authResponse?.code;
+      if (!code) { setBusy(false); setNotice("A autorização não foi recebida. Você pode continuar na Meta ou encerrar esta tentativa."); return; }
+      setNotice("Autorização recebida. Validando com a Meta…");
+      // Codes expire quickly: exchange immediately, independently of postMessage order.
+      void api("/api/arisa/whatsapp-connect/callback", { ...callbackBody(a), action: "exchange", code }, a.user).then(() => {
+        a.exchanged = true; persist(a); setCanResume(Boolean(a.finish)); setAuthorizationReceived(true);
+        if (a.finish) void finish(a); else { setBusy(false); setNotice("Autorização recebida. Conclua a tela de coexistência na Meta para finalizar."); }
+      }).catch(failure => { if (activeUser.current === a.user) { setError(failure instanceof Error ? failure.message : "Falha na autorização."); setBusy(false); } });
+    }, coexistenceLoginOptions(a.session.configId)); } catch { setBusy(false); setError("Não foi possível abrir o login da Meta. Permita pop-ups para este site."); }
+  }
+  async function cancel() {
+    const a = attempt.current; if (!a || a.exchanged || a.finalizing) return;
+    setBusy(true); setError("");
+    try { setSnapshot(await api("/api/arisa/whatsapp-connect/callback", { ...callbackBody(a), action: "cancel" }, a.user)); cleanupListener(); forget(a); attempt.current = null; setPrepared(false); setNotice("Tentativa encerrada nesta página. Nenhum pedido de migração ou registro foi feito pelo sistema."); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : "Não foi possível encerrar."); }
+    finally { setBusy(false); }
+  }
   async function signIn(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); setBusy(true); setError("");
-    const form = new FormData(event.currentTarget);
-    try {
-      const result = await client().auth.signInWithPassword({ email: String(form.get("email")), password: String(form.get("password")) });
-      if (result.error) throw new Error("Não foi possível entrar. Confira seu e-mail e sua senha.");
-    } catch (failure) { setError(failure instanceof Error ? failure.message : "Não foi possível entrar."); }
-    finally { setBusy(false); }
+    event.preventDefault(); setBusy(true); setError(""); const form = new FormData(event.currentTarget);
+    try { const result = await client().auth.signInWithPassword({ email: String(form.get("email")), password: String(form.get("password")) }); if (result.error) throw new Error("Não foi possível entrar. Confira seu e-mail e sua senha."); }
+    catch (failure) { setError(failure instanceof Error ? failure.message : "Não foi possível entrar."); } finally { setBusy(false); }
   }
-  async function preflight() {
-    if (busy || !organization) return;
-    setBusy(true); setError(""); setNotice("");
-    pendingRequest.current ??= crypto.randomUUID();
-    try {
-      const { data } = await client().auth.getSession();
-      if (!data.session) throw new Error("Entre novamente para continuar.");
-      const response = await fetch("/api/arisa/whatsapp-connect", {
-        method: "POST", headers: { authorization: `Bearer ${data.session.access_token}`, "content-type": "application/json" },
-        body: JSON.stringify({ organizationId: organization, requestId: pendingRequest.current }),
-        signal: AbortSignal.timeout(20000),
-      });
-      const result = await response.json();
-      if (!response.ok || !result.ok) throw new Error(result.message || "Não foi possível concluir o diagnóstico.");
-      if (activeUser.current !== userId) return;
-      setSnapshot(result); pendingRequest.current = null;
-      setNotice("Diagnóstico registrado. Elegibilidade ainda não verificada pela Meta. O onboarding permanece bloqueado para preservar seu número.");
-    } catch (failure) { if (activeUser.current === userId) setError(failure instanceof Error ? failure.message : "Não foi possível concluir o diagnóstico."); }
-    finally { setBusy(false); }
-  }
-  function sdkReady() {
-    const facebook = (window as Window & { FB?: { init?: unknown; login?: unknown } }).FB;
-    setSdk(typeof facebook?.init === "function" && typeof facebook?.login === "function" ? "loaded" : "error");
-  }
-  const signedIn = Boolean(userId && organization);
-  return <main className={styles.page}>
-    <div className={styles.shell}>
-      <header className={styles.header}>
-        <Link href="/arisa" className={styles.brand}><Image src="/arisa-profile.webp" alt="Arisa" width={44} height={44} /><span><strong>Arisa</strong><small>ÉVORA URBANISMO</small></span></Link>
-        <Link href="/arisa">Voltar à Arisa <span aria-hidden="true">↗</span></Link>
-      </header>
-      <section className={styles.hero}>
-        <span className={styles.eyebrow}>WHATSAPP BUSINESS · COEXISTENCE</span>
-        <h1>Conectar WhatsApp<br />ao Franco</h1>
-        <p>Esta conexão permite que a Arisa receba e gerencie mensagens com sua autorização, mantendo seu WhatsApp Business funcionando normalmente no iPhone.</p>
-        <div className={styles.safety}><span aria-hidden="true">◇</span><span>Esta etapa não deve desconectar nem substituir o WhatsApp Business do seu iPhone.</span></div>
+  const c = snapshot?.connection, connected = c?.onboarding_status === "connected", ready = snapshot?.configuration.ready && sdk === "loaded";
+  return <main className={styles.page}><div className={styles.shell}>
+    <header className={styles.header}><Link href="/arisa" className={styles.brand}><Image src="/arisa-profile.webp" alt="Arisa" width={44} height={44} /><span><strong>Arisa</strong><small>ÉVORA URBANISMO</small></span></Link><Link href="/arisa">Voltar à Arisa ↗</Link></header>
+    <section className={styles.hero}><span className={styles.eyebrow}>WHATSAPP BUSINESS · COEXISTENCE</span><h1>Conectar WhatsApp<br />ao Franco</h1><p>Conecte seu WhatsApp Business à infraestrutura da Arisa pelo fluxo oficial da Meta, mantendo o aplicativo no iPhone.</p><div className={styles.safety}><span aria-hidden="true">◇</span><span>Esta conexão usa coexistência. A confirmação do número acontece na Meta e no seu WhatsApp Business.</span></div></section>
+    <div className={styles.grid}>
+      <section className={styles.card} aria-labelledby="connection-title"><div className={styles.cardHeading}><span className={styles.step}>01</span><div><small>SEU SEGUNDO CANAL</small><h2 id="connection-title">WhatsApp pessoal</h2></div><span className={styles.badge}>{connected ? "Conectado" : "Conexão oficial"}</span></div>
+        <p>A Meta verifica os requisitos e solicita sua autorização durante o cadastro. Ao concluir, seu número é conectado por coexistência.</p>
+        <div className={styles.warning}><strong>Continue usando o WhatsApp Business no iPhone</strong><p>A coexistência mantém o aplicativo principal. A Meta pode desconectar dispositivos vinculados; você poderá vinculá-los novamente. Algumas funções do aplicativo podem mudar.</p><p>Na janela da Meta, selecione a conexão do WhatsApp Business existente. Se essa opção não estiver disponível, encerre a tentativa.</p><a href={CONNECT_POLICY.documentation} target="_blank" rel="noopener noreferrer">Como funciona a coexistência ↗</a></div>
+        {connected ? <p className={styles.notice}>Seu canal {c?.phone_number_masked} foi confirmado pela API da Meta.</p> : canResume ? <button className={styles.primary} disabled={busy} onClick={() => { const a = attempt.current; if (a) void finish(a); }}>{busy ? "Finalizando…" : "Retomar finalização"}</button> : prepared ? <button className={styles.primary} disabled={busy || !ready} onClick={launch}>{busy ? "Aguardando a Meta…" : "Continuar na Meta"}</button> : <button className={styles.primary} disabled={busy || !ready || !organization} onClick={() => void prepare()}>{busy ? "Preparando…" : "Conectar WhatsApp"}</button>}
+        <p className={styles.hint}>{!session ? "Entre com sua conta da Évora para conectar." : !snapshot ? "Consultando a configuração…" : !snapshot.configuration.ready ? "A configuração do aplicativo Meta está pendente." : sdk !== "loaded" ? sdk === "error" ? "O SDK da Meta não carregou. Recarregue a página e verifique bloqueadores do navegador." : "Carregando o SDK oficial da Meta…" : "Você confirma a conta, o número e as permissões na Meta. Respostas automáticas permanecem desativadas."}</p>
+        {prepared && !authorizationReceived && <button className={styles.textButton} disabled={busy} onClick={() => void cancel()}>Encerrar tentativa nesta página</button>}
+        <dl className={styles.facts}><div><dt>Estado da conexão</dt><dd>{labels[c?.onboarding_status || "not_started"] || "Aguardando revisão"}</dd></div><div><dt>Coexistência</dt><dd>{c?.coexistence_status === "verified" ? "Confirmada pela API da Meta" : "A verificar na Meta"}</dd></div><div><dt>Respostas automáticas</dt><dd>Desativadas</dd></div></dl>
       </section>
-      <div className={styles.grid}>
-        <section className={styles.card} aria-labelledby="connection-title">
-          <div className={styles.cardHeading}><span className={styles.step}>01</span><div><small>SEU SEGUNDO CANAL</small><h2 id="connection-title">WhatsApp pessoal</h2></div><span className={styles.badge}>Não conectado</span></div>
-          <p>A preparação está disponível. A verificação do número pela Meta está bloqueada nesta versão.</p>
-          <div className={styles.warning}>
-            <strong>O fluxo da Meta também conecta a conta</strong>
-            <p>Concluir o Embedded Signup já pode vincular seu WhatsApp à plataforma. A Meta não documenta uma parada automática para apenas verificar a elegibilidade, sem alterar a conta.</p>
-            <p>Por isso, o botão abaixo permanece indisponível. Nenhuma autorização de conexão será solicitada nesta página.</p>
-            <a href={CONNECT_POLICY.documentation} target="_blank" rel="noopener noreferrer">Ler a documentação oficial ↗</a>
-          </div>
-          <button className={styles.primary} disabled aria-describedby="eligibility-help">Verificar elegibilidade</button>
-          <p id="eligibility-help" className={styles.hint}>Bloqueado para proteger seu número. Não significa que ele seja inelegível.</p>
-          <dl className={styles.facts}><div><dt>Elegibilidade</dt><dd>Não verificada</dd></div><div><dt>Conexão com a Meta</dt><dd>Não iniciada</dd></div><div><dt>Respostas automáticas</dt><dd>Desativadas neste canal</dd></div></dl>
-        </section>
-        <section className={styles.card} aria-labelledby="diagnostic-title">
-          <div className={styles.cardHeading}><span className={styles.step}>02</span><div><small>PREPARAÇÃO SEGURA</small><h2 id="diagnostic-title">Diagnóstico técnico</h2></div></div>
-          {loading ? <p role="status">Verificando sua sessão…</p> : !session ? <>
-            <p>Entre com sua conta administrativa da Évora para consultar e registrar o diagnóstico.</p>
-            <form className={styles.form} onSubmit={signIn}><label>E-mail<input name="email" type="email" autoComplete="username" required /></label><label>Senha<input name="password" type="password" autoComplete="current-password" required /></label><button className={styles.secondary} disabled={busy}>{busy ? "Entrando…" : "Entrar na Évora"}</button></form>
-          </> : <>
-            {memberships.length > 1 && <label className={styles.select}>Organização<select disabled={busy} value={organization} onChange={e => { setOrganization(e.target.value); setSnapshot(null); pendingRequest.current = null; setError(""); setNotice(""); }}>{memberships.map(m => <option key={m.organization_id} value={m.organization_id}>{m.organizations?.trade_name || m.organizations?.name}</option>)}<option value="">Selecione</option></select></label>}
-            {signedIn && <>
-              <dl className={styles.facts}>
-                <div><dt>Canal próprio da Arisa</dt><dd>{!snapshot ? "Aguardando consulta" : snapshot.primary.configured ? snapshot.primary.enabled ? "Configurado · habilitado" : "Configurado · pausado" : "Configuração incompleta"}</dd></div>
-                <div><dt>Preparação do segundo canal</dt><dd>{labels[snapshot?.connection?.onboarding_status || "not_started"] || "Aguardando revisão"}</dd></div>
-                <div><dt>Configuração do app Meta</dt><dd>{!snapshot ? "Aguardando consulta" : snapshot.configuration.appIdPresent && snapshot.configuration.configIdPresent ? "Identificadores presentes · revisão pendente" : "Identificadores de onboarding pendentes"}</dd></div>
-              </dl>
-              <div className={styles.actions}><button className={styles.secondary} disabled={busy} onClick={() => void preflight()}>{busy ? "Verificando pré-requisitos…" : "Executar diagnóstico seguro"}</button></div>
-              <p className={styles.hint}>O diagnóstico não pede seu número nem inicia o login da Meta. O teste do SDK carrega apenas o script oficial do Facebook.</p>
-              {snapshot && <details className={styles.details}><summary>Informações técnicas e auditoria</summary><p><code>franco_personal</code> · Embedded Signup v4 · Graph API v26.0</p><p>O canal atual usa sua configuração existente. Este diagnóstico não substitui suas credenciais ou webhook.</p><p><code>is_on_biz_app</code> e <code>platform_type</code>: não consultados. Esses campos confirmam coexistência já estabelecida, não elegibilidade prévia.</p><ul>{snapshot.audit.map(a => <li key={a.id}>{new Date(a.created_at).toLocaleString("pt-BR")} · {a.event === "preflight_started" ? "Diagnóstico iniciado" : "Onboarding bloqueado por segurança"}</li>)}</ul>{!snapshot.audit.length && <p>Nenhuma tentativa registrada.</p>}</details>}
-            </>}
-            <button className={styles.textButton} onClick={() => { setSnapshot(null); setOrganization(""); setMemberships([]); setSdk("idle"); setNotice(""); setError(""); pendingRequest.current = null; void client().auth.signOut({ scope: "local" }); }}>Sair desta conta</button>
-          </>}
-          <dl className={styles.facts}><div><dt>SDK oficial</dt><dd role="status">{({ idle: "Não testado", loading: "Carregando…", loaded: "Script carregado · login não iniciado", error: "Não foi possível carregar" })[sdk]}</dd></div></dl>
-          <button className={styles.textButton} disabled={sdk !== "idle"} onClick={() => setSdk("loading")}>Testar carregamento do SDK</button>
-          <p className={styles.hint}>Este teste público baixa apenas o script oficial do Facebook. Não inicia login nem conecta uma conta.</p>
-          {sdk === "error" && <p role="status">O carregamento pode ter sido bloqueado pelo navegador. Recarregue a página para testar novamente.</p>}
-          {sdk !== "idle" && <Script id="arisa-meta-sdk-diagnostic" src="https://connect.facebook.net/pt_BR/sdk.js" strategy="afterInteractive" onReady={sdkReady} onError={() => setSdk("error")} />}
-          {notice && <p className={styles.notice} role="status">{notice}</p>}
-          {error && <p className={styles.error} role="alert">{error}</p>}
-        </section>
-      </div>
-      <footer className={styles.footer}><span>Arisa · Évora Urbanismo</span><Link href="/privacidade">Privacidade</Link><span>Preparação · conexão ainda não autorizada</span></footer>
+      <section className={styles.card} aria-labelledby="diagnostic-title"><div className={styles.cardHeading}><span className={styles.step}>02</span><div><small>ACESSO E ACOMPANHAMENTO</small><h2 id="diagnostic-title">Sua conexão</h2></div></div>
+        {loading ? <p role="status">Verificando sua sessão…</p> : !session ? <><p>Entre com sua conta administrativa da Évora.</p><form className={styles.form} onSubmit={signIn}><label>E-mail<input name="email" type="email" autoComplete="username" required /></label><label>Senha<input name="password" type="password" autoComplete="current-password" required /></label><button className={styles.secondary} disabled={busy}>{busy ? "Entrando…" : "Entrar na Évora"}</button></form></> : <>
+          {memberships.length > 1 && <label className={styles.select}>Organização<select disabled={busy || prepared} value={organization} onChange={e => { setOrganization(e.target.value); setSnapshot(null); attempt.current = null; setCanResume(false); }}>{memberships.map(m => <option key={m.organization_id} value={m.organization_id}>{m.organizations?.trade_name || m.organizations?.name}</option>)}<option value="">Selecione</option></select></label>}
+          <dl className={styles.facts}><div><dt>Canal próprio da Arisa</dt><dd>{!snapshot ? "Consultando…" : snapshot.primary.configured ? snapshot.primary.enabled ? "Configurado · habilitado" : "Configurado · pausado" : "Configuração incompleta"}</dd></div><div><dt>Aplicativo Meta</dt><dd>{snapshot?.configuration.ready ? "Configurado para coexistência" : "Aguardando configuração"}</dd></div><div><dt>Sincronização de contatos</dt><dd>{c?.operations.contacts === "done" ? "Solicitada à Meta" : c?.operations.contacts ? "Requer conferência" : "Ainda não solicitada"}</dd></div><div><dt>Histórico</dt><dd>{c?.history_shared === false ? "Compartilhamento recusado na Meta" : c?.sync_progress != null ? `${c.sync_progress}% recebido` : c?.operations.history === "done" ? "Solicitado · aguardando a Meta" : "Ainda não solicitado"}</dd></div></dl>
+          <button className={styles.secondary} disabled={busy || !organization} onClick={() => void refresh()}>Atualizar estado</button>
+          {snapshot && <details className={styles.details}><summary>Diagnóstico e auditoria</summary><p><code>franco_personal</code> · Embedded Signup v4 · Graph API v26.0</p><p>App: {snapshot.configuration.appId || "pendente"}<br />Configuração: {snapshot.configuration.configId || "pendente"}</p><p>WABA: {c?.waba_id || "a confirmar"}<br />Phone Number ID: {c?.phone_number_id || "a confirmar"}</p>{c?.token_expires_at && <p>Autorização válida até {new Date(c.token_expires_at).toLocaleDateString("pt-BR")}.</p>}<ul>{snapshot.audit.map(a => <li key={a.id}>{new Date(a.created_at).toLocaleString("pt-BR")} · {events[a.event] || "Estado atualizado"}</li>)}</ul></details>}
+          <button className={styles.textButton} disabled={busy} onClick={() => { forget(attempt.current); void client().auth.signOut({ scope: "local" }); }}>Sair desta conta</button>
+        </>}
+        {notice && <p className={styles.notice} role="status">{notice}</p>}{error && <p className={styles.error} role="alert">{error}</p>}
+      </section>
     </div>
-  </main>;
+    {appId && <Script id="arisa-meta-sdk" src="https://connect.facebook.net/pt_BR/sdk.js" strategy="afterInteractive" onReady={() => setSdk(typeof (window as Window & { FB?: Facebook }).FB?.login === "function" ? "loaded" : "error")} onError={() => setSdk("error")} />}
+    <footer className={styles.footer}><span>Arisa · Évora Urbanismo</span><Link href="/privacidade">Privacidade</Link><span>Conexão por coexistência · confirmação na Meta</span></footer>
+  </div></main>;
 }

@@ -1,53 +1,35 @@
-# WhatsApp pessoal do Franco: preparação e bloqueio de onboarding
+# Arisa: WhatsApp Business App Coexistence
 
-Revisão documental: 03/10/2026. Página: `/arisa/whatsapp-connect`.
+A página `/arisa/whatsapp-connect` agora abre o Embedded Signup oficial v4 após autorização do administrador da Évora. O usuário escolhe o número e confirma o consentimento na Meta e no WhatsApp Business. Concluir o fluxo já pode vincular a conta; não existe promessa de uma verificação prévia sem vínculo.
 
-## Limite desta versão
+## Fluxo e limites
 
-O pedido exige verificar elegibilidade sem registrar ou ativar o número. A documentação atual da Meta não apresenta um modo read-only ou um evento de elegibilidade que permita garantir isso. O Embedded Signup de Coexistence é um fluxo de conexão, com alterações na conta antes do retorno ao site. Não chamar `/register` não impede essas alterações.
+- SDK oficial, Graph v26.0, `featureType: whatsapp_business_app_onboarding`, apenas produto WhatsApp Cloud API e permissões de WhatsApp.
+- `POST /api/arisa/whatsapp-connect` cria uma sessão com nonce aleatório de 256 bits. A base armazena somente SHA-256 do nonce; sessão vinculada a administrador, organização e canal, com limite de cinco tentativas por hora.
+- `POST /api/arisa/whatsapp-connect/callback` troca o código imediatamente, separado da chegada do postMessage. Código não é persistido ou registrado. GET recusa códigos na URL.
+- Tokens são armazenados no Vault. Configuração e referências ficam em schema privado; RPC administrativa é exclusiva da chave de serviço. O navegador recebe somente IDs públicos, estado e número mascarado.
+- Finalização exige evento específico de Business App e verifica token/app/scopes na Meta, além de `is_on_biz_app=true` e `platform_type=CLOUD_API`. WABA e Phone Number ID dos canais atuais da Arisa/Bia são protegidos no banco antes de qualquer assinatura.
+- O servidor assina webhook específico do segundo canal e solicita contatos e histórico, exigidos pela Meta dentro de 24 horas. Cada operação é registrada antes da chamada. Falhas ambíguas exigem conferência, sem repetição automática de operações permitidas apenas uma vez.
+- `connected` significa coexistência verificada e solicitações de sincronização aceitas. Progresso de histórico vem dos webhooks e somente 100% indica recebimento completo.
+- `GET/POST /api/arisa/whatsapp-connect/webhook/[connectionId]` faz verificação do challenge, HMAC SHA-256 sobre bytes originais, WABA/phone exatos e deduplicação. Inbox privada guarda eventos assinados, com limpeza de eventos de mais de 30 dias quando novos eventos chegam ao mesmo canal. Nenhum worker de resposta lê essa inbox.
+- Eventos `account_update` não suportam override na Meta. O callback existente preserva sua URL e delega somente eventos reconhecidos de WABA pessoal verificada. Arisa/Bia continuam com o proxy e as Edge Functions existentes.
+- O navegador guarda na sessionStorage apenas dados temporários da tentativa (nonce, IDs, validade e indicação de autorização); nenhum código OAuth ou token Meta é persistido. Retomada na mesma aba é possível enquanto a sessão de 20 minutos está válida.
+- Não há chamada a register, deregister, migração, remoção de número ou envio de mensagens. Respostas automáticas continuam proibidas por constraint no banco.
 
-Esta versão é uma preparação com diagnóstico, **não uma implementação funcional da verificação de elegibilidade**. O botão “Verificar elegibilidade” fica desabilitado, o servidor não abre OAuth, o callback responde 423 sem interpretar o corpo e o banco impede armazenar ativos não verificados ou ativar automação. Nenhuma variável de ambiente habilita esse fluxo. A ativação futura exige outra revisão e autorização explícita.
+## Configuração instalada
 
-## Evidências oficiais
+App Meta Arisa `2341160449962178`, configuração `2669760446794137` (Arisa Coexistence), WhatsApp Cloud API e token de usuário do sistema com expiração de 60 dias. Domínio e retorno OAuth limitados ao Enterprise. Credencial existente do Vault validada na Graph API como pertencente ao Arisa. Campos messages, account_update, history, smb_app_state_sync e smb_message_echoes assinados em v26.0.
 
-- [Onboarding de usuários do Business App](https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users): a conclusão converte a conta existente, compartilha ativos e retorna `FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING`; o número já está registrado e a etapa `/register` deve ser omitida. O processo também desvincula dispositivos acompanhantes. O iPhone principal continua suportado, mas isso não é uma consulta sem alterações.
-- [Versão 4](https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/version-4): configuração v4 no Facebook Login for Business; v2/v3 deixam de ser suportadas em 15/10/2026. A ordem phone-number-first ainda está em implantação. Coexistence continua usando `featureType: whatsapp_business_app_onboarding`.
-- [Implementação](https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/implementation): o SDK retorna `code` e os eventos de sessão. Fechar a janela na tela final também pode ser conclusão bem-sucedida, não cancelamento. Não foi identificado evento `ELIGIBLE` nem parâmetro `dry_run`.
+Os termos de Provedor de Tecnologia foram aceitos após autorização explícita do usuário. A empresa está verificada; o app ainda requer análise para permissões avançadas e atendimento a outras empresas. A Meta permite testar com as contas que possuem função no aplicativo. Não declarar aprovação geral nem elegibilidade do número antes de concluir a etapa pessoal na Meta.
 
-Os campos `is_on_biz_app=true` e `platform_type=CLOUD_API`, consultados em `GET /v26.0/{PHONE_NUMBER_ID}?fields=is_on_biz_app,platform_type`, confirmam coexistência estabelecida. Não são usados como teste prévio de elegibilidade.
+## Verificação
 
-## Integração existente examinada
+Testes de origem, autenticação, administrador, nonce, replay, dados sanitizados, callback, coexistência, proteção dos canais atuais, assinatura de webhook, sync sem repetição e cancelamento. Testes transacionais no Supabase com rollback validaram privilégios, administrador, nonce, replay, proteção do canal primário, campos obrigatórios e automação desativada. Build inclui lint, TypeScript e auditoria npm.
 
-- Vercel `advent`, repositório `FrancoEvora/advent`, domínio `enterprise.terraragroup.com.br`.
-- Supabase `evora-gestao` (`qsdffayasuzsmngteika`).
-- Funções publicadas: `arisa-whatsapp` v5, `arisa-whatsapp-webhook` v1, `arisa-whatsapp-replies` v7, `arisa-whatsapp-notifications` v1, `arisa-manager` v23.
-- Credenciais em Supabase Vault, com referências no schema `crm_private`. A RPC de credenciais é restrita a runtime service role. Esta implementação não chama essa RPC nem lê segredos.
-- Canal próprio administrado por `crm_private.arisa_whatsapp_channel`; identificação existente por `phone_number_id`. Bia mantém canais separados. Nenhum webhook, worker, envio, número ou segredo existente é alterado.
+## Fontes
 
-## Componentes
-
-- Página administrativa com sessão Supabase já existente, aparência Évora/Arisa e link no painel de WhatsApp.
-- `GET /api/arisa/whatsapp-connect?organizationId=…`: status com bearer autenticado e autorização no banco.
-- `POST /api/arisa/whatsapp-connect`: somente diagnóstico interno, body `{organizationId,requestId}`; Origin exata, rejeição cross-site, JSON de até 1 KiB, bearer obrigatório (cookies não autenticam) e idempotência.
-- `GET/POST /api/arisa/whatsapp-connect/callback`: 423, não lê body/query, não troca nem registra código.
-- `arisa_whatsapp_connections`: intenção de conexão `franco_personal`, separada do canal existente; nesta versão todos os identificadores Meta ficam nulos, elegibilidade `unknown` e automação falsa, garantidos por constraints.
-- `arisa_whatsapp_connection_audit`: eventos tipados de diagnóstico e bloqueio, sem payload livre. RLS permite apenas proprietário que continua administrador ativo; clientes não podem inserir/alterar/excluir diretamente.
-- RPC pública `arisa_whatsapp_connect`, security invoker, delega a implementação privada com auth.uid e checagem administrativa. Limite de 5 novas tentativas/hora por usuário/organização, lock transacional e retries idempotentes. Histórico exibe as últimas 20 ocorrências. Estados gravados: `checking` → `blocked`; nenhum estado `eligible`, `authorized` ou `connected` é inferido.
-- Teste explícito carrega o SDK oficial, sem `FB.init`, `FB.login`, concessão de permissão ou coleta de eventos Meta. Confirma somente o download do script e presença dos métodos.
-- Não há nova Edge Function: as rotas Next.js fazem as chamadas autenticadas ao mesmo Supabase com chave publicável e bearer do usuário.
-
-## Próxima versão (não autorizada nesta entrega)
-
-Antes de liberar o popup, obter da Meta um modo documentado de elegibilidade sem efeito colateral ou aprovar explicitamente uma alteração de escopo para onboarding real de Coexistence. Um aviso ou interceptação após `FINISH` não é uma barreira anterior à conexão.
-
-Para onboarding real será necessário verificar no painel Meta o App ID, Config ID v4, permissões Advanced Access, domínios HTTPS e o perfil Solution Partner/Tech Provider. Os nomes reservados no servidor são `ARISA_META_APP_ID` e `ARISA_META_EMBEDDED_SIGNUP_CONFIG_ID`; sua presença não comprova elegibilidade nem habilita o fluxo. Não se reutiliza automaticamente um app de anúncios.
-
-O callback futuro precisa de sessão/nonce única e expiração, origens Meta exatas (não `endsWith`), vinculação à janela/sessão, allowlist de eventos, troca server-side de código, comprovação do vínculo dos ativos usando Graph API e persistência de token exclusivamente no Vault. `FINISH` não deve significar `eligible`; `CANCEL`/`ERROR` não devem significar `not_eligible`. IDs de `postMessage` são pistas não autenticadas até a comprovação no servidor.
-
-Antes de ativar recepção ou sincronização, ampliar o roteamento existente para o canal pessoal com isolamento, política de autonomia explicitamente desativada e tratamento dos webhooks de Coexistence. A sincronização tem requisitos próprios descritos pela Meta. Não existe tentativa automática de offboarding, deregistration, mudança de ownership ou fallback para migração tradicional.
-
-## Validação
-
-Testes executáveis: `node --test tests/arisa-whatsapp-connect.test.mts`. Teste SQL em `supabase/tests/arisa_whatsapp_connect_rollback.sql` roda em transação e termina em rollback. Verificar build e lint, status HTTP em produção, bloqueio do callback, SDK sem login e ausência de mudanças nas funções/canais existentes. Login Meta, elegibilidade do número e funcionamento físico do iPhone **não** são certificados por estes testes.
-
-O prebuild detectou o advisory crítico [GHSA-vcvr-r3jv-pc5j](https://github.com/advisories/GHSA-vcvr-r3jv-pc5j) na dependência Next.js 16.3.4 já existente. Next.js e eslint-config-next foram atualizados para 16.3.8, preservando a mesma versão minor e as versões de React. O gate `npm audit --omit=dev --audit-level=high` permanece ativo.
+- https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-business-app-users
+- https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/implementation
+- https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/version-4/
+- https://developers.facebook.com/documentation/business-messaging/whatsapp/embedded-signup/onboarding-customers-as-a-tech-provider
+- https://developers.facebook.com/documentation/business-messaging/whatsapp/webhooks/override

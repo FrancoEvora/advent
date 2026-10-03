@@ -1,4 +1,6 @@
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
+import { Buffer } from "node:buffer";
+import process from "node:process";
 import { CONNECT_POLICY, maskPhone, metaId, record, type ConnectSnapshot } from "./connect-policy.ts";
 
 type Env = Record<string, string | undefined>;

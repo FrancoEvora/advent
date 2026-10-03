@@ -112,7 +112,7 @@ export default function WhatsAppConnect() {
     setSdk(typeof facebook?.init === "function" && typeof facebook?.login === "function" ? "loaded" : "error");
   }
   const signedIn = Boolean(userId && organization);
-  return <main id="conteudo-principal" className={styles.page}>
+  return <main className={styles.page}>
     <div className={styles.shell}>
       <header className={styles.header}>
         <Link href="/arisa" className={styles.brand}><Image src="/arisa-profile.webp" alt="Arisa" width={44} height={44} /><span><strong>Arisa</strong><small>ÉVORA URBANISMO</small></span></Link>

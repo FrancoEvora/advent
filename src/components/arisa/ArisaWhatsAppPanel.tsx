@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { errorText } from "./chat-client";
 import { displayDate, workspaceCall } from "./workspace-client";
 import { whatsappDeliveryLabel, whatsappReceptionLabel, whatsappReconcileLabel, whatsappTemplateText, type WhatsAppChannelStatus, type WhatsAppMessage, type WhatsAppTemplate } from "./whatsapp-display";
@@ -56,6 +57,7 @@ export default function ArisaWhatsAppPanel({ organizationId }: { organizationId:
   const callbackUrl = status?.webhook_url || `${typeof window === "undefined" ? "" : window.location.origin}/api/integrations/whatsapp/webhook?organizationId=${encodeURIComponent(organizationId)}`;
 
   return <section aria-labelledby="arisa-whatsapp-title">
+    <p><Link href="/arisa/whatsapp-connect">Preparar WhatsApp pessoal do Franco · diagnóstico de Coexistence</Link></p>
     <div className={styles.card}>
       <div className={styles.meta}>WHATSAPP BUSINESS PLATFORM</div><h3 id="arisa-whatsapp-title">WhatsApp da Arisa</h3>
       <p>{!status ? loading ? "Verificando o canal…" : "Não foi possível verificar o canal. Atualize para consultar o estado." : status.ready ? `Envio habilitado${status.display_phone_number ? ` em ${status.display_phone_number}` : ""}.` : status.configured ? "A conexão está cadastrada. O envio pela Arisa ainda está pausado ou exige concluir a configuração." : "A configuração do WhatsApp precisa ser concluída antes de habilitar os envios."}</p>

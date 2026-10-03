@@ -4,6 +4,7 @@ import { createHmac } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { handleConnect, handleConnectWebhook, routeCoexistenceAccountEvent, safeSnapshot } from "../src/lib/integrations/whatsapp/connect-server.ts";
 import { coexistenceLoginOptions, CONNECT_POLICY, parseMetaEvent, maskPhone } from "../src/lib/integrations/whatsapp/connect-policy.ts";
+import { forwardConnect, routeCoexistenceAccountEventProxy } from "../src/lib/integrations/whatsapp/connect-proxy.ts";
 const org = "11111111-1111-4111-8111-111111111111", actor = "22222222-2222-4222-8222-222222222222", sid = "33333333-3333-4333-8333-333333333333";
 const base = "https://enterprise.terraragroup.com.br", nonce = "a".repeat(64), app = "2341160449962178", waba = "123456789", phone = "987654321", token = "private-token-".repeat(5), secret = "private-secret";
 function req(body: Record<string, unknown> = { organizationId: org }, origin = base) { return new Request(`${base}/api/arisa/whatsapp-connect`, { method: "POST", headers: { authorization: "Bearer fake.session.token", origin, "content-type": "application/json" }, body: JSON.stringify(body) }); }
@@ -135,4 +136,23 @@ test("default callback rejects forged personal account events without ingestion"
   const p = { object: "whatsapp_business_account", entry: [{ id: waba, changes: [{ field: "account_update", value: { event: "PARTNER_REMOVED" } }] }] };
   const f = fixture(); assert.equal((await routeCoexistenceAccountEvent(webhook(p, false), new TextEncoder().encode(JSON.stringify(p)), f.dependencies))?.status, 403);
   assert.equal(f.calls.filter(c => c.body?.p_action === "webhook_ingest").length, 0);
+});
+test("Vercel proxy forwards identity and origin only to the fixed Supabase function", async () => {
+  let url = "", headers: Headers | undefined;
+  const r = await forwardConnect(req(), "begin", (async (input, init) => { url = String(input); headers = new Headers(init?.headers); assert.deepEqual(JSON.parse(new TextDecoder().decode(init?.body as ArrayBuffer)), { organizationId: org }); return Response.json({ ok: true }); }) as typeof fetch);
+  assert.equal(r.status, 200); assert.equal(url, "https://qsdffayasuzsmngteika.supabase.co/functions/v1/arisa-whatsapp-connect/begin");
+  assert.equal(headers?.get("authorization"), "Bearer fake.session.token"); assert.equal(headers?.get("origin"), base); assert.equal(headers?.get("cookie"), null);
+});
+test("Vercel proxy rejects callback GET without forwarding code URLs", async () => {
+  let called = false; const r = await forwardConnect(new Request(`${base}?code=never-forward`), "callback", (async () => { called = true; return Response.json({}); }) as typeof fetch);
+  assert.equal(r.status, 405); assert.equal(called, false);
+});
+test("Vercel account-event proxy preserves 204 fallback and exact signature bytes", async () => {
+  const p = { object: "whatsapp_business_account", entry: [{ id: waba, changes: [{ field: "account_update", value: {} }] }] }, raw = new TextEncoder().encode(JSON.stringify(p));
+  const r = await routeCoexistenceAccountEventProxy(webhook(p), raw, (async (_input, init) => { assert.deepEqual(new Uint8Array(init?.body as ArrayBuffer), raw); assert.match(new Headers(init?.headers).get("x-hub-signature-256")!, /^sha256=/); return new Response(null, { status: 204 }); }) as typeof fetch);
+  assert.equal(r, null);
+});
+test("Vercel proxy caps unauthenticated payload size before forwarding", async () => {
+  let called = false; const r = await forwardConnect(req({ code: "x".repeat(20000) }), "callback", (async () => { called = true; return Response.json({}); }) as typeof fetch);
+  assert.equal(r.status, 413); assert.equal(called, false);
 });

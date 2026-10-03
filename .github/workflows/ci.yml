@@ -82,6 +82,7 @@ jobs:
           supabase/functions/arisa-mail/index.ts
           supabase/functions/arisa-background/index.ts
           supabase/functions/arisa-whatsapp/index.ts
+          supabase/functions/arisa-whatsapp-connect/index.ts
           supabase/functions/arisa-speech/index.ts
           supabase/functions/enterprise-whatsapp-webhook/index.ts
       - run: npm run build

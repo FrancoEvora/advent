@@ -4,6 +4,8 @@ A página `/arisa/whatsapp-connect` agora abre o Embedded Signup oficial v4 apó
 
 ## Fluxo e limites
 
+Os endpoints Next encaminham requisições para a Edge Function `arisa-whatsapp-connect` no projeto Supabase existente. A credencial de serviço é obtida no ambiente protegido da Edge Function; não é necessária uma nova chave na Vercel. O mesmo módulo de callback é utilizado pela função e pelos testes. A verificação JWT do gateway fica desativada para receber webhooks, mas as ações do usuário validam JWT e administrador no código, e os webhooks exigem HMAC.
+
 - SDK oficial, Graph v26.0, `featureType: whatsapp_business_app_onboarding`, apenas produto WhatsApp Cloud API e permissões de WhatsApp.
 - `POST /api/arisa/whatsapp-connect` cria uma sessão com nonce aleatório de 256 bits. A base armazena somente SHA-256 do nonce; sessão vinculada a administrador, organização e canal, com limite de cinco tentativas por hora.
 - `POST /api/arisa/whatsapp-connect/callback` troca o código imediatamente, separado da chegada do postMessage. Código não é persistido ou registrado. GET recusa códigos na URL.

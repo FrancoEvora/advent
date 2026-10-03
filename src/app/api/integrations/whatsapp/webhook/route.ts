@@ -1,9 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { routeCoexistenceAccountEvent } from "@/lib/integrations/whatsapp/connect-server";
+import { routeCoexistenceAccountEventProxy } from "@/lib/integrations/whatsapp/connect-proxy";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 30;
+export const maxDuration = 120;
 
 const MAX_BYTES = 1024 * 1024;
 const RESPONSE_HEADERS = {
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await readBody(request);
-    const coexistence = await routeCoexistenceAccountEvent(request, body);
+    const coexistence = await routeCoexistenceAccountEventProxy(request, body);
     if (coexistence) return coexistence;
     return await proxy(request, body);
   } catch (error) {

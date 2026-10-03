@@ -9,7 +9,7 @@ import { coexistenceLoginOptions, CONNECT_POLICY, parseMetaEvent, type ConnectRe
 import styles from "./whatsapp-connect.module.css";
 type Membership = { organization_id: string; organizations: { name: string; trade_name: string | null; active: boolean } | null };
 type Facebook = { init: (options: Record<string, unknown>) => void; login: (callback: (response: { authResponse?: { code?: string } }) => void, options: ReturnType<typeof coexistenceLoginOptions>) => void };
-type Attempt = { session: OnboardingSession; organization: string; user: string; finish?: MetaFinish; exchanged?: boolean; finalizing?: boolean };
+type Attempt = { session: OnboardingSession; organization: string; user: string; finish?: MetaFinish; exchanged?: boolean; finalizing?: boolean; exchanging?: boolean; cancelling?: boolean };
 const labels: Record<string, string> = { not_started: "Pronto para iniciar", checking: "Aguardando a Meta", blocked: "Pronto para nova tentativa", error: "Etapa não concluída", authorized: "Autorizado · finalização pendente", connected: "Conectado por coexistência", cancelled: "Tentativa cancelada", disconnected: "Desconectado na Meta" };
 const events: Record<string, string> = { preflight_started: "Diagnóstico inicial", onboarding_blocked: "Bloqueio da versão anterior", onboarding_started: "Onboarding iniciado", token_received: "Autorização recebida", coexistence_verified: "Coexistência confirmada pela API", onboarding_connected: "Conexão e sincronização solicitadas", onboarding_cancelled: "Tentativa cancelada", onboarding_error: "Etapa não concluída" };
 export default function WhatsAppConnect() {
@@ -19,10 +19,11 @@ export default function WhatsAppConnect() {
   const [snapshot, setSnapshot] = useState<ConnectResponse | null>(null), [sdk, setSdk] = useState<"loading" | "loaded" | "error">("loading");
   const [prepared, setPrepared] = useState(false), [canResume, setCanResume] = useState(false);
   const [authorizationReceived, setAuthorizationReceived] = useState(false);
+  const [awaitingMeta, setAwaitingMeta] = useState(false);
   const activeUser = useRef<string | null>(null), attempt = useRef<Attempt | null>(null), listener = useRef<((event: MessageEvent) => void) | null>(null);
   const userId = session?.user.id;
   const storageKey = (user: string, org: string) => `arisa.coexistence.${user}.${org}`;
-  const persist = (value: Attempt) => { try { sessionStorage.setItem(storageKey(value.user, value.organization), JSON.stringify({ ...value, finalizing: false })); } catch { /* Storage may be disabled. */ } };
+  const persist = (value: Attempt) => { try { sessionStorage.setItem(storageKey(value.user, value.organization), JSON.stringify({ ...value, finalizing: false, exchanging: false, cancelling: false })); } catch { /* Storage may be disabled. */ } };
   const forget = (value: Attempt | null) => { if (value) { try { sessionStorage.removeItem(storageKey(value.user, value.organization)); } catch { /* No storage. */ } } };
   const cleanupListener = () => { if (listener.current) window.removeEventListener("message", listener.current); listener.current = null; };
   useEffect(() => {
@@ -32,7 +33,7 @@ export default function WhatsAppConnect() {
       if (!alive) return;
       if (activeUser.current !== (value?.user.id || null)) {
         activeUser.current = value?.user.id || null; cleanupListener(); attempt.current = null;
-        setOrganization(""); setMemberships([]); setSnapshot(null); setNotice(""); setError(""); setPrepared(false); setBusy(false); setAuthorizationReceived(false);
+        setOrganization(""); setMemberships([]); setSnapshot(null); setNotice(""); setError(""); setPrepared(false); setBusy(false); setAuthorizationReceived(false); setAwaitingMeta(false);
       }
       setSession(value); setLoading(false);
     };
@@ -64,7 +65,7 @@ export default function WhatsAppConnect() {
         try {
           const saved = JSON.parse(sessionStorage.getItem(storageKey(userId, organization)) || "null") as Attempt | null;
           if (saved && saved.user === userId && saved.organization === organization && Date.parse(saved.session.expiresAt) > Date.now()) {
-            attempt.current = saved; setCanResume(Boolean(saved.exchanged && saved.finish)); setAuthorizationReceived(Boolean(saved.exchanged));
+            attempt.current = saved; setPrepared(!saved.exchanged); setCanResume(Boolean(saved.exchanged && saved.finish)); setAuthorizationReceived(Boolean(saved.exchanged));
             if (saved.exchanged) setNotice("A autorização foi recebida. Retome a finalização desta tentativa.");
           }
         } catch { /* Ignore an unavailable or expired browser session. */ }
@@ -117,36 +118,38 @@ export default function WhatsAppConnect() {
   }
   function launch() {
     const a = attempt.current, fb = (window as Window & { FB?: Facebook }).FB;
-    if (!a || !fb || sdk !== "loaded") return;
+    if (!a || !fb || sdk !== "loaded" || a.exchanging || a.exchanged || a.finalizing || a.cancelling) return;
     if (Date.parse(a.session.expiresAt) <= Date.now()) { setPrepared(false); setError("A tentativa expirou. Prepare uma nova conexão."); return; }
-    setError(""); setBusy(true); setNotice("Continue na janela da Meta. Selecione a opção para conectar o WhatsApp Business que já está no seu iPhone.");
+    setError(""); setBusy(true); setAwaitingMeta(true); setNotice("Continue na janela da Meta. Se ela não abrir, encerre esta tentativa e abra esta página no Chrome, Edge ou Safari com pop-ups permitidos. Na Meta, selecione o WhatsApp Business que já está no seu iPhone.");
     cleanupListener();
     listener.current = (event: MessageEvent) => {
-      if (attempt.current !== a || activeUser.current !== a.user) return;
+      if (attempt.current !== a || activeUser.current !== a.user || a.cancelling) return;
       const parsed = parseMetaEvent(event.origin, event.data); if (!parsed) return;
       if (parsed.event === "FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING") { a.finish = parsed; persist(a); void finish(a); }
-      else if (parsed.event === "ERROR") { setError("A Meta informou que esta etapa não foi concluída. Confira a mensagem na janela oficial."); setBusy(false); }
-      else if (!a.exchanged) { setNotice("A janela informou cancelamento. Aguarde o retorno do login ou encerre esta tentativa abaixo."); setBusy(false); }
+      else if (parsed.event === "ERROR") { setError("A Meta informou que esta etapa não foi concluída. Confira a mensagem na janela oficial."); if (!a.exchanging && !a.finalizing) setBusy(false); }
+      else if (!a.exchanged && !a.exchanging) { setNotice("A janela informou cancelamento. Aguarde o retorno do login ou encerre esta tentativa abaixo."); setBusy(false); }
     };
     window.addEventListener("message", listener.current);
     // Synchronous call from the actual user click prevents popup blocking.
     try { fb.login(response => {
-      if (attempt.current !== a || activeUser.current !== a.user) return;
+      if (attempt.current !== a || activeUser.current !== a.user || a.cancelling || a.exchanging || a.exchanged) return;
+      setAwaitingMeta(false);
       const code = response.authResponse?.code;
       if (!code) { setBusy(false); setNotice("A autorização não foi recebida. Você pode continuar na Meta ou encerrar esta tentativa."); return; }
       setNotice("Autorização recebida. Validando com a Meta…");
+      a.exchanging = true;
       // Codes expire quickly: exchange immediately, independently of postMessage order.
       void api("/api/arisa/whatsapp-connect/callback", { ...callbackBody(a), action: "exchange", code }, a.user).then(() => {
-        a.exchanged = true; persist(a); setCanResume(Boolean(a.finish)); setAuthorizationReceived(true);
+        a.exchanging = false; a.exchanged = true; persist(a); setCanResume(Boolean(a.finish)); setAuthorizationReceived(true);
         if (a.finish) void finish(a); else { setBusy(false); setNotice("Autorização recebida. Conclua a tela de coexistência na Meta para finalizar."); }
-      }).catch(failure => { if (activeUser.current === a.user) { setError(failure instanceof Error ? failure.message : "Falha na autorização."); setBusy(false); } });
-    }, coexistenceLoginOptions(a.session.configId)); } catch { setBusy(false); setError("Não foi possível abrir o login da Meta. Permita pop-ups para este site."); }
+      }).catch(failure => { a.exchanging = false; if (activeUser.current === a.user) { setError(failure instanceof Error ? failure.message : "Falha na autorização."); setBusy(false); } });
+    }, coexistenceLoginOptions(a.session.configId)); } catch { setAwaitingMeta(false); setBusy(false); setError("Não foi possível abrir o login da Meta. Permita pop-ups para este site."); }
   }
   async function cancel() {
-    const a = attempt.current; if (!a || a.exchanged || a.finalizing) return;
-    setBusy(true); setError("");
+    const a = attempt.current; if (!a || a.exchanged || a.finalizing || a.exchanging || a.cancelling) return;
+    a.cancelling = true; setAwaitingMeta(false); setBusy(true); setError("");
     try { setSnapshot(await api("/api/arisa/whatsapp-connect/callback", { ...callbackBody(a), action: "cancel" }, a.user)); cleanupListener(); forget(a); attempt.current = null; setPrepared(false); setNotice("Tentativa encerrada nesta página. Nenhum pedido de migração ou registro foi feito pelo sistema."); }
-    catch (failure) { setError(failure instanceof Error ? failure.message : "Não foi possível encerrar."); }
+    catch (failure) { a.cancelling = false; setError(failure instanceof Error ? failure.message : "Não foi possível encerrar."); }
     finally { setBusy(false); }
   }
   async function signIn(event: FormEvent<HTMLFormElement>) {
@@ -164,7 +167,7 @@ export default function WhatsAppConnect() {
         <div className={styles.warning}><strong>Continue usando o WhatsApp Business no iPhone</strong><p>A coexistência mantém o aplicativo principal. A Meta pode desconectar dispositivos vinculados; você poderá vinculá-los novamente. Algumas funções do aplicativo podem mudar.</p><p>Na janela da Meta, selecione a conexão do WhatsApp Business existente. Se essa opção não estiver disponível, encerre a tentativa.</p><a href={CONNECT_POLICY.documentation} target="_blank" rel="noopener noreferrer">Como funciona a coexistência ↗</a></div>
         {connected ? <p className={styles.notice}>Seu canal {c?.phone_number_masked} foi confirmado pela API da Meta.</p> : canResume ? <button className={styles.primary} disabled={busy} onClick={() => { const a = attempt.current; if (a) void finish(a); }}>{busy ? "Finalizando…" : "Retomar finalização"}</button> : prepared ? <button className={styles.primary} disabled={busy || !ready} onClick={launch}>{busy ? "Aguardando a Meta…" : "Continuar na Meta"}</button> : <button className={styles.primary} disabled={busy || !ready || !organization} onClick={() => void prepare()}>{busy ? "Preparando…" : "Conectar WhatsApp"}</button>}
         <p className={styles.hint}>{!session ? "Entre com sua conta da Évora para conectar." : !snapshot ? "Consultando a configuração…" : !snapshot.configuration.ready ? "A configuração do aplicativo Meta está pendente." : sdk !== "loaded" ? sdk === "error" ? "O SDK da Meta não carregou. Recarregue a página e verifique bloqueadores do navegador." : "Carregando o SDK oficial da Meta…" : "Você confirma a conta, o número e as permissões na Meta. Respostas automáticas permanecem desativadas."}</p>
-        {prepared && !authorizationReceived && <button className={styles.textButton} disabled={busy} onClick={() => void cancel()}>Encerrar tentativa nesta página</button>}
+        {prepared && !authorizationReceived && <button className={styles.textButton} disabled={busy && !awaitingMeta} onClick={() => void cancel()}>Encerrar tentativa nesta página</button>}
         <dl className={styles.facts}><div><dt>Estado da conexão</dt><dd>{labels[c?.onboarding_status || "not_started"] || "Aguardando revisão"}</dd></div><div><dt>Coexistência</dt><dd>{c?.coexistence_status === "verified" ? "Confirmada pela API da Meta" : "A verificar na Meta"}</dd></div><div><dt>Respostas automáticas</dt><dd>Desativadas</dd></div></dl>
       </section>
       <section className={styles.card} aria-labelledby="diagnostic-title"><div className={styles.cardHeading}><span className={styles.step}>02</span><div><small>ACESSO E ACOMPANHAMENTO</small><h2 id="diagnostic-title">Sua conexão</h2></div></div>

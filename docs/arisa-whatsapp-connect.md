@@ -1,8 +1,16 @@
 # Arisa: WhatsApp Business App Coexistence
 
-A página `/arisa/whatsapp-connect` agora abre o Embedded Signup oficial v4 após autorização do administrador da Évora. O usuário escolhe o número e confirma o consentimento na Meta e no WhatsApp Business. Concluir o fluxo já pode vincular a conta; não existe promessa de uma verificação prévia sem vínculo.
+A página `/arisa/whatsapp-connect` apresenta a preparação pela YCloud Free, autorizada pelo responsável em 05/10/2026. Ela abre somente links externos de cadastro, painel e documentação, sem enviar identificadores do canal. Não carrega o SDK da Meta, não restaura tentativas antigas e não chama begin, exchange ou finalize. A leitura de estado e auditoria continua exigindo administrador ativo da organização.
 
-## Fluxo e limites
+A Meta recusou a solicitação de `whatsapp_business_management` avançado após as respostas verdadeiras de uso próprio (sem atender empresas clientes). Não foi confirmada a remoção da permissão do rascunho. Configuração de app/SDK não equivale a aprovação, e acesso de administrador não resolveu o erro #2655111 observado no número real.
+
+Esta entrega prepara o encaminhamento para o provedor. Conta YCloud, credenciais, webhook YCloud → Arisa e elegibilidade ainda estão pendentes; a página informa isso explicitamente e não interpreta abrir um link como conexão concluída. O usuário cria a senha e conclui a verificação no site do provedor. Parar antes do QR, vínculo no iPhone ou sincronização do histórico. O plano Free não exige mensalidade/cartão; tarifas de mensagens são separadas.
+
+Antes de ativar: obter a conta autorizada, configurar credenciais em Vault/schema privado e adaptar a recepção aos eventos YCloud. A assinatura `YCloud-Signature` usa timestamp e HMAC-SHA256 sobre `timestamp.rawBody`; o webhook Meta existente não é compatível. Validar assinatura, janela de tempo, deduplicação e roteamento ao canal pessoal, sem alterar Arisa/Bia. Só marcar conectado após confirmação real dos ativos e coexistência. Não há essa integração ativa nesta entrega.
+
+Referências do provedor: [preços](https://www.ycloud.com/pricing?showCompare=true), [coexistência](https://helpdocs.ycloud.com/help-center/whatsapp-accounts-management/create-a-whatsapp-api-account/whatsapp-business-app-coexistence), [webhooks](https://docs.ycloud.com/reference/configure-webhooks), [termos](https://www.ycloud.com/terms-service).
+
+## Implementação direta anterior (preservada no servidor, sem acionamento pela página)
 
 Os endpoints Next encaminham requisições para a Edge Function `arisa-whatsapp-connect` no projeto Supabase existente. A credencial de serviço é obtida no ambiente protegido da Edge Function; não é necessária uma nova chave na Vercel. O mesmo módulo de callback é utilizado pela função e pelos testes. A verificação JWT do gateway fica desativada para receber webhooks, mas as ações do usuário validam JWT e administrador no código, e os webhooks exigem HMAC.
 
@@ -22,7 +30,7 @@ Os endpoints Next encaminham requisições para a Edge Function `arisa-whatsapp-
 
 App Meta Arisa `2341160449962178`, configuração `2669760446794137` (Arisa Coexistence), WhatsApp Cloud API e token de usuário do sistema com expiração de 60 dias. Domínio e retorno OAuth limitados ao Enterprise. Credencial existente do Vault validada na Graph API como pertencente ao Arisa. Campos messages, account_update, history, smb_app_state_sync e smb_message_echoes assinados em v26.0.
 
-Os termos de Provedor de Tecnologia foram aceitos após autorização explícita do usuário. A empresa está verificada; o app ainda requer análise para permissões avançadas e atendimento a outras empresas. A Meta permite testar com as contas que possuem função no aplicativo. Não declarar aprovação geral nem elegibilidade do número antes de concluir a etapa pessoal na Meta.
+Os termos de Provedor de Tecnologia foram aceitos após autorização explícita do usuário. A empresa está verificada, mas o app não tem as permissões avançadas exigidas pelo fluxo de coexistência observado. O pedido direto permanece em rascunho; não declarar aprovação ou elegibilidade. O caminho do provedor foi escolhido para o uso próprio, sem declarar prestação de serviço a terceiros.
 
 ## Verificação
 

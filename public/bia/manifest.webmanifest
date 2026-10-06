@@ -5,8 +5,8 @@
   "start_url": "/bia",
   "scope": "/bia",
   "display": "standalone",
-  "background_color": "#efeae2",
-  "theme_color": "#79B82B",
+  "background_color": "#f7faf8",
+  "theme_color": "#ffffff",
   "lang": "pt-BR",
   "icons": [
     {

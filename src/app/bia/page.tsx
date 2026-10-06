@@ -4,7 +4,7 @@ import { workspacePanel } from "@/components/arisa/workspace-navigation";
 export const metadata: Metadata = {
   title: "Bia — Gestora comercial da Évora", applicationName: "Bia", manifest: "/bia/manifest.webmanifest",
   icons: { icon: {url:"/bia/icon-512-v1.png",sizes:"512x512",type:"image/png"}, apple: {url:"/bia/apple-touch-icon-v1.png",sizes:"180x180",type:"image/png"} },
-  appleWebApp: {capable:true,title:"Bia",statusBarStyle:"black-translucent"}, robots:{index:false,follow:false}
+  appleWebApp: {capable:true,title:"Bia",statusBarStyle:"default"}, robots:{index:false,follow:false}
 };
 export const viewport: Viewport = {width:"device-width",initialScale:1,viewportFit:"cover",themeColor:"#ffffff"};
 export default async function Page({searchParams}:{searchParams:Promise<{conversa?:string;painel?:string}>}) {

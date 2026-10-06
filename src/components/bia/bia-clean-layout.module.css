@@ -20,9 +20,9 @@
 }
 .shell :global(.public-agent-avatar) { width: 48px; height: 48px; background: #e5f4ed; }
 .shell :global(.arisa-avatar img) { transform: none; object-position: center; }
-.shell :global(.public-agent-chat-head strong) { font-size: 20px; }
-.shell :global(.public-agent-chat-head span) { color: #536c60; }
-.shell :global(.public-agent-chat-head small) { display: none; }
+.shell :global(.public-agent-chat-head > div:nth-child(2) strong) { font-size: 20px; }
+.shell :global(.public-agent-chat-head > div:nth-child(2) span) { color: #536c60; }
+.shell :global(.public-agent-chat-head > div:nth-child(2) small) { display: none; }
 .shell :global(.public-agent-messages) {
   padding: 28px max(20px, calc((100% - 780px) / 2)) 18px;
   background: #f7faf8;
@@ -81,8 +81,8 @@
   .shell :global(dialog) { border-radius: 0; }
   .shell :global(.public-agent-chat-head) { padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px; gap: 8px; }
   .shell :global(.public-agent-avatar) { width: 42px; height: 42px; }
-  .shell :global(.public-agent-chat-head strong) { font-size: 18px; }
-  .shell :global(.public-agent-chat-head span) { font-size: 11px; }
+  .shell :global(.public-agent-chat-head > div:nth-child(2) strong) { font-size: 18px; }
+  .shell :global(.public-agent-chat-head > div:nth-child(2) span) { font-size: 11px; }
   .shell :global(.public-agent-messages) { padding: 20px 14px 12px; }
   .shell :global(.public-agent-message-content) { max-width: 94%; padding: 12px 14px 8px; }
   .shell :global(.arisa-composer) { padding: 9px 10px 3px; gap: 5px; }

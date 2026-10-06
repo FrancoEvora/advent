@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import WhatsAppConnect from "@/components/arisa/WhatsAppConnect";
 
 export const metadata: Metadata = {
-  title: "Conectar WhatsApp ao Franco | Arisa · Évora",
+  title: "Preparar WhatsApp com YCloud | Arisa · Évora",
   robots: { index: false, follow: false },
   referrer: "no-referrer",
 };

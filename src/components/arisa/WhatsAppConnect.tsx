@@ -47,10 +47,11 @@ export default function WhatsAppConnect() {
   useEffect(() => {
     if (!organization || !userId) return;
     const controller = new AbortController();
-    setBusy(true); setError("");
     void (async () => {
       try {
         const { data } = await client().auth.getSession();
+        if (controller.signal.aborted || activeUser.current !== userId) return;
+        setBusy(true); setError("");
         if (!data.session || data.session.user.id !== userId) throw new Error("Entre novamente para continuar.");
         const response = await fetch(`/api/arisa/whatsapp-connect?organizationId=${organization}`, { headers: { authorization: `Bearer ${data.session.access_token}` }, cache: "no-store", signal: controller.signal });
         const result = await response.json();

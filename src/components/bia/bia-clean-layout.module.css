@@ -1,0 +1,107 @@
+/* Bia's presentation only. Shared chat, voice and notification behavior is retained. */
+.shell:global(.public-agent-page.bia-whatsapp.arisa-chat) {
+  --arisa-green: #087f68;
+  --arisa-ink: #173e34;
+  --arisa-link: #086b58;
+  --arisa-soft: #e5f4ed;
+  --arisa-surface: #f7faf8;
+  background: #edf3ef;
+  color: #243b33;
+}
+.shell :global(.public-agent-shell) { width: min(1100px, 100%); }
+.shell :global(.public-agent-chat-card) { background: #f7faf8; box-shadow: 0 0 36px #153e3408; }
+.shell :global(.public-agent-chat-head) {
+  padding: calc(12px + env(safe-area-inset-top, 0px)) 20px 12px;
+  gap: 12px;
+  background: #fff;
+  border-bottom: 1px solid #e5eee8;
+  box-shadow: none;
+  color: #173e34;
+}
+.shell :global(.public-agent-avatar) { width: 48px; height: 48px; background: #e5f4ed; }
+.shell :global(.arisa-avatar img) { transform: none; object-position: center; }
+.shell :global(.public-agent-chat-head > div:nth-child(2) strong) { font-size: 20px; }
+.shell :global(.public-agent-chat-head > div:nth-child(2) span) { color: #536c60; }
+.shell :global(.public-agent-chat-head > div:nth-child(2) small) { display: none; }
+.shell :global(.public-agent-messages) {
+  padding: 28px max(20px, calc((100% - 780px) / 2)) 18px;
+  background: #f7faf8;
+  scrollbar-color: #ccdcd2 transparent;
+}
+.shell :global(.public-agent-message) { margin-bottom: 18px; }
+.shell :global(.public-agent-message-content),
+.shell :global(.public-agent-message.assistant .public-agent-message-content),
+.shell :global(.public-agent-message.user .public-agent-message-content) {
+  padding: 14px 17px 9px;
+  max-width: min(88%, 620px);
+  border: 1px solid #e4ede7;
+  border-radius: 18px;
+  box-shadow: 0 2px 6px #214a3704;
+}
+.shell :global(.public-agent-message.assistant .public-agent-message-content) { border-bottom-left-radius: 5px; }
+.shell :global(.public-agent-message.user .public-agent-message-content) { border-color: #dbeee2; border-bottom-right-radius: 5px; }
+.shell :global(.public-agent-message-content::before) { display: none; }
+.shell :global(.public-agent-message-content > p) { line-height: 1.65; }
+.shell :global(.public-agent-message-meta) { margin-top: 8px; font-size: 11px; color: #677c70; }
+.shell :global(.arisa-composer) { padding: 12px 20px 4px; gap: 10px; background: #fff; border-top: 1px solid #e5eee8; }
+.shell :global(.arisa-composer textarea) { border: 1px solid #dfe9e2; border-radius: 24px; background: #f8fbf9; }
+.shell :global(.arisa-composer button:not(.arisa-attach)) { color: #fff; }
+.shell :global(.bia-chat-privacy), .shell :global(.arisa-login-footer) { background: #fff; color: #667a6e; }
+.shell :global(.arisa-conversations) { border-left: 1px solid #e3ebe5; box-shadow: -12px 0 40px #153e3410; }
+.shell :global(.arisa-conversations nav button), .shell :global(.arisa-conversations > button) { border-radius: 12px; padding: 12px; }
+.shell :global(.arisa-menu-links) { gap: 4px; }
+.shell :global(.arisa-login form) { border: 1px solid #e1eae4; border-radius: 20px; box-shadow: 0 8px 24px #1a463708; }
+.shell :global(.arisa-login button) { color: #fff; }
+.shell :global(.bia-inbox-toolbar) { background: #fff; border-bottom: 1px solid #e5eee8; padding: 12px 18px; gap: 10px; }
+.shell :global(.bia-inbox-list button) { border-radius: 12px; }
+.shell :global(.bia-inbox-thread .public-agent-messages) { padding: 20px; }
+.shell :global(dialog) { --green: #087f68; --dark: #173e34; border-color: #dce9e0; border-radius: 20px; background: #f7faf8; }
+.shell :global(dialog > header) { background: #fff; color: #173e34; border-bottom: 1px solid #e5eee8; }
+.shell :global(dialog > nav button[aria-current]) { background: #e5f4ed; }
+.shell :global(button) { cursor: pointer; }
+.shell :global(button:disabled) { cursor: default; }
+.quickNav { display: flex; flex: 0 0 auto; gap: 8px; padding: 10px 20px; border-bottom: 1px solid #e5eee8; background: #fff; }
+.quickNav button { flex: 1; display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 0; min-height: 44px; padding: 9px 10px; border: 1px solid transparent; border-radius: 12px; background: transparent; color: #456457; font: inherit; }
+.quickNav button:hover, .actionGrid button:hover { border-color: #a9d5bf; background: #edf7f1; }
+.quickNav strong { font-size: 13px; font-weight: 600; }
+.quickNav svg { width: 18px; height: 18px; flex-shrink: 0; }
+.welcome { max-width: 700px; margin: clamp(12px, 5vh, 56px) auto 24px; }
+.eyebrow { font-size: 11px; font-weight: 650; color: #087f68; letter-spacing: .14em; }
+.welcome h1 { max-width: 530px; margin: 14px 0 16px; color: #193e31; font-size: clamp(26px, 4vw, 36px); font-weight: 600; line-height: 1.18; letter-spacing: -.035em; }
+.welcome > p { margin: 0; max-width: 560px; color: #536b5e; font-size: 16px; line-height: 1.7; }
+.actionGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 26px 0 20px; }
+.actionGrid button { display: flex; align-items: flex-start; gap: 12px; min-width: 0; padding: 20px 16px; border: 1px solid #dfeae3; border-radius: 16px; background: #fff; color: #173e34; text-align: left; font: inherit; box-shadow: 0 3px 10px #193e3103; }
+.actionGrid svg { flex: 0 0 auto; width: 22px; height: 22px; color: #087f68; }
+.actionGrid strong, .actionGrid small { display: block; }
+.actionGrid strong { font-size: 15px; font-weight: 600; }
+.actionGrid small { margin-top: 5px; font-size: 12px; line-height: 1.5; color: #5b7064; }
+.arrow { margin-left: auto; font-size: 18px; color: #719285; }
+.welcome > .hint { font-size: 12px; color: #637a6d; }
+@media (max-width: 600px) {
+  .shell :global(dialog) { border-radius: 0; }
+  .shell :global(.public-agent-chat-head) { padding: calc(10px + env(safe-area-inset-top, 0px)) 12px 10px; gap: 8px; }
+  .shell :global(.public-agent-avatar) { width: 42px; height: 42px; }
+  .shell :global(.public-agent-chat-head > div:nth-child(2) strong) { font-size: 18px; }
+  .shell :global(.public-agent-chat-head > div:nth-child(2) span) { font-size: 11px; }
+  .shell :global(.public-agent-messages) { padding: 20px 14px 12px; }
+  .shell :global(.public-agent-message-content) { max-width: 94%; padding: 12px 14px 8px; }
+  .shell :global(.arisa-composer) { padding: 9px 10px 3px; gap: 5px; }
+  .shell :global(.bia-inbox-thread .public-agent-messages) { padding: 14px; }
+  .quickNav { gap: 2px; padding: 6px 8px; }
+  .quickNav button { gap: 4px; padding: 8px 3px; }
+  .quickNav strong { font-size: 11px; }
+  .quickNav svg { width: 16px; height: 16px; }
+  .welcome { margin: 12px auto 18px; }
+  .welcome h1 { font-size: 28px; }
+  .welcome > p { font-size: 15px; line-height: 1.6; }
+  .actionGrid { gap: 9px; margin: 22px 0 16px; }
+  .actionGrid button { padding: 16px 12px; gap: 8px; flex-wrap: wrap; }
+  .actionGrid button > span:not(.arrow) { flex: 1 1 90px; }
+  .actionGrid strong { font-size: 14px; }
+  .arrow { display: none; }
+}
+@media (max-width: 360px) {
+  .quickNav button { flex-direction: column; gap: 3px; }
+  .actionGrid { grid-template-columns: 1fr; }
+  .welcome h1 { font-size: 25px; }
+}

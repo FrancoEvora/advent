@@ -1,5 +1,6 @@
 "use client";
 import Link from 'next/link';
+import biaLayout from './bia-clean-layout.module.css';
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Session } from '@supabase/supabase-js';
 import { client } from '../arisa/chat-client';
@@ -58,7 +59,7 @@ export default function BiaInbox() {
   }
   async function control(action:string){setBusy(true);try{await load(action);}finally{setBusy(false);}}
   const active=data?.threads.find(t=>t.id===threadId);
-  return <main id="conteudo-principal" className="public-agent-page bia-whatsapp arisa-chat bia-commercial"><div className="public-agent-shell"><section className="public-agent-chat-card">
+  return <main id="conteudo-principal" className={`public-agent-page bia-whatsapp arisa-chat bia-commercial ${biaLayout.shell}`}><div className="public-agent-shell"><section className="public-agent-chat-card">
     <AssistantHeader name="Bia" subtitle="Central de vendas e atendimento" organization="Évora Urbanismo" avatar="/bia/icon-512-v1.png" />
     {!ready ? <p role="status">Verificando acesso…</p> : !session ? <div className="public-agent-messages arisa-login"><p>Acompanhe os atendimentos comerciais da Bia com sua conta da plataforma.</p><form onSubmit={signIn}><label>E-mail<input type="email" name="email" autoComplete="username" required /></label><label>Senha<input type="password" name="password" autoComplete="current-password" required /></label><button disabled={busy}>{busy?'Entrando…':'Entrar na central da Bia'}</button></form><Link href="/">Abrir plataforma</Link></div> : !org ? <div className="arisa-login"><label>Organização<select value={org} onChange={e=>{requestNumber.current++;setData(null);setThreadId(null);setOrg(e.target.value);}}><option value="">Selecione</option>{memberships.map(m=><option key={m.organization_id} value={m.organization_id}>{m.organizations?.name}</option>)}</select></label><button onClick={()=>void client().auth.signOut()}>Trocar de conta</button></div> : <>
       <div className="bia-inbox-toolbar"><strong>{data?.enabled&&data.verified?'WhatsApp ativo':'WhatsApp em preparação'}</strong><span>{data?.phone}</span><Link href="/bia?painel=whatsapp">Conversas da Bia</Link><Link href="/bia">Conversar com a Bia</Link><Link href="/?view=crm">Abrir CRM</Link><button disabled={busy} onClick={()=>void control('read')}>Atualizar</button></div>

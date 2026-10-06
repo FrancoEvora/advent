@@ -132,7 +132,7 @@ function Conversation({ userId, organizationId, organizationName, initialThreadI
   }, [threadId, refresh]);
   const pending = messages.some(message => message.role === "user" && message.status === "processing");
   useEffect(() => { if (!threadId || !pending) return; const timer = setInterval(() => { void refresh(threadId).catch(() => {}); }, 6000); return () => clearInterval(timer); }, [threadId, pending, refresh]);
-  useEffect(() => { const frame = requestAnimationFrame(() => { if (pinned.current && pane.current) pane.current.scrollTop = pane.current.scrollHeight; }); return () => cancelAnimationFrame(frame); }, [messages, busy, draftFiles, voice.state.end]);
+  useEffect(() => { const frame = requestAnimationFrame(() => { if (pinned.current && pane.current) pane.current.scrollTop = assistant === "bia" && !messages.length && !busy ? 0 : pane.current.scrollHeight; }); return () => cancelAnimationFrame(frame); }, [assistant, messages, busy, draftFiles, voice.state.end]);
   function switchThread(id: string | null) {
     if (busy || recording || working.current) return;
     voice.stop(); setThreadId(id); activeThread.current = id; setLoading(Boolean(id)); setMessages([]); setActions([]); setFiles([]); setDraftFiles([]); setDraft(""); setError(""); setMenu(false); pinned.current = true;

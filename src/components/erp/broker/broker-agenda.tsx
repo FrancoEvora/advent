@@ -2,6 +2,8 @@
 
 import { useState, type FormEvent } from "react";
 import { getSupabase } from "@/lib/supabase";
+import { normalizeBrokerSearch } from "@/lib/broker-funnel";
+import { BrokerLeadSelect } from "./broker-lead-select";
 import type { BrokerAppointment, BrokerData } from "./load-broker-data";
 import { date, localInput } from "./broker-format";
 import styles from "./broker-workspace.module.css";
@@ -14,11 +16,16 @@ export function BrokerAgenda({ loaded, openLead, done }: { loaded: BrokerData; o
   const [editing, setEditing] = useState<BrokerAppointment | "new" | null>(null);
   const [status, setStatus] = useState("active");
   const [leadFilter, setLeadFilter] = useState("");
-  const rows = loaded.activities.filter(item => (status === "all" || !["cancelada", "concluida"].includes(item.status)) && (!leadFilter || appointmentLeadId(item, loaded) === leadFilter));
+  const [query, setQuery] = useState("");
+  const leadNames = new Map(loaded.crm.records.map(lead => [lead.id, lead.person_name]));
+  const rows = loaded.activities.filter(item => {
+    const leadId = appointmentLeadId(item, loaded);
+    return (status === "all" || !["cancelada", "concluida"].includes(item.status)) && (!leadFilter || leadId === leadFilter) && normalizeBrokerSearch(`${leadNames.get(leadId || "") || ""} ${item.title}`).includes(normalizeBrokerSearch(query));
+  });
   return <section>
     <div className={styles.sectionTitle}><div><small>ROTINA COMERCIAL</small><h2>Minha agenda</h2><p>Seus compromissos e os próximos passos de cada atendimento.</p></div><button className="primary" onClick={() => setEditing("new")}>+ Novo compromisso</button></div>
-    <div className={styles.filters}><select aria-label="Filtrar agenda por cliente" value={leadFilter} onChange={e => setLeadFilter(e.target.value)}><option value="">Todos os clientes</option>{loaded.crm.records.map(row => <option key={row.id} value={row.id}>{row.person_name}</option>)}</select><select aria-label="Situação da agenda" value={status} onChange={e => setStatus(e.target.value)}><option value="active">Pendentes e em andamento</option><option value="all">Todos os compromissos</option></select><span>{rows.length} compromissos</span></div>
-    <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Data e horário</th><th>Compromisso</th><th>Cliente</th><th>Prazo</th><th>Situação</th><th>Ações</th></tr></thead><tbody>{rows.map(item => {
+    <div className={styles.filters}><label className={styles.searchField}>Buscar na agenda<input type="search" placeholder="Buscar por nome do lead ou compromisso" value={query} onChange={event => setQuery(event.target.value)} /></label><label className={styles.filterField}>Lead vinculado<select value={leadFilter} onChange={e => setLeadFilter(e.target.value)}><option value="">Todos os leads e compromissos pessoais</option>{loaded.crm.records.map(row => <option key={row.id} value={row.id}>{row.person_name}</option>)}</select></label><select aria-label="Situação da agenda" value={status} onChange={e => setStatus(e.target.value)}><option value="active">Pendentes e em andamento</option><option value="all">Todos os compromissos</option></select><span>{rows.length} compromissos</span></div>
+    <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Data e horário</th><th>Compromisso</th><th>Lead vinculado</th><th>Prazo</th><th>Situação</th><th>Ações</th></tr></thead><tbody>{rows.map(item => {
       const leadId = appointmentLeadId(item, loaded);
       const lead = loaded.crm.records.find(row => row.id === leadId);
       const assignment = loaded.crm.assignments.find(row => row.user_activity_id === item.id);
@@ -34,7 +41,8 @@ export function BrokerAppointmentModal({ loaded, item, initialLeadId, close, don
   const [error, setError] = useState("");
   const assignment = loaded.crm.assignments.find(row => row.user_activity_id === item?.id);
   const [defaultEnd] = useState(() => localInput(item?.due_at || new Date(Date.now() + 3600000).toISOString()));
-  const leadId = item ? appointmentLeadId(item, loaded) : initialLeadId;
+  const [selectedLeadId, setSelectedLeadId] = useState(initialLeadId || "");
+  const leadId = item ? appointmentLeadId(item, loaded) : selectedLeadId;
   async function save(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); if (busy) return;
     const form = new FormData(event.currentTarget);
@@ -49,7 +57,7 @@ export function BrokerAppointmentModal({ loaded, item, initialLeadId, close, don
   return <div className="modal-backdrop"><form className={`modal large ${styles.detail}`} role="dialog" aria-modal="true" aria-label="Gerenciar compromisso" onSubmit={save}>
     <button type="button" className="modal-close" aria-label="Fechar compromisso" disabled={busy} onClick={close}>×</button><header><small>MINHA AGENDA · HORÁRIO DE BRASÍLIA</small><h2>{item ? "Gerenciar compromisso" : "Novo compromisso"}</h2></header>
     <fieldset disabled={busy} className={styles.formGrid}>
-      <label>Cliente<select name="lead" defaultValue={leadId || ""} disabled={Boolean(item)}><option value="">Compromisso pessoal</option>{loaded.crm.records.map(row => <option key={row.id} value={row.id}>{row.person_name}</option>)}</select></label>
+      <BrokerLeadSelect leads={loaded.crm.records} value={leadId || ""} onChange={setSelectedLeadId} disabled={Boolean(item)} />
       <label>Título<input name="title" required maxLength={180} defaultValue={assignment ? "Atendimento comercial" : item?.title || ""} /></label>
       <label>Início<input name="starts" type="datetime-local" required defaultValue={localInput(item?.starts_at || item?.due_at)} /></label><label>Prazo / término<input name="due" type="datetime-local" required defaultValue={defaultEnd} /></label>
       <label>Situação<select name="status" defaultValue={item?.status || "pendente"}><option value="pendente">Pendente</option><option value="em_andamento">Em andamento</option><option value="concluida">Concluído</option>{!assignment && <option value="cancelada">Cancelado</option>}</select></label>

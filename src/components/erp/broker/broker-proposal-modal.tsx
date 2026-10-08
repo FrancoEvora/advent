@@ -6,6 +6,7 @@ import { CurrencyInput } from "../crm-v5/sales/currency-input";
 import { buildPlan } from "../crm-v5/sales/utils";
 import { money, today } from "./broker-format";
 import type { BrokerData } from "./load-broker-data";
+import { BrokerLeadSelect } from "./broker-lead-select";
 import styles from "./broker-workspace.module.css";
 
 export function BrokerProposalModal({ loaded, initialLeadId, initialUnitId, close, done }: { loaded: BrokerData; initialLeadId?: string; initialUnitId?: string; close: () => void; done: (message: string) => Promise<void> }) {
@@ -39,21 +40,21 @@ export function BrokerProposalModal({ loaded, initialLeadId, initialUnitId, clos
     event.preventDefault(); if (busy) return;
     setBusy(true); setError("");
     try {
-      if (!lead || !unit || !policy) throw new Error("Selecione o cliente, o lote e uma política comercial vigente.");
+      if (!lead || !unit || !policy) throw new Error("Selecione o lead, o lote e uma política comercial vigente.");
       if (down + balloons > price || (balloons > 0 && !balloonCount)) throw new Error("Revise a entrada e os balões.");
       requestId.current ??= crypto.randomUUID();
       const form = new FormData(event.currentTarget);
       const result = await getSupabase()!.rpc("submit_broker_proposal", { p_record_id: lead.id, p_unit_id: unit.id, p_request_id: requestId.current, p_terms: { sale_price: price, down_payment: down, down_count: downCount, months, monthly_rate: monthlyRate, balloon_total: balloons, balloon_count: balloonCount, first_due: firstDue, down_due: downDue, conditions: String(form.get("conditions") || "") } });
       if (result.error) throw result.error;
-      await done(`Proposta ${result.data.number} encaminhada à Diretoria. O lote está reservado e vinculado à proposta.`); close();
+      await done(`Proposta ${result.data.number} encaminhada para aprovação. O lote está reservado e vinculado à proposta.`); close();
     } catch (cause) { setError(cause instanceof Error ? cause.message : (cause as { message?: string })?.message || "Não foi possível encaminhar a proposta."); }
     finally { setBusy(false); }
   }
   return <div className="modal-backdrop"><form className={`modal large ${styles.detail}`} role="dialog" aria-modal="true" aria-label="Proposta e reserva de lote" onSubmit={submit}>
     <button type="button" className="modal-close" disabled={busy} onClick={close} aria-label="Fechar proposta">×</button>
-    <header><small>PROPOSTA E RESERVA</small><h2>Encaminhar à Diretoria</h2><p>A reserva será criada junto com a proposta. As condições dependem da aprovação da Diretoria.</p></header>
+    <header><small>PROPOSTA E RESERVA</small><h2>Encaminhar proposta</h2><p>A reserva será criada junto com a proposta. As condições dependem da aprovação da Diretoria.</p></header>
     <fieldset disabled={busy} className={styles.formGrid}>
-      <label>Cliente<select required value={leadId} onChange={e => { setLeadId(e.target.value); setUnitId(""); setPrice(0); }}><option value="">Selecione o atendimento</option>{loaded.crm.records.filter(row => row.record_status === "aberta").map(row => <option key={row.id} value={row.id}>{row.person_name}</option>)}</select></label>
+      <BrokerLeadSelect required leads={loaded.crm.records.filter(row => row.record_status === "aberta")} value={leadId} onChange={id => { setLeadId(id); setUnitId(""); setPrice(0); }} />
       <label>Lote disponível<select required value={unitId} onChange={e => changeUnit(e.target.value)}><option value="">Selecione o lote</option>{loaded.units.filter(row => !lead?.project_id || row.project_id === lead.project_id).map(row => <option key={row.id} value={row.id}>{row.unit_code} · {row.area} m² · {money.format(row.list_price)}</option>)}</select></label>
       <label>Valor proposto<CurrencyInput name="sale_price" value={price} onValueChange={setPrice} /></label><label>Entrada<CurrencyInput name="down_payment" value={down} onValueChange={setDown} /></label>
       <label>Parcelas da entrada<input required type="number" min={1} max={36} value={downCount} onChange={e => setDownCount(Number(e.target.value))} /></label><label>Primeiro vencimento da entrada<input required type="date" min={today()} value={downDue} onChange={e => setDownDue(e.target.value)} /></label>
@@ -64,6 +65,6 @@ export function BrokerProposalModal({ loaded, initialLeadId, initialUnitId, clos
     {policy && <div className={styles.guidance}><strong>{policy.name}</strong><p>Correção: {policy.indexer || "Sem indexador"}. Reserva por {policy.reservation_validity_hours} horas. {policy.grace_months > 0 ? `Carência de ${policy.grace_months} meses.` : ""}</p><p>Parcela mensal estimada: <strong>{money.format(plan.find(row => row.installment_type === "mensal")?.amount || 0)}</strong>. Balões a cada {policy.balloon_frequency_months} meses.</p></div>}
     {unit && !policy && <p role="alert">Não há política comercial vigente para este atendimento. Solicite a configuração à Diretoria.</p>}
     {error && <p className="feedback error" role="alert">{error}</p>}
-    <footer className={styles.actions}><button type="button" disabled={busy} onClick={close}>Cancelar</button><button className="primary" disabled={busy || !policy || !lead || price <= 0}>{busy ? "Encaminhando…" : "Reservar lote e enviar para aprovação"}</button></footer>
+    <footer className={styles.actions}><button type="button" disabled={busy} onClick={close}>Cancelar</button><button className="primary" disabled={busy || !policy || !lead || price <= 0}>{busy ? "Encaminhando…" : "Encaminhar proposta"}</button></footer>
   </form></div>;
 }

@@ -1,4 +1,4 @@
-export const brokerSections = ["leads", "salesmap", "agenda", "materials"] as const;
+export const brokerSections = ["leads", "pipelines", "salesmap", "proposals", "agenda", "materials"] as const;
 export type BrokerSection = (typeof brokerSections)[number];
 
 export function isBrokerSection(value: string): value is BrokerSection {

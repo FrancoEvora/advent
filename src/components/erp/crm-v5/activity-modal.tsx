@@ -163,7 +163,7 @@ export function ActivityModal({
   const [completeNow, setCompleteNow] = useState(false);
   const [notes, setNotes] = useState("");
   const [brokerUserId, setBrokerUserId] = useState(
-    lead?.broker_user_id || "",
+    data.membership.role === "corretor" ? data.session.user.id : lead?.broker_user_id || "",
   );
 
   const selectedLead = useMemo(
@@ -208,7 +208,7 @@ export function ActivityModal({
       !eligible.some((member) => member.user_id === currentBroker.user_id)
       ? [currentBroker, ...eligible]
       : eligible;
-  }, [crm.teamMembers, crm.teams, data.members, selectedLead?.broker_user_id]);
+  }, [crm.teamMembers, crm.teams, data.members, selectedLead]);
 
   const appointment =
     !completeNow &&
@@ -321,7 +321,7 @@ export function ActivityModal({
   function selectLead(nextLeadId: string) {
     setSelectedLeadId(nextLeadId);
     const nextLead = crm.records.find((item) => item.id === nextLeadId);
-    setBrokerUserId(nextLead?.broker_user_id || "");
+    setBrokerUserId(data.membership.role === "corretor" ? data.session.user.id : nextLead?.broker_user_id || "");
     setAvailability(null);
     setAvailabilityError("");
   }
@@ -588,7 +588,7 @@ export function ActivityModal({
                     ? brokerChanged
                       ? "Ao salvar, o corretor será formalmente designado para este lead."
                       : "Selecione o corretor que atenderá a oportunidade."
-                    : selectedLead?.broker_user_id
+                    : data.membership.role === "corretor" ? "Este atendimento será registrado na sua agenda." : selectedLead?.broker_user_id
                       ? `Corretor definido pela Direção Comercial: ${profileName(data, selectedLead.broker_user_id)}.`
                       : "A atribuição do corretor depende da Direção Comercial."}
                 </span>

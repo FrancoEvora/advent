@@ -67,6 +67,7 @@ type ServerMediaRef = {
 };
 
 type AuthContext = {
+  user: SupabaseClient;
   service: SupabaseClient;
   organizationId: string;
 };
@@ -570,6 +571,7 @@ async function authContext(
   const svc = serviceConfig();
   return {
     organizationId,
+    user,
     service: createClient(svc.url, svc.key, {
       auth: {
         persistSession: false,
@@ -716,8 +718,9 @@ export async function POST(request: NextRequest) {
       throw new ApiError("Lead inválido.", 400, "INVALID_CRM_RECORD");
     }
 
-    const { service } = await authContext(request, organizationId);
-    const record = await service
+    const { user, service } = await authContext(request, organizationId);
+    // Resolve the lead with the caller's RLS before using privileged history access.
+    const record = await user
       .from("crm_records")
       .select("id")
       .eq("organization_id", organizationId)

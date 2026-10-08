@@ -113,7 +113,7 @@ function CampaignModal({ data, campaign, close, reload }: { data: ErpData; campa
   );
 }
 
-export function MaterialsView({ data, crm, reload }: { data: ErpData; crm: CrmEnterpriseData; reload: () => Promise<void> }) {
+export function MaterialsView({ data, crm, reload, readOnly = false }: { data: ErpData; crm: CrmEnterpriseData; reload: () => Promise<void>; readOnly?: boolean }) {
   const [folder, setFolder] = useState("todos");
   const [show, setShow] = useState(false);
   const assets = useMemo(() => crm.assets.filter((asset) => folder === "todos" || asset.folder_id === folder), [crm.assets, folder]);
@@ -126,13 +126,13 @@ export function MaterialsView({ data, crm, reload }: { data: ErpData; crm: CrmEn
   }
   return (
     <div className="crm5-stack">
-      <CrmSectionHeader eyebrow="CENTRAL DE CONTEÚDO" title="Materiais de marketing" description="Books, vídeos, imagens, tabelas, plantas e documentos por empreendimento." actions={<button className="primary" onClick={() => setShow(true)}>+ Material</button>} />
+      <CrmSectionHeader eyebrow="CENTRAL DE CONTEÚDO" title="Materiais de marketing" description="Books, vídeos, imagens, tabelas, plantas e documentos por empreendimento." actions={!readOnly && <button className="primary" onClick={() => setShow(true)}>+ Material</button>} />
       <section className="crm5-toolbar"><select value={folder} onChange={(event) => setFolder(event.target.value)}><option value="todos">Todos os diretórios</option>{crm.folders.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><span>{assets.length} materiais</span></section>
       <section className="crm5-assets">
         {assets.map((asset) => <article key={asset.id}><div className="crm5-asset-icon">{asset.asset_type === "video" ? "▶" : asset.asset_type === "link" ? "↗" : "▧"}</div><div><small>{asset.asset_type} · {data.projects.find((project) => project.id === asset.project_id)?.name || "Corporativo"}</small><h3>{asset.name}</h3><p>{asset.description || "Sem descrição"}</p><div>{(asset.tags || []).map((tag) => <i key={tag}>{tag}</i>)}</div></div><button onClick={() => openAsset(asset)}>Abrir</button></article>)}
         {!assets.length && <EmptyState title="Biblioteca vazia" text="Cadastre books, tabelas, imagens, vídeos e links comerciais." />}
       </section>
-      {show && <AssetModal data={data} crm={crm} close={() => setShow(false)} reload={reload} />}
+      {show && !readOnly && <AssetModal data={data} crm={crm} close={() => setShow(false)} reload={reload} />}
     </div>
   );
 }

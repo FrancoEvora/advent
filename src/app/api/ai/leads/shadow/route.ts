@@ -217,7 +217,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const records = await auth.service
+    const records = await auth.user
       .from("crm_records")
       .select("id")
       .eq("organization_id", auth.organizationId)

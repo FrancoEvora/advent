@@ -362,6 +362,29 @@ export function SdrAssignmentPanel({
           )}
         </header>
 
+        {canAssign && selected && <form key={`brokerage-${selected.lead.id}-${selected.lead.team_id}`} className="sdr67-assignment-fields" onSubmit={async event => {
+          event.preventDefault();
+          const teamId = String(new FormData(event.currentTarget).get("brokerage") || "");
+          const client = getSupabase();
+          if (!client) return;
+          clearMessages(); setBusy("brokerage");
+          try {
+            const result = await client.rpc("assign_crm_brokerage", { p_crm_record_id: selected.lead.id, p_team_id: teamId || null });
+            if (result.error) throw result.error;
+            await reload(); setMessage(teamId ? "Lead designado à carteira da imobiliária." : "Compartilhamento com a imobiliária removido.");
+          } catch { setError("Não foi possível alterar a imobiliária do lead."); }
+          finally { setBusy(""); }
+        }}>
+          <label>Imobiliária responsável
+            <select name="brokerage" defaultValue={crm.teams.some(team => team.id === selected.lead.team_id && team.is_brokerage) ? selected.lead.team_id || "" : ""}>
+              <option value="">Sem compartilhamento com imobiliária</option>
+              {crm.teams.filter(team => team.active && team.is_brokerage).map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+            </select>
+          </label>
+          <button disabled={!!busy} type="submit">Salvar imobiliária</button>
+          <small>Todos os corretores vinculados a esta imobiliária poderão atender este lead.</small>
+        </form>}
+
         {canAssign && selected && (
           <div className="sdr67-assignment-console">
             <div className="sdr67-assignment-fields">

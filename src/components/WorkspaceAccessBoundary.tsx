@@ -39,7 +39,7 @@ export function WorkspaceAccessBoundary({ children }: { children: React.ReactNod
       }
     };
     void check();
-    const { data: listener } = client.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT" || event === "SIGNED_IN") setState({ loading: true, access: null, error: "" }); queueMicrotask(() => { if (alive) void check(); }); });
+    const { data: listener } = client.auth.onAuthStateChange((event, session) => { if (event === "SIGNED_OUT" || event === "SIGNED_IN") setState(current => event === "SIGNED_OUT" || current.access?.session.user.id !== session?.user.id ? { loading: true, access: null, error: "" } : current); queueMicrotask(() => { if (alive) void check(); }); });
     const refresh = () => { if (document.visibilityState === "visible") void check(); };
     window.addEventListener("focus", refresh);
     document.addEventListener("visibilitychange", refresh);

@@ -1,0 +1,7 @@
+{
+  "imports": {
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.110.7",
+    "next/server": "./http.ts",
+    "@/lib/crm/conversation-history": "../../../src/lib/crm/conversation-history.ts"
+  }
+}

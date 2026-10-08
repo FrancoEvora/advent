@@ -1,3 +1,5 @@
+import process from "node:process";
+import { Buffer } from "node:buffer";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { type NextRequest, NextResponse } from "next/server";
 
@@ -68,7 +70,6 @@ type ServerMediaRef = {
 
 type AuthContext = {
   user: SupabaseClient;
-  service: SupabaseClient;
   organizationId: string;
 };
 
@@ -382,8 +383,8 @@ async function hydrateStableMedia(
 }
 
 function publicConfig() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim();
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() || process.env.SUPABASE_ANON_KEY?.trim();
   if (!url || !key) {
     throw new ApiError(
       "Supabase público indisponível.",
@@ -568,18 +569,7 @@ async function authContext(
     );
   }
 
-  const svc = serviceConfig();
-  return {
-    organizationId,
-    user,
-    service: createClient(svc.url, svc.key, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-      },
-    }),
-  };
+  return { organizationId, user };
 }
 
 function normalizeChannel(value: unknown): CrmConversationChannel {
@@ -718,7 +708,7 @@ export async function POST(request: NextRequest) {
       throw new ApiError("Lead inválido.", 400, "INVALID_CRM_RECORD");
     }
 
-    const { user, service } = await authContext(request, organizationId);
+    const { user } = await authContext(request, organizationId);
     // Resolve the lead with the caller's RLS before using privileged history access.
     const record = await user
       .from("crm_records")
@@ -736,6 +726,27 @@ export async function POST(request: NextRequest) {
     if (!record.data) {
       throw new ApiError("Lead não localizado.", 404, "CRM_RECORD_NOT_FOUND");
     }
+
+    // The caller's scope is checked before either privileged backend is used.
+    // Hosted Supabase functions already receive the private integration key.
+    if (!process.env.SUPABASE_SECRET_KEY?.trim() && !process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+      const pub = publicConfig();
+      const forwarded = await fetch(`${pub.url}/functions/v1/crm-conversation-history`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: request.headers.get("authorization")!, apikey: pub.key },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(25_000),
+        cache: "no-store",
+      });
+      return new NextResponse(await forwarded.text(), {
+        status: forwarded.status,
+        headers: { ...RESPONSE_HEADERS, "Content-Type": "application/json" },
+      });
+    }
+    const svc = serviceConfig();
+    const service = createClient(svc.url, svc.key, {
+      auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+    });
 
     const conversationsResult = await service
       .from("crm_conversations")

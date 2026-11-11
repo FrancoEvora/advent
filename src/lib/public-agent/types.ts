@@ -180,6 +180,7 @@ export type PublicAgentSimulation = {
   scenarios: Array<{
     months: number;
     monthlyPayment: number;
+    monthlyInterestRate?: number;
     financedAmount: number;
     balloonTotal: number;
   }>;

@@ -88,7 +88,7 @@ export function compactCommercial(raw: unknown): Obj | null {
   if (!isObject(raw)) return null;
   const policy=isObject(raw.policy)?raw.policy:null;
   const params=policy&&isObject(policy.parameters)?policy.parameters:{};
-  const allowed=['plan_options','annual_indexation','down_payment_options','annual_balloon_optional','annual_balloon_max_count','disclaimer'];
+  const allowed=['plan_options','interest_rate_tiers','annual_indexation','down_payment_options','annual_balloon_optional','annual_balloon_max_count','disclaimer'];
   const publicParams=Object.fromEntries(allowed.filter(k=>k in params).map(k=>[k,params[k]]));
   return {...raw,policy:policy?{...policy,parameters:publicParams}:null,units:Array.isArray(raw.units)?raw.units.filter(isObject).slice(0,6).map(u=>({unitCode:unitCode(u.unitCode??u.unit_code),area:finite(u.area),listPrice:finite(u.listPrice??u.list_price),pricePerSqm:finite(u.pricePerSqm??u.price_per_sqm),corner:u.corner===true})):[]};
 }
@@ -107,7 +107,7 @@ const brl=(n:unknown)=>new Intl.NumberFormat('pt-BR',{style:'currency',currency:
 export function simulationSummary(sim: Obj): string | null {
   const s=bestScenario(sim); if(!s) return null;
   const entry=Number(sim.downPaymentInstallments)>1?`${sim.downPaymentInstallments}x de ${brl(sim.downPaymentInstallmentAmount)}`:`${brl(sim.downPayment)} à vista`;
-  const rate=new Intl.NumberFormat('pt-BR',{maximumFractionDigits:4}).format(Number(sim.monthlyInterestRate)*100);
+  const rate=new Intl.NumberFormat('pt-BR',{maximumFractionDigits:4}).format(Number(s.monthlyInterestRate ?? sim.monthlyInterestRate)*100);
   const balloon=Number(sim.balloonCount)>0?`${sim.balloonCount} de ${brl(sim.balloonAmount)}, a cada ${sim.balloonFrequencyMonths} meses`:'sem balões neste cenário';
   return `Neste cenário, a menor parcela entre os prazos calculados é ${brl(s.monthlyPayment)}.\n\n• Lote ${sim.unitCode}: ${sim.area} m², ${brl(sim.price)}.\n• Entrada: ${entry}.\n• Saldo: ${s.months} parcelas iniciais de ${brl(s.monthlyPayment)}.\n• Juros: ${rate}% ao mês; correção pelo ${sim.indexer}.\n• Balões: ${balloon}.\n\nSimulação indicativa, sem projetar o índice futuro e sujeita à validação comercial. O valor mensal pode mudar com outra entrada ou balões.`;
 }

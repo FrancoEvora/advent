@@ -29,14 +29,21 @@ export async function createBrokerProposalPdf(doc: BrokerProposalDocument): Prom
   function ensure(height: number) { if (y - height < 63) { page = pdf.addPage([595.28, 841.89]); header(); } }
   function line(text: string, strong = false, size = 10) {
     const font = strong ? bold : regular;
-    // Character wrapping also supports unbroken long notes/URLs without clipping.
-    let buffer = "";
-    for (const char of clean(text)) {
-      if (char === "\n" || font.widthOfTextAtSize(buffer + char, size) > 505) {
-        ensure(size + 7); page.drawText(buffer, { x: 42, y, size, font, color: ink }); y -= size + 7; buffer = char === "\n" ? "" : char;
-      } else buffer += char;
+    const draw = (value: string) => { ensure(size + 7); page.drawText(value, { x: 42, y, size, font, color: ink }); y -= size + 7; };
+    for (const paragraph of clean(text).split("\n")) {
+      let buffer = "";
+      for (const word of paragraph.split(/\s+/)) {
+        const candidate = buffer ? buffer + " " + word : word;
+        if (font.widthOfTextAtSize(candidate, size) <= 505) { buffer = candidate; continue; }
+        if (buffer) draw(buffer);
+        buffer = "";
+        for (const char of word) {
+          if (font.widthOfTextAtSize(buffer + char, size) > 505) { draw(buffer); buffer = ""; }
+          buffer += char;
+        }
+      }
+      draw(buffer);
     }
-    ensure(size + 7); page.drawText(buffer, { x: 42, y, size, font, color: ink }); y -= size + 7;
   }
   header();
   line(doc.proposal_number ? `Referência: ${doc.proposal_number}` : "Simulação não encaminhada para aprovação", true);
@@ -59,7 +66,10 @@ export async function createBrokerProposalPdf(doc: BrokerProposalDocument): Prom
   let tablePage = -1;
   for (const row of [...doc.payment_plan].sort((a, b) => a.due_date.localeCompare(b.due_date) || a.installment_number - b.installment_number)) {
     ensure(42);
-    if (tablePage !== pdf.getPageCount()) { line("Nº                 Tipo                         Vencimento                         Valor", true); tablePage = pdf.getPageCount(); }
+    if (tablePage !== pdf.getPageCount()) {
+      for (const [value, x] of [["Nº", 42], ["Tipo", 110], ["Vencimento", 245], ["Valor", 405]] as const) page.drawText(value, { x, y, size: 10, font: bold, color: ink });
+      y -= 20; tablePage = pdf.getPageCount();
+    }
     const date = row.due_date.split("-").reverse().join("/");
     for (const [value, x] of [[String(row.installment_number), 42], [labels[row.installment_type], 110], [date, 245], [money.format(row.amount), 405]] as const) page.drawText(value, { x, y, size: 10, font: regular, color: ink });
     y -= 20;

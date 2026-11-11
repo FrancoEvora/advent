@@ -1,0 +1,21 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { createRequire, Module } from "node:module";
+const require = createRequire(import.meta.url), ts = require("typescript");
+const source = fs.readFileSync("supabase/functions/enterprise-vitoria-agent/index.ts", "utf8");
+const selected = source.slice(source.indexOf("function cleanPdfText("), source.indexOf("function inventoryReply("));
+assert.ok(selected.includes("async function createSimulationPdf("));
+const code = 'const {PDFDocument,StandardFonts,rgb}=require("pdf-lib");\n' + selected + '\nexports.createSimulationPdf=createSimulationPdf;';
+const mod = new Module(import.meta.url); mod.paths = modulePaths();
+function modulePaths() { return require.resolve.paths("pdf-lib"); }
+mod._compile(ts.transpileModule(code, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText, import.meta.url);
+const output = fs.mkdtempSync(path.join(os.tmpdir(), "bia-tier-pdf-"));
+const file = path.join(output, "tier-scenarios.pdf");
+const admin = { storage: { from: () => ({ upload: async (_, bytes) => { fs.writeFileSync(file, bytes); return { error: null }; }, createSignedUrl: async () => ({ error: null, data: { signedUrl: "https://example.invalid/synthetic-only.pdf" } }) }) } };
+const simulation = { projectName: "Projeto sintético", unitCode: "TEST-A-01", area: 300, price: 360000, downPaymentPct: 0.1, downPayment: 36000, downPaymentInstallments: 3, downPaymentInstallmentAmount: 12000, downPaymentInterestRate: 0, monthlyInterestRate: 0.006, indexer: "IPCA", balloonCount: 4, balloonAmount: 36000, balloonFrequencyMonths: 12, disclaimer: "Simulação sintética. Não constitui proposta definitiva. Correção futura não projetada.", scenarios: [{ months: 96, monthlyPayment: 4000, monthlyInterestRate: 0.0033, financedAmount: 180000 }, { months: 120, monthlyPayment: 3500, monthlyInterestRate: 0.005, financedAmount: 180000 }, { months: 180, monthlyPayment: 3000, monthlyInterestRate: 0.006, financedAmount: 180000 }] };
+await mod.exports.createSimulationPdf(admin, { organizationId: "synthetic", sessionId: "synthetic" }, simulation, "synthetic-pdf");
+const pdf = await require("pdf-lib").PDFDocument.load(fs.readFileSync(file));
+assert.equal(pdf.getPageCount(), 1);
+console.log(JSON.stringify({ file, result: "passed", externalUploads: 0 }));

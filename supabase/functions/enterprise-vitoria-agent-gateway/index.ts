@@ -331,6 +331,7 @@ function compactCommercial(value: unknown) {
     policy: {
       name: text(policy.name),
       description: text(policy.description),
+      parameters: object(policy.parameters) ? { interest_rate_tiers: policy.parameters.interest_rate_tiers } : {},
       minimumDownPaymentPct: typeof policy.minimumDownPaymentPct === "number" ? policy.minimumDownPaymentPct : null,
       maximumInstallments: typeof policy.maximumInstallments === "number" ? policy.maximumInstallments : null,
       monthlyInterestRate: typeof policy.monthlyInterestRate === "number" ? policy.monthlyInterestRate : null,

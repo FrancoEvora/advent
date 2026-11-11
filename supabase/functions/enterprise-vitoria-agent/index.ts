@@ -143,6 +143,7 @@ type PaymentSimulation = {
   scenarios: Array<{
     months: number;
     monthlyPayment: number;
+    monthlyInterestRate: number;
     financedAmount: number;
     balloonTotal: number;
   }>;
@@ -1125,13 +1126,15 @@ async function paymentSimulation(
     ? raw.scenarios.filter(obj).flatMap((scenario) => {
       const months = Number(scenario.months);
       const monthlyPayment = Number(scenario.monthlyPayment);
+      const monthlyInterestRate = Number(scenario.monthlyInterestRate ?? raw.monthlyInterestRate);
       const financedAmount = Number(scenario.financedAmount);
       const balloonTotal = Number(scenario.balloonTotal ?? scenario.balloonPresentValue ?? 0);
       return Number.isInteger(months)
           && Number.isFinite(monthlyPayment)
+          && Number.isFinite(monthlyInterestRate)
           && Number.isFinite(financedAmount)
           && Number.isFinite(balloonTotal)
-        ? [{ months, monthlyPayment, financedAmount, balloonTotal }]
+        ? [{ months, monthlyPayment, monthlyInterestRate, financedAmount, balloonTotal }]
         : [];
     })
     : [];
@@ -1291,7 +1294,7 @@ async function createSimulationPdf(
       { x: 46, y: 584, size: 10, font: regular, color: grey },
     );
   }
-  page.drawText(`Juros mensais: ${pt(simulation.monthlyInterestRate * 100, 2)}% a.m.  |  Correcao: ${cleanPdfText(simulation.indexer)}`, { x: 46, y: simulation.downPaymentInstallments > 1 ? 563 : 584, size: 10, font: regular, color: grey });
+  page.drawText(`Juros conforme o prazo indicado em cada cenario. Correcao: ${cleanPdfText(simulation.indexer)}`, { x: 46, y: simulation.downPaymentInstallments > 1 ? 563 : 584, size: 10, font: regular, color: grey });
   if (simulation.balloonCount > 0) {
     page.drawText(
       `${simulation.balloonCount} baloes de ${cleanPdfText(brl(simulation.balloonAmount))} a cada ${simulation.balloonFrequencyMonths} meses`,
@@ -1305,7 +1308,7 @@ async function createSimulationPdf(
   simulation.scenarios.slice(0, 5).forEach((scenario, index) => {
     const y = scenarioTop - index * 45;
     page.drawRectangle({ x: 46, y: y - 12, width: 503, height: 34, color: index % 2 ? rgb(0.97, 0.97, 0.95) : rgb(1, 1, 1) });
-    page.drawText(`${scenario.months} meses`, { x: 64, y, size: 10, font: bold, color: charcoal });
+    page.drawText(`${scenario.months} meses | ${pt(scenario.monthlyInterestRate * 100, 2)}% a.m.`, { x: 54, y, size: 9, font: bold, color: charcoal });
     page.drawText(cleanPdfText(brl(scenario.financedAmount)), { x: 205, y, size: 10, font: regular, color: charcoal });
     page.drawText(`${cleanPdfText(brl(scenario.monthlyPayment))}/mes`, { x: 385, y, size: 10, font: bold, color: forest });
   });

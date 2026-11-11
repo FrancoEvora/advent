@@ -66,12 +66,12 @@ function commercialPrelude(
     if (simulation.scenarios.length) {
       lines.push(
         `• Parcelas: ${simulation.scenarios
-          .map((scenario) => `${scenario.months}x de ${currency.format(scenario.monthlyPayment)}`)
+          .map((scenario) => `${scenario.months}x de ${currency.format(scenario.monthlyPayment)} (${pct(scenario.monthlyInterestRate ?? simulation.monthlyInterestRate)} a.m.)`)
           .join(" · ")}`,
       );
     }
     const interest = pct(simulation.monthlyInterestRate);
-    if (interest) lines.push(`• Juros: ${interest} ao mês`);
+    if (interest && !simulation.scenarios.some(scenario => typeof scenario.monthlyInterestRate === "number")) lines.push(`• Juros: ${interest} ao mês`);
     if (simulation.indexer) lines.push(`• Correção: ${simulation.indexer}`);
     if (simulation.balloonCount > 0) {
       lines.push(
@@ -84,8 +84,13 @@ function commercialPrelude(
     if (typeof policy.maximumInstallments === "number") {
       lines.push(`• Parcelamento: até ${policy.maximumInstallments} meses`);
     }
-    const interest = pct(policy.monthlyInterestRate);
-    if (interest) lines.push(`• Juros: ${interest} ao mês`);
+    const tiers = policy.parameters?.interest_rate_tiers;
+    if (Array.isArray(tiers) && tiers.length) {
+      lines.push(`• Juros: ${tiers.filter(tier => object(tier) && typeof tier.max_installments === "number" && typeof tier.monthly_interest_rate === "number").map(tier => `até ${tier.max_installments}x: ${pct(tier.monthly_interest_rate)} a.m.`).join(" · ")}`);
+    } else {
+      const interest = pct(policy.monthlyInterestRate);
+      if (interest) lines.push(`• Juros: ${interest} ao mês`);
+    }
     if (policy.indexer) lines.push(`• Correção: ${policy.indexer}`);
   }
 

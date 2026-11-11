@@ -1,4 +1,5 @@
 import { methodLabels, type AmortizationMethod, type PaymentRow } from "./broker-payment-plan";
+import { proposalCorrectionDescription } from "./proposal-correction";
 
 export type BrokerProposalDocument = {
   customer_name: string; project_name: string; unit_code: string; area: number;
@@ -53,7 +54,8 @@ export async function createBrokerProposalPdf(doc: BrokerProposalDocument): Prom
   line(`Valor do imóvel: ${money.format(doc.sale_price)}`, true, 12);
   line(`Entrada: ${money.format(doc.down_payment)}  |  Balões nominais: ${money.format(doc.balloon_total)}`);
   line(`Sistema: ${methodLabels[doc.amortization_method]}`, true);
-  line(`Taxa mensal: ${(doc.monthly_interest_rate * 100).toLocaleString("pt-BR", { maximumFractionDigits: 5 })}%  |  Indexador: ${doc.indexer || "Sem indexador"}`);
+  line(`Taxa de juros mensal: ${(doc.monthly_interest_rate * 100).toLocaleString("pt-BR", { maximumFractionDigits: 5 })}%`);
+  line(`Índice de correção monetária: ${proposalCorrectionDescription(doc.indexer)}`, true);
   const monthly = doc.payment_plan.filter(row => row.installment_type === "mensal");
   if (monthly.length) line(`${monthly.length} mensais: primeira ${money.format(monthly[0].amount)}; última ${money.format(monthly.at(-1)!.amount)}.`);
   line(doc.amortization_method === "sacoc" ? "Gradiente: parcela k = (saldo da série mensal / número de parcelas) × (1 + taxa mensal)^k, com k iniciando em 1." : "Price: prestações mensais constantes, calculadas pela equivalência financeira à taxa mensal informada.");

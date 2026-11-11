@@ -21,3 +21,10 @@ test("no more than four annual balloons within the financed term", () => {
 test("policies without tiers keep their configured rate", () => {
   assert.equal(policyMonthlyRate({ ...policy, parameters: {} }, 180), 0.0033);
 });
+test("eight annual balloons are allowed when configured and fit within the term", () => {
+  const expanded = { ...policy, parameters: { ...policy.parameters, annual_balloon_max_count: 8 } };
+  for (const [months, expected] of [[11, 0], [36, 3], [95, 7], [96, 8], [120, 8], [180, 8]]) {
+    assert.equal(maximumBalloons(expanded, months), expected);
+  }
+  assert.equal(maximumBalloons(policy, 180), 4, "Other policies keep their own limits");
+});

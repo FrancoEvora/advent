@@ -6,6 +6,7 @@ import { CurrencyInput } from "../crm-v5/sales/currency-input";
 import { buildBrokerPlan, calendarMonth, nextMonthlyDate, methodLabels, roundMoney, type AmortizationMethod } from "@/lib/broker-payment-plan";
 import { interestTiers, maximumBalloons, percentLabel, policyEntryRate, policyMonthlyRate } from "@/lib/commercial-policy";
 import type { BrokerProposalDocument } from "@/lib/broker-proposal-pdf";
+import { proposalCorrectionDescription } from "@/lib/proposal-correction";
 import { BrokerPdfActions } from "./broker-pdf-actions";
 import { money, today } from "./broker-format";
 import type { BrokerData } from "./load-broker-data";
@@ -142,6 +143,7 @@ export function BrokerProposalModal({ loaded, initialLeadId, initialUnitId, clos
             <div className={styles.automaticRate}><span>Juros automáticos</span><strong data-testid="monthly-rate">{validTerm ? percentLabel(monthlyRate) : "—"} <small>ao mês</small></strong><span>Definidos pelo prazo e pela política vigente.</span></div>
           </div>
           <div className={styles.termOptions}>{policy && interestTiers(policy).filter(tier => tier.max_installments <= policy.max_installments).map(tier => <button type="button" key={tier.max_installments} aria-pressed={months === tier.max_installments} onClick={() => changeMonths(tier.max_installments)}>{tier.max_installments}x · {percentLabel(tier.monthly_interest_rate)} a.m.</button>)}</div>
+          <p className={styles.proposalHint}><strong>Índice de correção monetária: {proposalCorrectionDescription(policy?.indexer)}</strong></p>
           <div className={styles.methodOptions} role="radiogroup" aria-label="Sistema de amortização">
             <label data-selected={method === "price"}><input type="radio" name="amortization_method" value="price" checked={method === "price"} onChange={() => setMethod("price")} /><span><strong>Tabela Price</strong><small>Mensais constantes antes da correção pelo indexador.</small></span></label>
             <label data-selected={method === "sacoc"}><input type="radio" name="amortization_method" value="sacoc" checked={method === "sacoc"} onChange={() => setMethod("sacoc")} /><span><strong>SACOC · Gradiente</strong><small>Mensais crescentes, com juros compostos sobre cada cota.</small></span></label>

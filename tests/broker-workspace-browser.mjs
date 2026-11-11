@@ -32,7 +32,7 @@ const activities = [
 const commerce = {
   pipelines: [{ id: "pipeline", name: "Funil comercial", is_default: true }], stages,
   responsibles: [{ id: actor, full_name: "Corretor sintético" }], lead_policies: [], proposals,
-  policies: [{ id: "policy", project_id: project, name: "Política sintética", min_down_payment_pct: 0.2, max_installments: 120, monthly_interest_rate: 0.0033, reservation_validity_hours: 24, grace_months: 0, balloon_frequency_months: 12 }],
+  policies: [{ id: "policy", project_id: project, name: "Política sintética", is_default: true, min_down_payment_pct: 0.1, max_installments: 180, monthly_interest_rate: 0.0033, reservation_validity_hours: 24, indexer: "IPCA", grace_months: 0, balloon_frequency_months: 12, balloon_limit_pct: 0.4, allow_down_payment_installments: true, max_down_payment_installments: 6, down_payment_frequency_days: 30, down_payment_interest_rate: 0.0033, parameters: { annual_balloon_max_count: 4, interest_rate_tiers: [{ max_installments: 96, monthly_interest_rate: 0.0033 }, { max_installments: 120, monthly_interest_rate: 0.005 }, { max_installments: 180, monthly_interest_rate: 0.006 }], down_payment_options: [{ installments: 3, monthly_interest_rate: 0 }, { installments: 6, monthly_interest_rate: 0.0033 }] } }],
 };
 const units = [{ id: "unit", project_id: project, unit_code: "TEST-A03", lot_number: "03", block_code: "A", area: 300, list_price: 300000 }];
 const payloads = [];
@@ -103,17 +103,59 @@ try {
   assert.equal(await page.locator("tbody tr").count(), 1);
   assert.equal(await page.getByRole("button", { name: "Insights IA", exact: true }).count(), 1);
   await page.getByRole("button", { name: "Encaminhar proposta", exact: true }).click();
-  const proposalDialog = page.getByRole("dialog", { name: "Proposta e reserva de lote" });
+  const proposalDialog = page.getByRole("dialog", { name: "Monte a proposta com o cliente" });
   assert.equal(await proposalDialog.getByRole("combobox", { name: "Lead vinculado", exact: true }).inputValue(), "lead-sdr");
   await proposalDialog.getByRole("searchbox", { name: "Buscar lead por nome" }).fill("marcia");
   await proposalDialog.getByRole("combobox", { name: "Lead vinculado", exact: true }).selectOption("lead-approved");
   await proposalDialog.getByLabel("Lote disponível").selectOption("unit");
-  await proposalDialog.getByRole("button", { name: "Encaminhar proposta", exact: true }).click();
+  assert.equal(await proposalDialog.getByLabel("Entrada (%)", { exact: false }).inputValue(), "10");
+  assert.match(await proposalDialog.getByTestId("entry-total").innerText(), /30.000,00/);
+  assert.equal(await proposalDialog.getByRole("spinbutton", { name: /juros/i }).count(), 0, "Interest cannot be typed manually");
+  for (const [term, expected] of [[96, "0,33%"], [97, "0,50%"], [120, "0,50%"], [121, "0,60%"], [180, "0,60%"]]) {
+    await proposalDialog.getByLabel("Parcelas mensais", { exact: true }).fill(String(term));
+    assert.ok((await proposalDialog.getByTestId("monthly-rate").innerText()).includes(expected));
+  }
+  await proposalDialog.getByLabel("Entrada (%)", { exact: false }).fill("20");
+  const priceField = proposalDialog.getByLabel("Valor proposto", { exact: true });
+  await priceField.fill("40000000");
+  assert.match(await proposalDialog.getByTestId("entry-total").innerText(), /80.000,00/);
+  assert.equal(await proposalDialog.getByLabel("Entrada (%)", { exact: false }).inputValue(), "20", "Price changes retain entry percentage");
+  await proposalDialog.getByLabel("Parcelas da entrada", { exact: false }).selectOption("6");
+  const entryDate = await proposalDialog.getByLabel("Primeiro vencimento da entrada", { exact: true }).inputValue();
+  const monthlyDate = await proposalDialog.getByLabel("Primeiro vencimento mensal", { exact: true }).inputValue();
+  const currentMonth = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit" }).format(new Date());
+  assert.notEqual(entryDate.slice(0, 7), currentMonth, "Split entry starts next month");
+  assert.ok(monthlyDate > entryDate);
+  await proposalDialog.getByLabel("Incluir balões na proposta", { exact: true }).check();
+  assert.match(await proposalDialog.getByTestId("balloon-total").innerText(), /160.000,00/);
+  assert.equal(await proposalDialog.getByLabel("Quantidade de balões").inputValue(), "4");
+  assert.match(await proposalDialog.getByTestId("monthly-principal").innerText(), /160.000,00/);
+  assert.equal(await proposalDialog.locator("li").count(), 4);
+  await proposalDialog.getByRole("radio", { name: /SACOC/ }).check();
+  const firstGradient = 160000 / 180 * 1.006;
+  assert.match(await proposalDialog.getByTestId("first-monthly").innerText(), new RegExp(firstGradient.toFixed(2).replace(".", ",")));
+  await proposalDialog.getByText(/Ver cronograma completo/).click();
+  assert.equal(await proposalDialog.locator("tbody tr").count(), 190);
+  await proposalDialog.getByLabel("Entrada (%)", { exact: false }).fill("70");
+  assert.ok(await proposalDialog.getByRole("button", { name: "Encaminhar proposta e reservar lote", exact: true }).isDisabled());
+  await proposalDialog.getByLabel("Entrada (%)", { exact: false }).fill("20");
+  await proposalDialog.evaluate(el => { el.scrollTop = 0; });
+  await page.screenshot({ path: path.join(output, "proposal-desktop.png") });
+  await page.setViewportSize({ width: 390, height: 844 });
+  assert.ok(await proposalDialog.evaluate(el => el.scrollWidth <= el.clientWidth + 1), "Proposal has no mobile horizontal overflow");
+  await page.screenshot({ path: path.join(output, "proposal-mobile.png") });
+  await page.setViewportSize({ width: 1536, height: 960 });
+  await proposalDialog.getByRole("button", { name: "Encaminhar proposta e reservar lote", exact: true }).click();
   await proposalDialog.waitFor({ state: "hidden" });
   assert.equal(payloads.at(-1).resource, "submit_broker_proposal");
   assert.equal(payloads.at(-1).body.p_record_id, "lead-approved");
   assert.equal(payloads.at(-1).body.p_unit_id, "unit");
   assert.ok(!("approval_status" in payloads.at(-1).body.p_terms));
+  assert.equal(payloads.at(-1).body.p_terms.monthly_rate, 0.006);
+  assert.equal(payloads.at(-1).body.p_terms.amortization_method, "sacoc");
+  assert.equal(payloads.at(-1).body.p_terms.down_payment, 80000);
+  assert.equal(payloads.at(-1).body.p_terms.balloon_total, 160000);
+  assert.equal(payloads.at(-1).body.p_terms.balloon_count, 4);
   await search.fill("");
   await page.screenshot({ path: path.join(output, "leads-desktop.png") });
 

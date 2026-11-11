@@ -358,7 +358,7 @@ export function CommunicationResources({
     const supabase = getSupabase();
     if (!supabase) return;
     const result = await supabase.storage
-      .from("erp-documents")
+      .from(item.document_type === "material_marketing" ? "marketing-assets" : "erp-documents")
       .createSignedUrl(item.storage_path, 600);
     if (result.data?.signedUrl) {
       window.open(result.data.signedUrl, "_blank", "noopener,noreferrer");
@@ -374,7 +374,7 @@ export function CommunicationResources({
     const signedFiles = await Promise.all(
       files.map(async (file) => {
         const result = await supabase.storage
-          .from("erp-documents")
+          .from(file.document_type === "material_marketing" ? "marketing-assets" : "erp-documents")
           .createSignedUrl(file.storage_path, 7 * 24 * 60 * 60);
         if (result.error || !result.data?.signedUrl) {
           throw new Error("Não foi possível preparar " + file.file_name + ".");

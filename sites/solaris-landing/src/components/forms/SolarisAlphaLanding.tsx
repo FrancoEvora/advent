@@ -40,6 +40,7 @@ export function SolarisAlphaLanding() {
   const [scrolled, setScrolled] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [galleryPosition, setGalleryPosition] = useState(0);
   const galleryRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,6 +64,15 @@ export function SolarisAlphaLanding() {
     if (!node || !card) return;
     const gap = Number.parseFloat(window.getComputedStyle(node).columnGap) || 20;
     setGalleryIndex(Math.min(gallery.length - 1, Math.max(0, Math.round(node.scrollLeft / (card.getBoundingClientRect().width + gap)))));
+    const maxScroll = Math.max(0, node.scrollWidth - node.clientWidth);
+    setGalleryPosition(maxScroll ? Math.min(100, Math.max(0, Math.round(node.scrollLeft / maxScroll * 100))) : 0);
+  };
+
+  const seekGallery = (position: number) => {
+    const node = galleryRef.current;
+    if (!node) return;
+    setGalleryPosition(position);
+    node.scrollTo({ left: (node.scrollWidth - node.clientWidth) * position / 100, behavior: "auto" });
   };
 
   return (
@@ -71,7 +81,7 @@ export function SolarisAlphaLanding() {
 
       <header className={`${styles.header} ${scrolled || menuOpen ? styles.headerSolid : ""}`}>
         <a href="#inicio" className={styles.headerLogo} aria-label="Solaris Residencial Resort, voltar ao início" onClick={() => setMenuOpen(false)}>
-          <Image src={`${editorial}/logo-solaris-oficial-v3.webp`} width={84} height={76} alt="Solaris Residencial Resort" priority />
+          <Image src={`${editorial}/logo-solaris-oficial-v3.webp`} width={152} height={138} alt="Solaris Residencial Resort" priority />
         </a>
         <nav className={styles.navigation} aria-label="Navegação principal">
           {navigation.map(item => <a href={item.href} key={item.href}>{item.text}</a>)}
@@ -146,7 +156,17 @@ export function SolarisAlphaLanding() {
               <div className={styles.galleryBottom}><h3>{item.title}</h3><p>{item.caption}</p></div>
             </article>)}
           </div>
-          <div className={styles.galleryBottomBar}><span className={styles.galleryProgress}><span style={{ width: `${((galleryIndex + 1) / gallery.length) * 100}%` }} /></span><span>Deslize para explorar <span aria-hidden="true">↔</span></span><small>Imagens conceituais e ilustrativas dos ambientes previstos.</small></div>
+          <div className={styles.galleryExplorer}>
+            <div className={styles.galleryExplorerHeading}>
+              <label htmlFor="solaris-lazer-explorar">Arraste para explorar <span aria-hidden="true">↔</span></label>
+              <span className={styles.galleryExplorerCount}>{String(galleryIndex + 1).padStart(2, "0")} <small>/ {String(gallery.length).padStart(2, "0")}</small></span>
+            </div>
+            <div className={styles.gallerySeekControl}>
+              <div className={styles.gallerySeekRail} aria-hidden="true"><span style={{ width: `${galleryPosition}%` }} /></div>
+              <input id="solaris-lazer-explorar" type="range" min={0} max={100} value={galleryPosition} onChange={event => seekGallery(Number(event.currentTarget.value))} aria-label="Arraste para percorrer as imagens de lazer do Solaris" aria-valuetext={`Imagem ${galleryIndex + 1} de ${gallery.length}`} />
+            </div>
+            <p>Arraste o marcador ou deslize as fotos para ver todos os espaços. <span>Imagens conceituais e ilustrativas.</span></p>
+          </div>
         </section>
 
         <section id="embaixador" className={styles.ambassadorSection} aria-labelledby="solaris-ambassador-title">
@@ -239,7 +259,7 @@ export function SolarisAlphaLanding() {
       <footer className={styles.footer}>
         <div className={styles.container}>
           <div className={styles.footerMain}>
-            <a href="#inicio" className={styles.footerLogo}><Image src={`${editorial}/logo-solaris-oficial-v3.webp`} width={108} height={100} alt="Solaris Residencial Resort" /></a>
+            <a href="#inicio" className={styles.footerLogo}><Image src={`${editorial}/logo-solaris-oficial-v3.webp`} width={150} height={138} alt="Solaris Residencial Resort" /></a>
             <div><span>RESIDENCIAL RESORT</span><p>Viva abraçado pela Natureza.<br />Viva no Solaris.</p></div>
             <a className={styles.footerCta} href="#cadastro">Quero conhecer o Solaris <Arrow /></a>
           </div>

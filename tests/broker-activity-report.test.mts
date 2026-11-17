@@ -1,0 +1,17 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {buildBrokerActivityReport, reportCsv, reportDay, type BrokerReportSource} from '../src/lib/broker-activity-report.ts';
+const source: BrokerReportSource = {
+ records:[{id:'lead',person_name:'Cliente',broker_user_id:'broker',record_status:'aberta',next_action_at:null},{id:'other',broker_user_id:'other',record_status:'aberta'}],
+ assignments:[{id:'a',crm_record_id:'lead',assignment_role:'corretor',assigned_user_id:'broker',assigned_at:'2026-11-01T03:00:00Z',acknowledged_at:'2026-11-01T05:00:00Z',crm_action_id:'action',user_activity_id:'mirror'}],
+ actions:[{id:'action',crm_record_id:'lead',assigned_to:'broker',created_by:'manager',action_type:'visita',subject:'Visita',created_at:'2026-10-01T12:00:00Z',scheduled_at:'2026-11-02T12:00:00Z',completed_at:'2026-11-02T13:00:00Z',action_status:'concluida'}, {id:'other-action',assigned_to:'other',created_by:'broker',action_status:'concluida',completed_at:'2026-11-03T12:00:00Z'}, {id:'pending',assigned_to:'broker',scheduled_at:'2026-10-15T12:00:00Z',action_status:'pendente'}],
+ appointments:[{id:'mirror',owner_user_id:'broker',related_type:'crm_record',related_id:'lead',status:'concluida',completed_at:'2026-11-02T13:00:00Z'}, {id:'personal',owner_user_id:'broker',related_type:null,status:'concluida',completed_at:'2026-11-02T13:00:00Z'}],
+ proposals:[{id:'proposal',created_by:'broker',created_at:'2026-10-01T12:00:00Z',sale_price:432000},{id:'proposal2',created_by:'broker',created_at:'2026-12-01T02:59:59Z',sale_price:400000}],
+ reservations:[{id:'reserve',created_by:'manager',proposal_id:'proposal',created_at:'2026-11-03T12:00:00Z'}],
+ contracts:[{id:'contract',proposal_id:'proposal',signed_at:'2026-11-03T12:00:00Z',status:'assinado'},{id:'cancelled',proposal_id:'proposal2',signed_at:'2026-11-03T12:00:00Z',status:'cancelado'}],
+};
+test('São Paulo boundaries include the entire end day',()=>{assert.equal(reportDay('2026-12-01T02:59:59Z'),'2026-11-30');assert.equal(reportDay('2026-11-01T02:59:59Z'),'2026-10-31');assert.equal(reportDay('invalid'),'')});
+test('attributes work to responsible, excludes personal and mirrored agenda, counts actual signature date',()=>{const r=buildBrokerActivityReport(source,'broker','2026-11-01','2026-11-30','2026-11-17T12:00:00Z');assert.equal(r.completedCount,1);assert.equal(r.visits,1);assert.equal(r.lines.length,1);assert.equal(r.proposals.length,1);assert.equal(r.contracts.length,1);assert.equal(r.salesValue,432000);assert.equal(r.reservations.length,1);assert.equal(r.acknowledgmentHours,2);assert.equal(r.received[0].lead_name,'Cliente');});
+test('current portfolio and overdue backlog remain distinct from period',()=>{const r=buildBrokerActivityReport(source,'broker','2026-11-01','2026-11-30','2026-11-17T12:00:00Z');assert.equal(r.open.length,1);assert.equal(r.missingNext.length,1);assert.equal(r.pending.length,1);assert.equal(r.actions.length,1)});
+test('invalid interval rejected and empty results do not invent metrics',()=>{assert.throws(()=>buildBrokerActivityReport(source,'broker','2026-12-01','2026-11-01'));const r=buildBrokerActivityReport(source,'nobody','2026-11-01','2026-11-30');assert.equal(r.completedCount,0);assert.equal(r.salesValue,0);assert.equal(r.acknowledgmentHours,null)});
+test('CSV escapes quotes, multiline notes and spreadsheet formulas',()=>{const text=reportCsv([['=SUM(A1)','a"b','note\nline']]);assert.ok(text.includes('"\'=SUM(A1)"'));assert.ok(text.includes('"a""b"'));assert.ok(text.includes('"note\nline"'))});

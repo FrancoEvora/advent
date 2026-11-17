@@ -5,6 +5,7 @@ import type {CrmSection} from "./types";
 import {useCrmV5} from "./use-data";
 import {LeadModal} from "./lead-modal";
 import {ActivityModal} from "./activity-modal";
+import {BrokerActivityReport} from "./broker-activity-report";
 import {OverviewView,ReportsView,AlertsView} from "./views-intelligence";
 import {StrategyView} from "./strategy-view";
 import {BiaQueueView} from "./bia-queue-view";
@@ -271,7 +272,7 @@ export function CrmEnterprise({
           <AlertsView data={activeData} crm={activeCrm} reload={reload} />
         )}
         {section === "reports" && (
-          <ReportsView data={activeData} crm={activeCrm} />
+          <div className="crm5-stack">{can("crm.monitor_team") && <BrokerActivityReport key={`${data.organization.id}-${data.session.user.id}`} data={data} crm={crm} />}<ReportsView data={activeData} crm={activeCrm} /></div>
         )}
         {section === "teams" && (
           <TeamsView data={activeData} crm={activeCrm} reload={reload} />

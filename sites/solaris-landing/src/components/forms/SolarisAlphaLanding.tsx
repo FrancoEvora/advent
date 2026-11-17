@@ -7,6 +7,8 @@ import styles from "./solaris-alpha.module.css";
 
 const editorial = "/forms/solaris/editorial";
 const book = "/forms/solaris/book";
+const osmPlaceUrl = "https://www.openstreetmap.org/relation/20961996";
+const osmEmbedUrl = "https://www.openstreetmap.org/export/embed.html?bbox=-47.5318%2C-18.7365%2C-47.5171%2C-18.7241&layer=mapnik&marker=-18.730419%2C-47.524627";
 
 const gallery = [
   { title: "Bosques, trilhas e caminhadas", category: "Natureza", image: "01_bosques_trilhas_ciclovias.webp", caption: "O verde fazendo parte do caminho." },
@@ -215,6 +217,23 @@ export function SolarisAlphaLanding() {
                   <div><span>03</span><div><strong>Bairro Parque das Árvores</strong><small>Conectado à proposta de um novo bairro planejado.</small></div></div>
                 </div>
                 <a className={styles.textLink} href="#cadastro">Saiba mais sobre o endereço <Arrow /></a>
+              </div>
+            </div>
+            <div className={styles.mapFeature}>
+              <div className={styles.mapFrame}>
+                <iframe
+                  title="Mapa interativo do Solaris Home & Resort no OpenStreetMap, Monte Carmelo"
+                  src={osmEmbedUrl}
+                  loading="lazy"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                />
+              </div>
+              <div className={styles.mapDescription}>
+                <span className={styles.eyebrow}>LOCALIZAÇÃO REAL · OPENSTREETMAP</span>
+                <h3>O Solaris já está <em>no mapa.</em></h3>
+                <p>Explore a localização do empreendimento e suas vias internas, identificadas no OpenStreetMap ao lado do Parque das Árvores, em Monte Carmelo.</p>
+                <a className={styles.mapOpenLink} href={osmPlaceUrl} target="_blank" rel="noopener noreferrer">Explorar o mapa completo <Arrow /></a>
+                <small>Base cartográfica colaborativa: © OpenStreetMap contributors. Consulte a implantação oficial para informações sobre os lotes.</small>
               </div>
             </div>
           </div>

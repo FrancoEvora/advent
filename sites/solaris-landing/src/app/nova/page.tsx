@@ -5,7 +5,7 @@ export const metadata: Metadata = {
   title: "Solaris Residencial Resort | Viva abraçado pela natureza",
   description:
     "Descubra o Solaris Residencial Resort, em Monte Carmelo, MG. Lazer, natureza, lotes e uma nova experiência de viver no bairro Parque das Árvores.",
-  alternates: { canonical: "/nova" },
+  alternates: { canonical: "/" },
   robots: { index: false, follow: true },
   openGraph: {
     title: "Solaris Residencial Resort — Viva abraçado pela natureza",

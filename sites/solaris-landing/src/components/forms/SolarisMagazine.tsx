@@ -3,17 +3,12 @@ import type { ReactNode } from "react";
 import { SolarisCaptureForm } from "./SolarisCaptureForm";
 import { SolarisBookLink, SOLARIS_EDITORIAL_BOOK_URL } from "./SolarisBookLink";
 import { SolarisPartners } from "./SolarisPartners";
+import { SolarisLeisureCarousel } from "./SolarisLeisureCarousel";
 import base from "./solaris-form.module.css";
 import s from "./solaris-magazine.module.css";
 
 const BOOK = "/forms/solaris/book";
 const PHOTOS = "/forms/solaris/editorial";
-const LAZER = `${PHOTOS}/lazer`;
-const leisureScenes = [
-  { file: "beach-tennis-v7", label: "Beach tennis", title: "Uma partida. Um encontro.", text: "O esporte como motivo para compartilhar o tempo, encontrar os amigos e incluir o movimento na rotina.", alt: "Perspectiva de uma partida de beach tennis, com piscina e áreas de convivência ao fundo.", width: 1280, height: 960 },
-  { file: "piscina-convivencia-v7", label: "Piscina e convivência", title: "Tempo para ficar à vontade.", text: "Um intervalo à beira da piscina e uma conversa que se estende. Espaços pensados para aproveitar os momentos juntos.", alt: "Perspectiva da piscina do Solaris junto a uma área de estar, com mesas, espreguiçadeiras e jardins.", width: 616, height: 462 },
-  { file: "brinquedoteca-v7", label: "Brinquedoteca", title: "Pequenas descobertas.", text: "Um ambiente para imaginar, explorar e brincar. A convivência também faz parte das boas lembranças da infância.", alt: "Perspectiva da brinquedoteca Solaris, com livros, brinquedos, mesas infantis e janelas voltadas para o lazer.", width: 1280, height: 960 },
-];
 const birdPortraits = [
   { file: "falcao-de-coleira-v6", name: "Falcão-de-coleira", scientific: "Falco femoralis", alt: "Falcão-de-coleira pousado em um galho, com o céu azul ao fundo.", width: 720, height: 1080 },
   { file: "acaua-v6", name: "Acauã", scientific: "Herpetotheres cachinnans", alt: "Acauã de plumagem clara e máscara escura entre folhas e galhos.", width: 720, height: 1080 },
@@ -142,11 +137,7 @@ export function SolarisMagazine() {
     <section className={`${s.section} ${s.amenities}`} id="lazer" aria-labelledby="lazer-titulo">
       <SectionLabel number="04">POR DENTRO DO EMPREENDIMENTO</SectionLabel>
       <div className={s.storyHeading}><h2 id="lazer-titulo">Lazer para a vida<br /><em>de todos os dias.</em></h2><div><p>Uma partida entre amigos, um intervalo à beira da piscina, o tempo de brincar. Os espaços do projeto aproximam movimento, descanso e convivência.</p><span className={s.projectTag}>ITENS PREVISTOS EM PROJETO · OBRAS EM ANDAMENTO</span></div></div>
-      <div className={s.leisureGallery} id="lazer-em-imagens">{leisureScenes.map(scene => <article key={scene.file}>
-        <Photo name={scene.file} alt={scene.alt} width={scene.width} height={scene.height}>{scene.label} · Perspectiva ilustrativa.</Photo>
-        <h3>{scene.title}</h3><p>{scene.text}</p>
-      </article>)}</div>
-      <div className={s.amenityGrid}>{amenities.map((item, index) => <article key={item.title}><span className={s.itemNumber}>0{index + 1}</span><h3>{item.title}</h3><p>{item.text}</p><ul>{item.items.map(([text, file]) => <li key={text} className={file ? s.amenityVisual : undefined}>{file && <figure><Image src={`${LAZER}/${file}.webp`} alt={`Perspectiva conceitual ilustrativa: ${text.toLowerCase()}.`} width={1200} height={675} unoptimized loading="lazy" /><figcaption>Imagem conceitual ilustrativa</figcaption></figure>}<span>{text}</span></li>)}</ul></article>)}</div>
+      <div id="lazer-em-imagens"><SolarisLeisureCarousel groups={amenities} /></div>
       <div className={s.linearPark} id="parque-linear"><Photo name="parque-linear-v3" alt="Parque linear arborizado, sem pessoas, com passeio em piso intertravado e ciclovia." width={1400} height={933}>Parque linear / Imagem ilustrativa da proposta de caminhos e ciclovia.</Photo><div><p className={s.kicker}>O LAZER NO RITMO DO DIA A DIA</p><h3>Um caminho para<br /><em>estar mais perto.</em></h3><p>Caminhar à sombra, pedalar e fazer uma pausa. Os percursos arborizados aproximam os espaços de convivência e convidam a aproveitar o lado de fora de casa.</p><a className={s.textLink} href="#implantacao">Veja como os espaços se conectam →</a></div></div>
       <details className={s.projectImages}><summary>Outras perspectivas do projeto <span aria-hidden="true">＋</span></summary><div>{[{file:"resort",title:"Piscinas e Casa Évora",w:1200,h:837},{file:"tenis",title:"Tênis e beach tennis",w:700,h:514},{file:"familia",title:"Brinquedoteca e pet place",w:700,h:427}].map(item => <figure key={item.file}><Image src={`${BOOK}/${item.file}.avif`} alt={`Perspectiva ilustrativa: ${item.title}.`} width={item.w} height={item.h} unoptimized loading="lazy" /><figcaption>{item.title} · Perspectiva ilustrativa do book.</figcaption></figure>)}</div></details>
       <div className={s.bookLine}><p>Continue essa história no book.<small>Edição editorial 2026 · 28 páginas · PDF de 22 MB.<br />Fotografias, espaços e a proposta de vida no Solaris.</small></p><SolarisBookLink className={s.button} edition="editorial">Baixar book atualizado (PDF)</SolarisBookLink></div>

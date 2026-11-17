@@ -13,6 +13,38 @@
 @media(max-width:360px){.header{padding:11px 15px;gap:10px}.brand>span{font-size:20px}.brand img{width:30px;height:32px}.header .button{font-size:9px;gap:6px;padding:10px}.topline,.edition,.opening,.facts,.footer{margin-left:16px;margin-right:16px}.section{padding-left:16px;padding-right:16px}.coverText h1{font-size:37px}.cover{padding-left:19px;padding-right:19px}.capture>section{padding:22px 19px}.amenityGrid{grid-template-columns:1fr}.garcaRow{grid-template-columns:105px 1fr;gap:15px}.garcaRow h3{font-size:24px}.facts strong{font-size:23px}}
 @media(prefers-reduced-motion:reduce){.page *{scroll-behavior:auto!important}}
 
+/* A single editorial carousel replaces the crowded amenities grid. */
+.leisureCarousel{margin:35px 0 48px;min-width:0}
+.leisureControls{display:flex;justify-content:space-between;align-items:end;gap:25px;margin-bottom:23px}
+.leisureControls .kicker{margin-bottom:7px!important}
+.leisureDescription{font:italic 17px/1.6 Georgia,serif!important;color:#65725d;max-width:750px;min-height:30px}
+.leisureArrows{display:flex;align-items:center;gap:9px;flex-shrink:0}
+.leisureArrows>span{font-size:14px;color:#334c38;letter-spacing:1px;margin-right:13px;white-space:nowrap}
+.leisureArrows>span>span{color:#899484}
+.leisureArrows button{width:42px;height:42px;border:1px solid #aeb9a9;background:transparent;color:#304b37;font-size:23px;line-height:1;cursor:pointer;transition:background .15s ease,color .15s ease}
+.leisureArrows button:hover:not(:disabled){background:#334c38;color:#fff}
+.leisureArrows button:disabled{opacity:.35;cursor:default}
+.leisureArrows button:focus-visible,.leisureCategories button:focus-visible,.leisureTrack:focus-visible{outline:2px solid #56795a;outline-offset:3px}
+.leisureCategories{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 0 16px;border-bottom:1px solid #c7cfc0;margin-bottom:22px}
+.leisureCategories::-webkit-scrollbar{display:none}
+.leisureCategories button{flex:none;border:1px solid #bdc8b9;background:transparent;padding:10px 15px;font-size:11px;color:#52654f;cursor:pointer;white-space:nowrap;transition:background .15s ease}
+.leisureCategories button[aria-pressed="true"]{background:#334c38;border-color:#334c38;color:#fff}
+.leisureTrack{display:grid;grid-auto-flow:column;grid-auto-columns:calc((100% - 42px)/3);gap:21px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x mandatory;scroll-padding-inline:1px;padding-bottom:12px;scrollbar-width:thin;scrollbar-color:#9aaa93 transparent}
+.leisureSlide{min-width:0;scroll-snap-align:start;background:#f8f8f2;border:1px solid #d0d7ca}
+.leisurePhoto{position:relative;aspect-ratio:4/3;overflow:hidden;background:#dfe6dc}
+.leisurePhoto img{display:block;width:100%;height:100%;object-fit:cover}
+.leisurePhoto img.leisureConcept{filter:hue-rotate(8deg) saturate(.72) brightness(1.08) contrast(.88)}
+.leisurePhoto:after{content:"";position:absolute;inset:0;background:linear-gradient(150deg,rgba(229,237,233,.08),rgba(212,225,224,.12));pointer-events:none}
+.leisureSlideInfo{padding:18px 19px 21px;min-height:130px}
+.leisureSlideInfo>span{font-size:9px;letter-spacing:1.1px;text-transform:uppercase;color:#75836f}
+.leisureSlideInfo h3{font:26px/1.2 Georgia,serif;margin:11px 0 12px;color:#334c38;letter-spacing:-.5px}
+.leisureSlideInfo p{font-size:10px;letter-spacing:.1px;line-height:1.6;color:#75816e}
+.leisureFooter{display:flex;justify-content:space-between;gap:25px;margin-top:14px;color:#667461;font-size:10px;line-height:1.7}
+.leisureFooter>span:last-child{text-align:right;max-width:540px}
+@media(max-width:1050px){.leisureTrack{grid-auto-columns:calc((100% - 22px)/2);gap:22px}}
+@media(max-width:760px){.leisureCarousel{margin:24px 0 38px}.leisureControls{align-items:center;gap:10px;margin-bottom:17px}.leisureControls .kicker{font-size:8px!important}.leisureDescription{font-size:13px!important;line-height:1.5!important}.leisureArrows{gap:5px}.leisureArrows>span{font-size:11px;margin-right:4px}.leisureArrows button{width:34px;height:34px;font-size:19px}.leisureCategories{margin-bottom:17px;gap:6px}.leisureCategories button{font-size:10px;padding:9px 12px}.leisureTrack{grid-auto-columns:84%;gap:13px}.leisureSlideInfo{padding:17px;min-height:117px}.leisureSlideInfo h3{font-size:23px}.leisureFooter{display:block}.leisureFooter>span{display:block}.leisureFooter>span:last-child{text-align:left;margin-top:6px}}
+@media(prefers-reduced-motion:reduce){.leisureTrack{scroll-behavior:auto}}
+
 /* Editorial layout shared with the Solaris book. */
 .brand img{width:130px;height:96px;object-fit:contain;mix-blend-mode:multiply}
 .header{padding-top:5px;padding-bottom:5px}
@@ -36,11 +68,6 @@
 .deckCopy>.button{margin-top:23px}
 .deckCopy>.textLink{display:flex;width:fit-content;margin-top:12px;font-size:11px}
 .leisureGallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;margin:33px 0 40px}
-.amenityGrid .amenityVisual{padding:12px 0 16px}
-.amenityVisual figure{margin:0 0 10px}
-.amenityVisual img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:3px}
-.amenityVisual figcaption{font-size:9px;letter-spacing:.025em;color:#737e68;margin-top:6px}
-.amenityVisual>span{font-weight:600;color:#354832}
 .leisureGallery .photo>img{aspect-ratio:4/3;object-fit:contain}
 .leisureGallery h3{font-size:27px;margin:20px 0 12px}
 .leisureGallery article>p{font-size:12px;line-height:1.8;color:#59664e;max-width:390px}

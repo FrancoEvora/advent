@@ -32,6 +32,21 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async rewrites() {
+    return [
+      {
+        // Public Solaris landing page: keep the marketing URL in the browser.
+        source: "/",
+        has: [{ type: "host", value: "solarisresidencial\\.com\\.br" }],
+        destination: "/atendimento/solaris/cadastro",
+      },
+      {
+        source: "/",
+        has: [{ type: "host", value: "www\\.solarisresidencial\\.com\\.br" }],
+        destination: "/atendimento/solaris/cadastro",
+      },
+    ];
+  },
   async headers() {
     return [
       {

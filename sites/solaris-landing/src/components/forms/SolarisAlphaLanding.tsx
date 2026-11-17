@@ -149,6 +149,26 @@ export function SolarisAlphaLanding() {
           <div className={styles.galleryBottomBar}><span className={styles.galleryProgress}><span style={{ width: `${((galleryIndex + 1) / gallery.length) * 100}%` }} /></span><span>Deslize para explorar <span aria-hidden="true">↔</span></span><small>Imagens conceituais e ilustrativas dos ambientes previstos.</small></div>
         </section>
 
+        <section id="embaixador" className={styles.ambassadorSection} aria-labelledby="solaris-ambassador-title">
+          <div className={styles.container}>
+            <div className={styles.ambassadorGrid}>
+              <figure className={styles.ambassadorVisual}>
+                <div className={styles.ambassadorGlow} aria-hidden="true" />
+                <Image src={`${editorial}/leo-chaves-embaixador.webp`} alt="Léo Chaves, embaixador do Solaris Residencial Resort" fill sizes="(max-width: 780px) 92vw, 43vw" quality={88} />
+                <figcaption>Foto de Léo Chaves · embaixador do Solaris</figcaption>
+              </figure>
+              <div className={styles.ambassadorCopy}>
+                <span className={styles.eyebrow}>UMA CONEXÃO COM O QUE IMPORTA</span>
+                <p className={styles.ambassadorRole}>EMBAIXADOR DO SOLARIS RESIDENCIAL RESORT</p>
+                <h2 id="solaris-ambassador-title">Léo Chaves.<br /><em>Viver de verdade</em><br />é o que importa.</h2>
+                <span className={styles.sectionRule} />
+                <p>O Solaris tem Léo Chaves como embaixador. Um encontro entre a valorização das boas histórias e a proposta de viver mais perto da natureza, dos afetos e de tudo aquilo que torna a vida especial.</p>
+                <a href="#cadastro" className={styles.textLink}>Venha viver essa história <Arrow /></a>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section id="natureza" className={styles.natureSection}>
           <div className={styles.natureImage}><Image src={`${editorial}/paisagem-aerea.webp`} fill sizes="100vw" alt="Paisagem aérea do Cerrado mineiro com represa e luz do fim de tarde" /></div>
           <div className={styles.natureShade} />

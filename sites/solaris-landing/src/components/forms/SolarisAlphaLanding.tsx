@@ -8,7 +8,23 @@ import styles from "./solaris-alpha.module.css";
 const editorial = "/forms/solaris/editorial";
 const book = "/forms/solaris/book";
 const osmPlaceUrl = "https://www.openstreetmap.org/relation/20961996";
-const osmEmbedUrl = "https://www.openstreetmap.org/export/embed.html?bbox=-47.5318%2C-18.7365%2C-47.5171%2C-18.7241&layer=mapnik&marker=-18.730419%2C-47.524627";
+const osmCenter = { lat: -18.730419, lon: -47.524627, zoom: 16 };
+const osmTileSize = 256;
+const osmTileZoomCount = 2 ** osmCenter.zoom;
+const osmTileCenterX = ((osmCenter.lon + 180) / 360) * osmTileZoomCount;
+const osmLatitudeRadians = (osmCenter.lat * Math.PI) / 180;
+const osmTileCenterY = ((1 - Math.asinh(Math.tan(osmLatitudeRadians)) / Math.PI) / 2) * osmTileZoomCount;
+const osmTiles = Array.from({ length: 15 }, (_, index) => {
+  const offsetX = (index % 5) - 2;
+  const offsetY = Math.floor(index / 5) - 1;
+  const x = Math.floor(osmTileCenterX) + offsetX;
+  const y = Math.floor(osmTileCenterY) + offsetY;
+  return {
+    src: `https://tile.openstreetmap.org/${osmCenter.zoom}/${x}/${y}.png`,
+    left: `calc(50% + ${(offsetX - (osmTileCenterX % 1)) * osmTileSize}px)`,
+    top: `calc(50% + ${(offsetY - (osmTileCenterY % 1)) * osmTileSize}px)`,
+  };
+});
 
 const gallery = [
   { title: "Bosques, trilhas e caminhadas", category: "Natureza", image: "01_bosques_trilhas_ciclovias.webp", caption: "O verde fazendo parte do caminho." },
@@ -221,12 +237,14 @@ export function SolarisAlphaLanding() {
             </div>
             <div className={styles.mapFeature}>
               <div className={styles.mapFrame}>
-                <iframe
-                  title="Mapa interativo do Solaris Home & Resort no OpenStreetMap, Monte Carmelo"
-                  src={osmEmbedUrl}
-                  loading="lazy"
-                  referrerPolicy="strict-origin-when-cross-origin"
-                />
+                <a className={styles.mapPreviewLink} href={osmPlaceUrl} target="_blank" rel="noopener noreferrer" aria-label="Abrir a localização do Solaris Home & Resort no OpenStreetMap">
+                  <div className={styles.mapTiles} aria-hidden="true">
+                    {osmTiles.map(tile => <img className={styles.mapTile} src={tile.src} alt="" key={tile.src} style={{ left: tile.left, top: tile.top }} loading="lazy" decoding="async" />)}
+                  </div>
+                  <div className={styles.mapPin} aria-hidden="true"><span className={styles.mapPinPoint} /><strong>Solaris Home & Resort</strong></div>
+                  <span className={styles.mapOpenBadge}>Explorar mapa interativo <Arrow /></span>
+                  <span className={styles.mapAttribution}>© OpenStreetMap contributors</span>
+                </a>
               </div>
               <div className={styles.mapDescription}>
                 <span className={styles.eyebrow}>LOCALIZAÇÃO REAL · OPENSTREETMAP</span>

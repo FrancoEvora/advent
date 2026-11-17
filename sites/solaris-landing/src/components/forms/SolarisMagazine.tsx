@@ -52,7 +52,7 @@ export function SolarisMagazine() {
     <header className={s.header}>
       <a href="#inicio" aria-label="Solaris — início"><Brand /></a>
       <nav aria-label="Nesta edição"><a href="#portaria">Portaria</a><a href="#vizinhos">A vizinhança</a><a href="#vida-livre">Vida ao ar livre</a><a href="#lazer">Lazer</a><a href="#localizacao">Localização</a></nav>
-      <a className={s.button} href="#formulario">Conhecer os lotes <span aria-hidden="true">↗</span></a>
+      <a className={s.button} href="#formulario">Conhecer os lotes <span aria-hidden="true">→</span></a>
     </header>
     <div className={s.edition}><span>SEUS PRÓXIMOS VIZINHOS</span><span>UM CONVITE PARA VIVER DE VERDADE</span></div>
 
@@ -82,7 +82,7 @@ export function SolarisMagazine() {
           <p className={s.standfirst}>A chegada também faz parte da experiência.</p>
           <p>A portaria prevista para o Solaris combina arquitetura contemporânea, paisagismo e controle de acesso. Logo na entrada, o projeto apresenta a identidade de um residencial pensado para viver perto da natureza.</p>
           <a className={s.button} href="#formulario">Conhecer o projeto →</a>
-          <a className={s.textLink} href={SOLARIS_EDITORIAL_BOOK_URL} target="_blank" rel="noopener noreferrer">Conheça a proposta completa no book ↗</a>
+          <a className={s.textLink} href={SOLARIS_EDITORIAL_BOOK_URL} target="_blank" rel="noopener noreferrer">Conheça a proposta completa no book →</a>
         </div>
       </div>
     </section>
@@ -120,7 +120,7 @@ export function SolarisMagazine() {
             <div className={s.ambassadorIdentity}><strong>Leo Chaves</strong><span>Embaixador do Solaris</span></div>
             {/* Trecho conferido no book institucional original e reproduzido na página 8 da edição editorial. */}
             <blockquote className={s.ambassadorQuote} cite={`${SOLARIS_EDITORIAL_BOOK_URL}#page=8`}><p>“A vida é feita<br />de momentos<br />simples e<br />verdadeiros.”</p></blockquote>
-            <a className={s.ambassadorSource} href={`${SOLARIS_EDITORIAL_BOOK_URL}#page=8`} target="_blank" rel="noopener noreferrer">Mensagem no book · pág. 8 ↗</a>
+            <a className={s.ambassadorSource} href={`${SOLARIS_EDITORIAL_BOOK_URL}#page=8`} target="_blank" rel="noopener noreferrer">Mensagem no book · pág. 8 →</a>
           </figcaption>
         </figure>
       </div>
@@ -140,7 +140,7 @@ export function SolarisMagazine() {
     <section className={`${s.section} ${s.location}`} id="localizacao" aria-labelledby="local-titulo">
       <SectionLabel number="06">O ENDEREÇO DESSA HISTÓRIA</SectionLabel>
       <div className={s.locationGrid}><div><p className={s.kicker}>MONTE CARMELO · MINAS GERAIS</p><h2 id="local-titulo">No Parque<br /><em>das Árvores.</em></h2><p>O Solaris integra a proposta do bairro Parque das Árvores, em Monte Carmelo. Um endereço para aproximar o seu projeto de casa da natureza e da convivência.</p><p>Conheça os acessos, a posição dos lotes e a relação do empreendimento com a paisagem ao redor.</p><a className={s.textLink} href="#formulario">Conhecer a localização →</a></div><div className={s.locationPhotos}><Photo name="acesso-solaris-v3" alt="Placa de acesso ao Bairro Parque das Árvores e Solaris Residencial." width={700} height={1244}>O caminho até o Solaris.</Photo><Photo name="paisagem-aerea" alt="Vista aérea dos lagos, da vegetação e dos caminhos do entorno do Solaris." width={1672} height={941}>A paisagem vista de cima. Acervo da campanha.</Photo></div></div>
-      <div className={s.implantation} id="implantacao"><div className={s.storyHeading}><h2>Os espaços<br /><em>se conectam.</em></h2><p>Veja a implantação humanizada: a identificação do Solaris e do Bairro Parque das Árvores ajuda a entender como lotes, caminhos, áreas verdes e lazer se relacionam.</p></div><figure className={s.map}><a href={`${PHOTOS}/humanizado-solaris-v3.webp`} target="_blank" rel="noopener noreferrer" aria-label="Ampliar implantação humanizada do Solaris"><Image src={`${PHOTOS}/humanizado-solaris-v3.webp`} alt="Implantação humanizada com Solaris Residencial, Bairro Parque das Árvores, orientação norte e legenda dos setores." width={1448} height={1086} unoptimized loading="lazy" /></a><figcaption>Implantação humanizada ilustrativa. Consulte o projeto e o memorial descritivo.<a href={`${PHOTOS}/humanizado-solaris-v3.webp`} target="_blank" rel="noopener noreferrer">Ampliar implantação ↗</a></figcaption></figure></div>
+      <div className={s.implantation} id="implantacao"><div className={s.storyHeading}><h2>Os espaços<br /><em>se conectam.</em></h2><p>Veja a implantação humanizada: a identificação do Solaris e do Bairro Parque das Árvores ajuda a entender como lotes, caminhos, áreas verdes e lazer se relacionam.</p></div><figure className={s.map}><a href={`${PHOTOS}/humanizado-solaris-v3.webp`} target="_blank" rel="noopener noreferrer" aria-label="Ampliar implantação humanizada do Solaris"><Image src={`${PHOTOS}/humanizado-solaris-v3.webp`} alt="Implantação humanizada com Solaris Residencial, Bairro Parque das Árvores, orientação norte e legenda dos setores." width={1448} height={1086} unoptimized loading="lazy" /></a><figcaption>Implantação humanizada ilustrativa. Consulte o projeto e o memorial descritivo.<a href={`${PHOTOS}/humanizado-solaris-v3.webp`} target="_blank" rel="noopener noreferrer">Ampliar implantação →</a></figcaption></figure></div>
     </section>
 
     <section className={s.section} aria-labelledby="tempo-titulo"><SectionLabel number="07">UM ÁLBUM DE PEQUENOS MOMENTOS</SectionLabel><div className={s.storyHeading}><h2 id="tempo-titulo">O dia muda.<br /><em>O que importa fica.</em></h2><p>Do primeiro sol ao fim da tarde, a paisagem ganha outras cores. Um lembrete de que viver bem também é encontrar tempo para perceber.</p></div><div className={s.album}><Photo name="amanhecer" alt="Luz dourada do amanhecer entre árvores e vegetação." width={850} height={1062}>01 / A luz de um novo dia.</Photo><Photo name="entardecer" alt="Sol se pondo no horizonte de um caminho de terra." width={1400} height={788}>02 / O caminho de volta.</Photo><Photo name="arvore" alt="Silhueta de uma árvore diante do sol ao entardecer." width={750} height={1125}>03 / Uma pausa antes de amanhã.</Photo></div><p className={s.imageNote}>Imagens do acervo da campanha, utilizadas para apresentar a proposta de vida ao ar livre.</p></section>
@@ -155,14 +155,14 @@ export function SolarisMagazine() {
       <p className={s.imageNote}>Seleção do acervo de vida selvagem de Franco Cristiano Alves, presente na edição atual do book.</p>
     </section>
 
-    <section className={`${s.section} ${s.stand}`} aria-labelledby="estande-titulo"><Photo name="estande-solaris-v3" alt="Perspectiva do estande Solaris, com fachada azul, jardins e espaço de atendimento." width={1280} height={720}>Estande Solaris / Perspectiva ilustrativa.</Photo><div><p className={s.kicker}>O PRÓXIMO PASSO É CONHECER</p><h2 id="estande-titulo">Vamos conversar<br /><em>sobre o seu lugar?</em></h2><p>Conheça a proposta do Solaris com calma. A equipe apresenta a implantação, os espaços de lazer e as opções de lotes para ajudar você a imaginar a sua vida aqui.</p><a className={s.button} href="#formulario">Quero conhecer de perto ↗</a></div></section>
+    <section className={`${s.section} ${s.stand}`} aria-labelledby="estande-titulo"><Photo name="estande-solaris-v3" alt="Perspectiva do estande Solaris, com fachada azul, jardins e espaço de atendimento." width={1280} height={720}>Estande Solaris / Perspectiva ilustrativa.</Photo><div><p className={s.kicker}>O PRÓXIMO PASSO É CONHECER</p><h2 id="estande-titulo">Vamos conversar<br /><em>sobre o seu lugar?</em></h2><p>Conheça a proposta do Solaris com calma. A equipe apresenta a implantação, os espaços de lazer e as opções de lotes para ajudar você a imaginar a sua vida aqui.</p><a className={s.button} href="#formulario">Quero conhecer de perto →</a></div></section>
     <section className={`${s.section} ${s.author}`} id="autor" aria-labelledby="autor-titulo">
       <Photo name="franco-cristiano-alves-v6" alt="Franco Cristiano Alves, CEO da Évora Urbanismo e fotógrafo de vida selvagem e paisagens." width={800} height={1000} />
       <div><p className={s.kicker}>UMA MENSAGEM DO AUTOR</p><h2 id="autor-titulo">Um convite<br /><em>para olhar de perto.</em></h2>
         <blockquote cite={`${SOLARIS_EDITORIAL_BOOK_URL}#page=27`}><p>“Compartilho estas fotografias para convidar você a olhar comigo. Que elas despertem a vontade de caminhar com calma, observar os pássaros e encontrar, nas pequenas coisas, bons motivos para viver bem.”</p></blockquote>
         <p className={s.authorName}>Franco Cristiano Alves</p><p className={s.authorRole}>CEO da Évora Urbanismo<br />Fotógrafo de Vida Selvagem e Paisagens</p>
         <p className={s.equipment}>Acervo fotográfico · Canon R5<br />Lente Sigma 150–600 mm Contemporary</p>
-        <a className={s.textLink} href={`${SOLARIS_EDITORIAL_BOOK_URL}#page=27`} target="_blank" rel="noopener noreferrer">Leia a mensagem completa no book ↗</a>
+        <a className={s.textLink} href={`${SOLARIS_EDITORIAL_BOOK_URL}#page=27`} target="_blank" rel="noopener noreferrer">Leia a mensagem completa no book →</a>
       </div>
     </section>
     <section className={`${s.section} ${s.faq}`} aria-labelledby="duvidas-titulo"><div><p className={s.kicker}>PARA CONHECER COM CLAREZA</p><h2 id="duvidas-titulo">Suas perguntas.<br /><em>Nosso próximo encontro.</em></h2></div><div><details><summary>O Solaris já está pronto para morar?</summary><p>O empreendimento está em obras. Os equipamentos de lazer e a estrutura são apresentados como previstos em projeto. Confirme o estágio atual e o cronograma de entrega com a equipe.</p></details><details><summary>Como consultar valores e disponibilidade?</summary><p>Preencha o formulário no início da página. A equipe de atendimento entra em contato pelo WhatsApp para apresentar lotes e condições atualizadas.</p></details><details><summary>As imagens são de estruturas já entregues?</summary><p>As imagens do acervo ilustram natureza e vida ao ar livre. Os desenhos de equipamentos e do bairro estão identificados como perspectivas ilustrativas. Nenhuma dessas imagens substitui a informação sobre o estágio das obras.</p></details><details><summary>O cadastro já reserva um lote?</summary><p>Não. Ele registra seu interesse para atendimento, sem compromisso de compra. Reserva, disponibilidade e contratação são tratados em uma etapa comercial específica.</p></details></div></section>

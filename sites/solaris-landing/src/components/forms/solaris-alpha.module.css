@@ -62,7 +62,7 @@
 .textLink:hover{color:#987537!important}
 .introFigure{position:relative;margin:0}
 .introImage{position:relative;aspect-ratio:1.56;overflow:hidden;background:#e6e9e5}
-.introImage img{object-fit:cover;object-position:center center}
+.introImage img{object-fit:cover;object-position:12% center}
 .introFigure figcaption{font-size:10px;line-height:1.7;color:#6c796d;margin-top:12px;text-align:right}
 .figureIndex{position:absolute;left:0;bottom:40px;background:rgba(14,54,43,.94);color:#fff;font-size:10px;letter-spacing:.15em;padding:14px 21px}
 .factsStrip{display:grid;grid-template-columns:.85fr .95fr 1.2fr 1.1fr;gap:0;margin-top:110px;border-top:1px solid #e0e4dd;border-bottom:1px solid #e0e4dd;padding:39px 0 40px}

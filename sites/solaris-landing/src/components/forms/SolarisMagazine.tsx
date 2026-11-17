@@ -58,9 +58,9 @@ export function SolarisMagazine() {
 
     <section className={s.opening} id="inicio" aria-labelledby="solaris-titulo">
       <div className={s.cover}>
-        <Photo name="capa-pica-pau-v3" alt="Pica-pau-do-campo (Colaptes campestris) pousado sobre uma cerca, diante da vegetação." width={1100} height={1650} eager />
-        <div className={s.coverText}><p>UMA VIDA MAIS SIMPLES, PERTO DO QUE FAZ BEM.</p><h1 id="solaris-titulo">Seu próximo <br />vizinho<br /><em>já está aqui.</em></h1><p>Deck, represa e vida ao ar livre. Natureza, lazer e Centro Hípico para construir sua casa e cultivar a vida ao redor.</p><a href="#deck-represa">Descubra o deck e a represa <span aria-hidden="true">↓</span></a></div>
-        <span className={s.coverFoot}>PICA-PAU-DO-CAMPO · <i lang="la">Colaptes campestris</i><br />FOTOGRAFIA: FRANCO CRISTIANO ALVES</span>
+        <Photo name="deck-represa-v7" alt="Perspectiva ilustrativa do deck à beira da represa, com áreas de estar e vegetação no entorno do Solaris." width={1280} height={960} eager />
+        <div className={s.coverText}><p>REPRESA, NATUREZA E UM NOVO JEITO DE VIVER.</p><h1 id="solaris-titulo">A vida ganha<br />um novo ritmo<br /><em>à beira da represa.</em></h1><p>Um lugar para contemplar a paisagem, reunir quem você gosta e encontrar mais motivos para aproveitar cada dia.</p><a href="#deck-represa">Conheça o deck e a represa <span aria-hidden="true">↓</span></a></div>
+        <span className={s.coverFoot}>DECK E REPRESA · PERSPECTIVA ILUSTRATIVA DO PROJETO</span>
       </div>
       <aside className={s.capture} aria-label="Conheça os lotes do Solaris">
         <div className={s.captureLead}><span>LOTES A PARTIR DE 360 M²</span><p>Gostou da ideia?<br /><strong>Vamos conversar.</strong></p></div>
@@ -121,16 +121,6 @@ export function SolarisMagazine() {
             <a className={s.ambassadorSource} href={`${SOLARIS_EDITORIAL_BOOK_URL}#page=8`} target="_blank" rel="noopener noreferrer">Mensagem no book · pág. 8 ↗</a>
           </figcaption>
         </figure>
-        <article className={s.hipica} id="centro-hipico" aria-labelledby="hipica-titulo">
-          <p className={s.kicker}>CAVALOS, NATUREZA E CONVIVÊNCIA</p>
-          <h3 id="hipica-titulo">Centro Hípico<br /><em>anexo ao Solaris.</em></h3>
-          <p>Um espaço dedicado à vida equestre, anexo ao Solaris. A proximidade com os cavalos traz outra possibilidade de convivência e de experiências ao ar livre para a vizinhança.</p>
-          <p>Conheça a proposta do Centro Hípico e converse com a equipe sobre as atividades, o funcionamento e as condições de acesso.</p>
-        </article>
-        <div className={s.equestrianGallery} aria-label="Imagens de referência da vida equestre">
-          <Photo name="centro-hipico-pista" alt="Praticantes de equitação em uma pista de terra com cavalos e tambores." width={842} height={562}>02 / Movimento e contato com os cavalos. Imagem de referência.</Photo>
-          <Photo name="centro-hipico-cavalo" alt="Criança sorrindo montada em um cavalo em uma área de equitação." width={842} height={562}>03 / Uma experiência que aproxima gerações. Imagem de referência.</Photo>
-        </div>
       </div>
     </section>
 

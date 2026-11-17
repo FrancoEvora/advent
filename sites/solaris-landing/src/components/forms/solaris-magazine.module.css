@@ -36,6 +36,11 @@
 .deckCopy>.button{margin-top:23px}
 .deckCopy>.textLink{display:flex;width:fit-content;margin-top:12px;font-size:11px}
 .leisureGallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:28px;margin:33px 0 40px}
+.amenityGrid .amenityVisual{padding:12px 0 16px}
+.amenityVisual figure{margin:0 0 10px}
+.amenityVisual img{display:block;width:100%;height:auto;aspect-ratio:16/9;object-fit:cover;border-radius:3px}
+.amenityVisual figcaption{font-size:9px;letter-spacing:.025em;color:#737e68;margin-top:6px}
+.amenityVisual>span{font-weight:600;color:#354832}
 .leisureGallery .photo>img{aspect-ratio:4/3;object-fit:contain}
 .leisureGallery h3{font-size:27px;margin:20px 0 12px}
 .leisureGallery article>p{font-size:12px;line-height:1.8;color:#59664e;max-width:390px}

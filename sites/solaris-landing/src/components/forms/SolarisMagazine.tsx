@@ -8,6 +8,7 @@ import s from "./solaris-magazine.module.css";
 
 const BOOK = "/forms/solaris/book";
 const PHOTOS = "/forms/solaris/editorial";
+const LAZER = `${PHOTOS}/lazer`;
 const leisureScenes = [
   { file: "beach-tennis-v7", label: "Beach tennis", title: "Uma partida. Um encontro.", text: "O esporte como motivo para compartilhar o tempo, encontrar os amigos e incluir o movimento na rotina.", alt: "Perspectiva de uma partida de beach tennis, com piscina e áreas de convivência ao fundo.", width: 1280, height: 960 },
   { file: "piscina-convivencia-v7", label: "Piscina e convivência", title: "Tempo para ficar à vontade.", text: "Um intervalo à beira da piscina e uma conversa que se estende. Espaços pensados para aproveitar os momentos juntos.", alt: "Perspectiva da piscina do Solaris junto a uma área de estar, com mesas, espreguiçadeiras e jardins.", width: 616, height: 462 },
@@ -19,13 +20,13 @@ const birdPortraits = [
   { file: "garca-branca-pequena-v6", name: "Garça-branca-pequena", scientific: "Egretta thula", alt: "Retrato de uma garça-branca-pequena, com bico preto e penas delicadas na cabeça.", width: 720, height: 1080 },
   { file: "mutum-de-penacho-v6", name: "Mutum-de-penacho", scientific: "Crax fasciolata", alt: "Mutum-de-penacho de plumagem escura, bico amarelo e penas curvas na cabeça.", width: 720, height: 1080 },
 ];
-const amenities = [
-  { title: "Natureza & caminhos", text: "Sair para caminhar, fazer uma pausa à sombra e incluir o verde no dia a dia.", items: ["Bosques, trilhas e ciclovias", "Lago ornamental e areal", "Deck, represa e setor de pesca"] },
-  { title: "Água & encontros", text: "Espaços para aproveitar o fim de semana, receber os amigos e celebrar em família.", items: ["Piscinas adulto e infantil", "Casa Évora e espaço gourmet", "Restaurante e espaço de eventos"] },
-  { title: "Esporte & movimento", text: "Uma partida depois do trabalho ou uma atividade para compartilhar com os filhos.", items: ["Quadras de tênis e beach tennis", "Campo de futebol society", "Quadra poliesportiva"] },
-  { title: "Cuidado & bem-estar", text: "Ambientes previstos para cuidar do corpo e reservar um tempo para você.", items: ["Academia profissional", "Spa e sauna", "Acessibilidade na proposta do projeto"] },
-  { title: "Infância & convivência", text: "Crianças e pets também fazem parte de uma casa que se estende para o lado de fora.", items: ["Brinquedoteca e espaços infantis", "Dog park / pet place", "Áreas de convivência ao ar livre"] },
-  { title: "Centro Hípico", text: "Anexo ao Solaris, o Centro Hípico aproxima a vida equestre da proposta de morar perto da natureza.", items: ["Centro Hípico anexo ao Solaris", "Convivência e contato com os animais", "Consulte as atividades e as condições de acesso"] },
+const amenities: { title: string; text: string; items: [string, string | null][] }[] = [
+  { title: "Natureza & caminhos", text: "Sair para caminhar, fazer uma pausa à sombra e incluir o verde no dia a dia.", items: [["Bosques, trilhas e ciclovias", "01_bosques_trilhas_ciclovias"], ["Lago ornamental e areal", "02_lago_ornamental_areal"], ["Deck, represa e setor de pesca", "03_deck_represa_pesca"]] },
+  { title: "Água & encontros", text: "Espaços para aproveitar o fim de semana, receber os amigos e celebrar em família.", items: [["Piscinas adulto e infantil", "04_piscinas_adulto_infantil"], ["Casa Évora e espaço gourmet", "05_casa_evora_gourmet"], ["Restaurante e espaço de eventos", "06_restaurante_eventos"]] },
+  { title: "Esporte & movimento", text: "Uma partida depois do trabalho ou uma atividade para compartilhar com os filhos.", items: [["Quadras de tênis e beach tennis", "07_tenis_beach_tennis"], ["Campo de futebol society", "08_futebol_society"], ["Quadra poliesportiva", "09_quadra_poliesportiva"]] },
+  { title: "Cuidado & bem-estar", text: "Ambientes previstos para cuidar do corpo e reservar um tempo para você.", items: [["Academia profissional", "10_academia"], ["Spa e sauna", "11_spa_sauna"], ["Acessibilidade na proposta do projeto", null]] },
+  { title: "Infância & convivência", text: "Crianças e pets também fazem parte de uma casa que se estende para o lado de fora.", items: [["Brinquedoteca e espaços infantis", "12_brinquedoteca"], ["Dog park / pet place", "13_pet_place"], ["Áreas de convivência ao ar livre", "14_convivencia_ar_livre"]] },
+  { title: "Centro Hípico", text: "Anexo ao Solaris, o Centro Hípico aproxima a vida equestre da proposta de morar perto da natureza.", items: [["Centro Hípico anexo ao Solaris", "15_centro_hipico"], ["Convivência e contato com os animais", null], ["Consulte as atividades e as condições de acesso", null]] },
 ];
 
 function Brand() {
@@ -145,7 +146,7 @@ export function SolarisMagazine() {
         <Photo name={scene.file} alt={scene.alt} width={scene.width} height={scene.height}>{scene.label} · Perspectiva ilustrativa.</Photo>
         <h3>{scene.title}</h3><p>{scene.text}</p>
       </article>)}</div>
-      <div className={s.amenityGrid}>{amenities.map((item, index) => <article key={item.title}><span className={s.itemNumber}>0{index + 1}</span><h3>{item.title}</h3><p>{item.text}</p><ul>{item.items.map(text => <li key={text}>{text}</li>)}</ul></article>)}</div>
+      <div className={s.amenityGrid}>{amenities.map((item, index) => <article key={item.title}><span className={s.itemNumber}>0{index + 1}</span><h3>{item.title}</h3><p>{item.text}</p><ul>{item.items.map(([text, file]) => <li key={text} className={file ? s.amenityVisual : undefined}>{file && <figure><Image src={`${LAZER}/${file}.webp`} alt={`Perspectiva conceitual ilustrativa: ${text.toLowerCase()}.`} width={1200} height={675} unoptimized loading="lazy" /><figcaption>Imagem conceitual ilustrativa</figcaption></figure>}<span>{text}</span></li>)}</ul></article>)}</div>
       <div className={s.linearPark} id="parque-linear"><Photo name="parque-linear-v3" alt="Parque linear arborizado, sem pessoas, com passeio em piso intertravado e ciclovia." width={1400} height={933}>Parque linear / Imagem ilustrativa da proposta de caminhos e ciclovia.</Photo><div><p className={s.kicker}>O LAZER NO RITMO DO DIA A DIA</p><h3>Um caminho para<br /><em>estar mais perto.</em></h3><p>Caminhar à sombra, pedalar e fazer uma pausa. Os percursos arborizados aproximam os espaços de convivência e convidam a aproveitar o lado de fora de casa.</p><a className={s.textLink} href="#implantacao">Veja como os espaços se conectam →</a></div></div>
       <details className={s.projectImages}><summary>Outras perspectivas do projeto <span aria-hidden="true">＋</span></summary><div>{[{file:"resort",title:"Piscinas e Casa Évora",w:1200,h:837},{file:"tenis",title:"Tênis e beach tennis",w:700,h:514},{file:"familia",title:"Brinquedoteca e pet place",w:700,h:427}].map(item => <figure key={item.file}><Image src={`${BOOK}/${item.file}.avif`} alt={`Perspectiva ilustrativa: ${item.title}.`} width={item.w} height={item.h} unoptimized loading="lazy" /><figcaption>{item.title} · Perspectiva ilustrativa do book.</figcaption></figure>)}</div></details>
       <div className={s.bookLine}><p>Continue essa história no book.<small>Edição editorial 2026 · 28 páginas · PDF de 22 MB.<br />Fotografias, espaços e a proposta de vida no Solaris.</small></p><SolarisBookLink className={s.button} edition="editorial">Baixar book atualizado (PDF)</SolarisBookLink></div>

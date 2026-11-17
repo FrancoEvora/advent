@@ -54,6 +54,7 @@
 .cover:after{background:linear-gradient(90deg,#334c38 34%,#334c3890 49%,transparent 63%)}
 .coverText{max-width:44%}
 .coverText h1{font-size:clamp(42px,4vw,59px);line-height:1.07;letter-spacing:-1.5px;text-wrap:initial}
+.coverText h1 em{color:#e9dcb5}
 .coverText>p:first-child{max-width:210px}
 .coverText>p:not(:first-child){font-size:14px;line-height:1.75;max-width:310px}
 .coverText>a{gap:10px;line-height:1.7}
@@ -63,6 +64,8 @@
 .deckHighlight{background:var(--sage,#e9ede1);margin-top:28px}
 .deckGrid{display:grid;grid-template-columns:1.65fr 1fr;gap:48px;align-items:center}
 .deckGrid>.photo>img{aspect-ratio:4/3;object-fit:contain}
+.deckGrid>.portariaFrame>img{aspect-ratio:1100/421;object-fit:cover}
+.portariaFrame figcaption{font-size:10px;letter-spacing:.25px}
 .deckCopy h2{font-size:clamp(36px,3.8vw,52px)}
 .deckCopy>p:not(.standfirst){color:#53604b;margin-top:18px}
 .deckCopy>.button{margin-top:23px}

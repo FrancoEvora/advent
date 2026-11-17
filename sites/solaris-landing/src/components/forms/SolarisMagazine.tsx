@@ -46,12 +46,12 @@ function BirdCaption({ name, scientific }: { name: string; scientific: string })
 }
 
 export function SolarisMagazine() {
-  return <main className={`${base.shell} ${s.page}`} id="conteudo-principal" data-solaris-version="revista-book-v7-deck">
+  return <main className={`${base.shell} ${s.page}`} id="conteudo-principal" data-solaris-version="revista-book-v8-natureza">
     <a className={base.skip} href="#formulario">Ir para o formulário</a>
     <div className={s.topline}><span>MONTE CARMELO · MINAS GERAIS</span><span>NATUREZA, CONVIVÊNCIA E UM NOVO JEITO DE MORAR</span></div>
     <header className={s.header}>
       <a href="#inicio" aria-label="Solaris — início"><Brand /></a>
-      <nav aria-label="Nesta edição"><a href="#deck-represa">Deck e represa</a><a href="#vizinhos">A vizinhança</a><a href="#vida-livre">Vida ao ar livre</a><a href="#lazer">Lazer</a><a href="#localizacao">Localização</a></nav>
+      <nav aria-label="Nesta edição"><a href="#portaria">Portaria</a><a href="#vizinhos">A vizinhança</a><a href="#vida-livre">Vida ao ar livre</a><a href="#lazer">Lazer</a><a href="#localizacao">Localização</a></nav>
       <a className={s.button} href="#formulario">Conhecer os lotes <span aria-hidden="true">↗</span></a>
     </header>
     <div className={s.edition}><span>SEUS PRÓXIMOS VIZINHOS</span><span>UM CONVITE PARA VIVER DE VERDADE</span></div>
@@ -59,7 +59,7 @@ export function SolarisMagazine() {
     <section className={s.opening} id="inicio" aria-labelledby="solaris-titulo">
       <div className={s.cover}>
         <Photo name="deck-represa-v7" alt="Perspectiva ilustrativa do deck à beira da represa, com áreas de estar e vegetação no entorno do Solaris." width={1280} height={960} eager />
-        <div className={s.coverText}><p>REPRESA, NATUREZA E UM NOVO JEITO DE VIVER.</p><h1 id="solaris-titulo">A vida ganha<br />um novo ritmo<br /><em>à beira da represa.</em></h1><p>Um lugar para contemplar a paisagem, reunir quem você gosta e encontrar mais motivos para aproveitar cada dia.</p><a href="#deck-represa">Conheça o deck e a represa <span aria-hidden="true">↓</span></a></div>
+        <div className={s.coverText}><p>NATUREZA COMO PARTE DA SUA HISTÓRIA.</p><h1 id="solaris-titulo">Viva abraçado<br />pela Natureza.<br /><em>Viva no Solaris.</em></h1><p>Entre a represa, o verde e os espaços de lazer, o Solaris convida você a viver mais o lado de fora de casa.</p><a href="#portaria">Descubra o Solaris <span aria-hidden="true">↓</span></a></div>
         <span className={s.coverFoot}>DECK E REPRESA · PERSPECTIVA ILUSTRATIVA DO PROJETO</span>
       </div>
       <aside className={s.capture} aria-label="Conheça os lotes do Solaris">
@@ -70,17 +70,19 @@ export function SolarisMagazine() {
     </section>
     <div className={s.facts} aria-label="O projeto em números"><div><strong>360 m²</strong><span>metragem inicial dos lotes</span></div><div><strong>+300 mil m²</strong><span>de área verde, conforme o book</span></div><div><strong>24 horas</strong><span>de portaria previstas no projeto</span></div><div><strong>Em obras</strong><span>consulte o cronograma de implantação</span></div></div>
 
-    <section className={`${s.section} ${s.deckHighlight}`} id="deck-represa" aria-labelledby="deck-titulo">
-      <p className={s.kicker}>DESTAQUE DESTA EDIÇÃO / DECK E REPRESA</p>
+    <section className={`${s.section} ${s.deckHighlight}`} id="portaria" aria-labelledby="portaria-titulo">
+      <p className={s.kicker}>ARQUITETURA DO SOLARIS / PORTARIA</p>
       <div className={s.deckGrid}>
-        <Photo name="deck-represa-v7" alt="Perspectiva do setor de deck e represa, com áreas de estar à margem da água e vegetação no entorno." width={1280} height={960}>Setor de deck e represa · Perspectiva ilustrativa do projeto.</Photo>
+        <figure className={`${s.photo} ${s.portariaFrame}`}>
+          <Image src={`${BOOK}/portaria.avif`} alt="Perspectiva ilustrativa da portaria do Solaris Residencial Resort, com fachada, guarita, paisagismo e acesso de veículos." width={1100} height={421} unoptimized loading="lazy" />
+          <figcaption>Portaria do Solaris · Perspectiva ilustrativa do projeto.</figcaption>
+        </figure>
         <div className={s.deckCopy}>
-          <h2 id="deck-titulo">A vida encontra<br /><em>outra margem.</em></h2>
-          <p className={s.standfirst}>A paisagem convida.<br />O encontro acontece.</p>
-          <p>Um convite à conversa, às pausas e à contemplação. O setor de deck e represa aproxima os espaços de estar da água e do verde, ampliando a proposta de convivência ao ar livre do Solaris.</p>
-          <p>Para ficar mais um pouco, observar a paisagem e compartilhar o que é simples.</p>
-          <a className={s.button} href="#formulario">Conhecer os espaços →</a>
-          <a className={s.textLink} href={`${SOLARIS_EDITORIAL_BOOK_URL}#page=13`} target="_blank" rel="noopener noreferrer">Veja o destaque no book · pág. 13 ↗</a>
+          <h2 id="portaria-titulo">Um novo jeito<br /><em>de chegar em casa.</em></h2>
+          <p className={s.standfirst}>A chegada também faz parte da experiência.</p>
+          <p>A portaria prevista para o Solaris combina arquitetura contemporânea, paisagismo e controle de acesso. Logo na entrada, o projeto apresenta a identidade de um residencial pensado para viver perto da natureza.</p>
+          <a className={s.button} href="#formulario">Conhecer o projeto →</a>
+          <a className={s.textLink} href={SOLARIS_EDITORIAL_BOOK_URL} target="_blank" rel="noopener noreferrer">Conheça a proposta completa no book ↗</a>
         </div>
       </div>
     </section>

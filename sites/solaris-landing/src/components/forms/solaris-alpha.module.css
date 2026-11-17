@@ -14,7 +14,7 @@
 .header{position:fixed;z-index:80;top:0;left:0;right:0;display:flex;align-items:center;gap:32px;padding:12px max(56px,calc((100vw - 1360px)/2));color:#fff;min-height:119px;transition:background .3s ease,color .3s ease,padding .3s ease,box-shadow .3s ease}
 .header:before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,19,16,.25),transparent);pointer-events:none;z-index:-1}
 .headerLogo{display:flex;align-items:center;flex:none;width:118px;height:109px}
-.headerLogo img{width:117px;height:107px;object-fit:contain;filter:brightness(0) invert(1)}
+.headerLogo img{width:117px;height:107px;object-fit:contain;filter:brightness(0) invert(1);transform:scale(1.28);transform-origin:center}
 .navigation{display:flex;align-items:center;gap:34px;margin-left:auto}
 .navigation a{font-size:11px;font-weight:600;letter-spacing:.045em;white-space:nowrap;position:relative;padding:18px 0}
 .navigation a:after{content:"";height:1px;background:currentColor;position:absolute;bottom:14px;left:0;right:100%;transition:right .25s ease}
@@ -189,7 +189,7 @@
 .footer{background:#fff;color:#214c3e;padding:65px 0 35px}
 .footerMain{display:flex;align-items:center;gap:40px;padding-bottom:44px}
 .footerLogo{flex:none;width:145px}
-.footerLogo img{object-fit:contain;width:140px;height:auto}
+.footerLogo img{object-fit:contain;width:140px;height:auto;transform:scale(1.14);transform-origin:center left}
 .footerMain>div{margin-right:auto}
 .footerMain>div>span{font-size:9px;letter-spacing:.18em;color:#91805d;font-weight:700}
 .footerMain>div p{font:400 26px/1.2 Georgia,"Times New Roman",serif;margin-top:9px;color:#21483a}

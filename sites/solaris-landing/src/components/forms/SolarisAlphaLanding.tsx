@@ -300,7 +300,7 @@ export function SolarisAlphaLanding() {
             <div><span>RESIDENCIAL RESORT</span><p>Viva abraçado pela Natureza.<br />Viva no Solaris.</p></div>
             <a className={styles.footerCta} href="#cadastro">Quero conhecer o Solaris <Arrow /></a>
           </div>
-          <div className={styles.footerBottom}><p>Solaris Residencial Resort · Monte Carmelo, MG.<br />Imagens e perspectivas meramente ilustrativas. Consulte os documentos oficiais, as características e condições comerciais vigentes.</p><div><a href="/privacidade">Privacidade</a><a href="#inicio">Voltar ao topo ↑</a></div><Image src={`${book}/evora.avif`} alt="Évora Urbanismo" width={143} height={40} /></div>
+          <div className={styles.footerBottom}><p>Solaris Residencial Resort · Monte Carmelo, MG.<br />Imagens e perspectivas meramente ilustrativas. Consulte os documentos oficiais, as características e condições comerciais vigentes.</p><div><a href="/privacidade">Privacidade</a><a href="#inicio">Voltar ao topo ↑</a></div></div>
         </div>
       </footer>
 
